@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "500343018592",
+    "project_id": "sera-tarumt",
+    "storage_bucket": "sera-tarumt.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:500343018592:android:7025724132454fd4299f05",
+        "android_client_info": {
+          "package_name": "com.example.sera_application"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBtxPrY91dD9S6jV7L6c2SHfjNwo0rP7wE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
