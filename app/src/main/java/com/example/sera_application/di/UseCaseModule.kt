@@ -1,4 +1,7 @@
 package com.example.sera_application.di
 
-abstract class UseCaseModule {
+import com.google.firebase.sessions.dagger.Module
+
+@Module
+object UseCaseModule {
 }
