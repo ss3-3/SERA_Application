@@ -7,5 +7,6 @@ enum class EventStatus {
     ACTIVE,
     FULL,
     COMPLETED,
-    CANCELLED
+    CANCELLED,
+    ONGOING
 }
