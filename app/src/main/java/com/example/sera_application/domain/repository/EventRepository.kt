@@ -1,4 +1,24 @@
 package com.example.sera_application.domain.repository
 
+import com.example.sera_application.domain.model.Event
+
 interface EventRepository {
+
+    suspend fun createEvent(event: Event): Boolean
+
+    suspend fun updateEvent(event: Event): Boolean
+
+    suspend fun deleteEvent(eventId: String): Boolean
+
+    suspend fun getEventList(): List<Event>
+
+    suspend fun getEventById(eventId: String): Event?
+
+    suspend fun getEventsByOrganizer(organizerId: String): List<Event>
+
+    suspend fun approveEvent(eventId: String): Boolean
+
+    suspend fun rejectEvent(eventId: String): Boolean
+
+    suspend fun closeEvent(eventId: String): Boolean
 }
