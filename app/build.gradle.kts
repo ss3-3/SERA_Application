@@ -96,4 +96,7 @@ dependencies {
     // Add coroutines for Firebase (you commented it out)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
 
+    // Icon
+    implementation(libs.androidx.compose.material.icons.extended)
+
 }
