@@ -1,4 +1,18 @@
 package com.example.sera_application.domain.usecase.user
 
-class SuspendUserUseCase {
+import com.example.sera_application.domain.repository.UserRepository
+import javax.inject.Inject
+
+class SuspendUserUseCase @Inject constructor(
+    private val userRepository: UserRepository
+) {
+    suspend operator fun invoke(userId: String): Boolean {
+        if (userId.isBlank()) return false
+
+        return try {
+            userRepository.suspendUser(userId)
+        } catch (e: Exception) {
+            false
+        }
+    }
 }
