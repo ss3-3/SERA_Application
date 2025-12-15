@@ -8,6 +8,8 @@ plugins {
 
     // Add the dependency for the Google services Gradle plugin
     id("com.google.gms.google-services") version "4.4.4" apply false
+
+    id("com.google.devtools.ksp") version "2.0.21-1.0.25" apply false
 }
 
 tasks.register("clean", Delete::class) {
@@ -17,8 +19,8 @@ tasks.register("clean", Delete::class) {
 buildscript {
     repositories {
         google()
-        mavenCentral();
-        maven { url = uri("https://maven.google.com") }
+        mavenCentral()
+        maven { url = uri("https://cardinalcommerceprod.jfrog.io/artifactory/android") }
     }
     dependencies {
         classpath("com.android.tools.build:gradle:8.11.2")

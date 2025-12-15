@@ -2,5 +2,5 @@ package com.example.sera_application.data.repository
 
 import com.example.sera_application.domain.repository.EventRepository
 
-class EventRepositoryImpl : EventRepository {
-}
+//class EventRepositoryImpl : EventRepository {
+//}

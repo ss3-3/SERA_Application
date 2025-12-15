@@ -45,7 +45,6 @@ android {
 }
 
 dependencies {
-
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -85,10 +84,10 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.3")
 
     // Firebase dependencies (no version needed due to BOM)
-    implementation("com.google.firebase:firebase-auth-ktx")
-    implementation("com.google.firebase:firebase-analytics-ktx")
-    implementation("com.google.firebase:firebase-firestore-ktx")
-    implementation("com.google.firebase:firebase-storage-ktx")
+//    implementation("com.google.firebase:firebase-auth-ktx")
+//    implementation("com.google.firebase:firebase-analytics-ktx")
+//    implementation("com.google.firebase:firebase-firestore-ktx")
+//    implementation("com.google.firebase:firebase-storage-ktx")
 
     //User profile - photo
     implementation("io.coil-kt:coil-compose:2.4.0")
@@ -99,4 +98,15 @@ dependencies {
     // Add coroutines for Firebase (you commented it out)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
 
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+
+    implementation("androidx.browser:browser:1.8.0")
+
+    implementation("com.itextpdf:itext7-core:7.2.5")
+
+    implementation("com.google.zxing:core:3.5.1")
+
+    implementation("com.jakewharton.threetenabp:threetenabp:1.4.7")
 }
