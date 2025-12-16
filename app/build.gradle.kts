@@ -75,6 +75,9 @@ dependencies {
     implementation("androidx.room:room-ktx:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")
 
+    // Hilt
+    implementation("com.google.dagger:hilt-android:2.48")
+
     //Lifecycle & ViewModel
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.3")
     implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.9.3")

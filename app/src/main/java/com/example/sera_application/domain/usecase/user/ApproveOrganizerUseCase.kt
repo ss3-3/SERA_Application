@@ -1,4 +1,18 @@
 package com.example.sera_application.domain.usecase.user
 
-class ApproveOrganizerUseCase {
+import com.example.sera_application.domain.repository.UserRepository
+import javax.inject.Inject
+
+class ApproveOrganizerUseCase @Inject constructor(
+    private val userRepository: UserRepository
+) {
+    suspend operator fun invoke(userId: String): Boolean {
+        if (userId.isBlank()) return false
+
+        return try {
+            userRepository.approveOrganizer(userId)
+        } catch (e: Exception) {
+            false
+        }
+    }
 }
