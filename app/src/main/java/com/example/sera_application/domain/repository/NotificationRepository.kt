@@ -1,6 +1,6 @@
 package com.example.sera_application.domain.repository
 
-import com.example.sera_application.domain.model.NotificationMessage
+import com.example.sera_application.domain.model.Notification
 import com.example.sera_application.domain.model.enums.NotificationType
 
 interface NotificationRepository {
@@ -24,7 +24,7 @@ interface NotificationRepository {
      */
     suspend fun getNotificationsByUser(
         userId: String
-    ): Result<List<NotificationMessage>>
+    ): Result<List<Notification>>
 
     /**
      * Mark a notification as read.
