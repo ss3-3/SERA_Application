@@ -12,8 +12,5 @@ interface ReservationRepository {
 
     suspend fun getEventReservations(eventId: String): List<EventReservation>
 
-    suspend fun updateReservationStatus(
-        reservationId: String,
-        status: String
-    ): Boolean
+    suspend fun updateReservationStatus(reservationId: String, status: String): Boolean
 }

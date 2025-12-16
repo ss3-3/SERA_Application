@@ -7,13 +7,12 @@ import javax.inject.Inject
 class GetUserReservationsUseCase @Inject constructor(
     private val reservationRepository: ReservationRepository
 ) {
-    suspend operator fun invoke(userId: String): List<EventReservation> {
-        if (userId.isBlank()) return emptyList()
-
+    suspend operator fun invoke(userId: String): Result<List<EventReservation>> {
         return try {
-            reservationRepository.getUserReservations(userId)
+            val reservations = reservationRepository.getUserReservations(userId)
+            Result.success(reservations)
         } catch (e: Exception) {
-            emptyList()
+            Result.failure(e)
         }
     }
 }

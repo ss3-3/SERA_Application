@@ -28,6 +28,9 @@ interface NavigationController {
     fun navigateToPaymentStatus(paymentId: String, success: Boolean)
     fun navigateToReceipt(paymentId: String)
 
+    // Reservation Navigation
+    fun navigateToReservationDetails(reservationId: String)
+
     // Dashboard Navigation
     fun navigateToDashboard()
 

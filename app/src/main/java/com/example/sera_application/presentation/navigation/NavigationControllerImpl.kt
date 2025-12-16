@@ -61,6 +61,10 @@ class NavigationControllerImpl : NavigationController {
         TODO("Not yet implemented")
     }
 
+    override fun navigateToReservationDetails(reservationId: String) {
+        TODO("Not yet implemented")
+    }
+
     override fun navigateToDashboard() {
         TODO("Not yet implemented")
     }

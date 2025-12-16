@@ -6,3 +6,14 @@ enum class ReservationStatus {
     CANCELLED,
     COMPLETED
 }
+
+data class Reservation(
+    val reservationId: String,
+    val eventId: String,
+    val userId: String,
+//    val seats: List<Seat>,
+    val status: ReservationStatus,
+    val createdAt: Long,
+    val paymentMethod: String? = null,
+    val transactionId: String? = null
+)

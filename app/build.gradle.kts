@@ -5,8 +5,10 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 
-    // Replace KAPT with KSP - this is the ONLY change needed
-    id("com.google.devtools.ksp") version "2.0.21-1.0.25"
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt)
+
+    id("kotlin-kapt")
 }
 
 android {
@@ -54,6 +56,7 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation("androidx.compose.material:material-icons-extended")
     implementation(libs.androidx.room.common.jvm)
     implementation(libs.firebase.sessions)
     testImplementation(libs.junit)
@@ -64,9 +67,6 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 
-    // Import the Firebase BoM
-    implementation(platform("com.google.firebase:firebase-bom:34.6.0"))
-
     //Navigation
     implementation("androidx.navigation:navigation-compose:2.9.4")
 
@@ -75,14 +75,14 @@ dependencies {
     implementation("androidx.room:room-ktx:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")
 
-    // Hilt
-    implementation("com.google.dagger:hilt-android:2.48")
-
     //Lifecycle & ViewModel
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.3")
     implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.9.3")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.3")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.3")
+
+    // Import the Firebase BoM FIRST
+    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
 
     // Firebase dependencies (no version needed due to BOM)
     implementation("com.google.firebase:firebase-auth-ktx")
@@ -96,7 +96,20 @@ dependencies {
     // Add Gson for type converters
     implementation("com.google.code.gson:gson:2.10.1")
 
-    // Add coroutines for Firebase (you commented it out)
+    // Add coroutines for Firebase
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
 
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+
+    implementation("androidx.compose.material:material-icons-extended:1.6.0")
+
+    // Hilt
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
+    implementation(libs.hilt.navigation.compose)
 }
+
+//kapt {
+//    correctErrorTypes = true
+//}
