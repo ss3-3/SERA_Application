@@ -2,19 +2,34 @@ package com.example.sera_application.data.local.entity
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import com.example.sera_application.domain.model.enums.EventCategory
 
 @Entity(tableName = "events")
 data class EventEntity(
     @PrimaryKey
     val eventId: String,
-    val organizerId: String,
-    val title: String,
+    val eventName: String,
+    val organizerId: String, // UserId => organizer role (from id get username)
     val description: String,
-    val location: String,
-    val dateTime: Long, // Timestamp
-    val imagePath: String?,
-    val capacity: Int,
+    val category: EventCategory,
     val status: String, // Store as String, convert to/from EventStatus enum
+
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
+    val date: String,
+    val startTime: String,
+    val endTime: String,
+    val duration: Int, // how many day
+
+    val location: String,
+
+    val rockZoneSeats: Int,
+    val normalZoneSeats: Int,
+    val totalSeats: Int,
+    val availableSeats: Int,
+
+    val rockZonePrice: Int,
+    val normalZonePrice: Int,
+
+    val imagePath: String? = null,
 )
