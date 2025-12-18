@@ -13,11 +13,11 @@ import com.example.sera_application.data.remote.firebase.FirebaseNotificationDat
 import com.example.sera_application.data.remote.firebase.FirebasePaymentDataSource
 import com.example.sera_application.data.remote.firebase.FirebaseReservationDataSource
 import com.example.sera_application.data.remote.firebase.FirebaseUserDataSource
-import com.example.sera_application.data.remote.paypal.PayPalDataSourceImpl
 import com.example.sera_application.data.remote.paypal.api.PayPalBackendApi
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
+import com.example.sera_application.data.remote.paypal.PayPalDataSourceImpl
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import dagger.Binds
@@ -163,7 +163,7 @@ abstract class NetworkModule {
     // PayPal Remote Datasource binding
     @Binds
     @Singleton
-    abstract fun bindPayPalRemoteDataSource(
+    abstract fun bindPayPalDataSource(
         payPalRemoteDataSourceImpl: PayPalDataSourceImpl
     ): PayPalRemoteDataSource
 }
