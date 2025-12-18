@@ -4,6 +4,8 @@ import com.example.sera_application.domain.model.Event
 
 interface EventRepository {
 
+    suspend fun getOrganizerName(id: String) : String
+
     suspend fun createEvent(event: Event): Boolean
 
     suspend fun updateEvent(event: Event): Boolean

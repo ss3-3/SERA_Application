@@ -3,26 +3,6 @@ package com.example.sera_application.domain.model
 import com.example.sera_application.domain.model.enums.EventCategory
 import com.example.sera_application.domain.model.enums.EventStatus
 
-//data class Event(
-//    val eventId: String,
-//    val organizerId: String,
-//    val title: String,
-//    val description: String,
-//    val location: String,
-//    val dateTime: Long,           // store as timestamp
-//    val imagePath: String?,
-//    val capacity: Int,
-//    val status: EventStatus,
-//    val createdAt: Long,
-//    val updatedAt: Long,
-//    // add some fields for event details
-//    val category: EventCategory,
-//    val priceRange: String,
-//    val vipSeats: Int,
-//    val normalSeats: Int,
-//    val availableSeats: Int
-//)
-
 data class Event(
     val eventId: String = "",
     val name: String,
@@ -32,14 +12,17 @@ data class Event(
     val category: EventCategory,
     val status: EventStatus = EventStatus.PENDING,
 
+
     // Date & Time
     val date: String,              // Format: "DD/MM/YYYY"
     val startTime: String,         // Format: "HH:MM AM/PM"
     val endTime: String,           // Format: "HH:MM AM/PM"
     val duration: String,          // Format: "X hour(s)"
 
+
     // Location
     val location: String,          // Full: "Rimba, TARUMT (400 seats)"
+
 
     // Seats
     val rockZoneSeats: Int,
@@ -47,12 +30,15 @@ data class Event(
     val totalSeats: Int,
     val availableSeats: Int,
 
+
     // Pricing
     val rockZonePrice: Double,
     val normalZonePrice: Double,
 
+
     // Media
     val imagePath: String? = null,
+
 
     // Timestamps
     val createdAt: Long = System.currentTimeMillis(),
@@ -70,6 +56,7 @@ data class Event(
                 maxOf(rockZonePrice, normalZonePrice)
             )
         }
+
 
     /**
      * Helper property to get full time range
