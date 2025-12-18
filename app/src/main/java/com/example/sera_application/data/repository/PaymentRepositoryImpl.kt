@@ -4,8 +4,8 @@ import com.example.sera_application.data.local.dao.PaymentDao
 import com.example.sera_application.data.mapper.PaymentMapper
 import com.example.sera_application.data.remote.datasource.PayPalRemoteDataSource
 import com.example.sera_application.data.remote.datasource.PaymentRemoteDataSource
-import com.example.sera_application.data.remote.paypal.PayPalOrderResult
 import com.example.sera_application.domain.model.Payment
+import com.example.sera_application.domain.model.PayPalOrderResult
 import com.example.sera_application.domain.model.enums.PaymentStatus
 import com.example.sera_application.domain.repository.PaymentRepository
 import javax.inject.Inject
@@ -56,7 +56,11 @@ class PaymentRepositoryImpl @Inject constructor(
                     
                     true
                 }
-                is PayPalOrderResult.Error -> {
+                PayPalOrderResult.Cancelled -> {
+                    // User abandoned or cancelled the PayPal flow.
+                    false
+                }
+                is PayPalOrderResult.Failed -> {
                     false
                 }
             }
