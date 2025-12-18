@@ -10,6 +10,7 @@ data class EventEntity(
     val eventId: String,
     val eventName: String,
     val organizerId: String, // UserId => organizer role (from id get username)
+    val organizerName: String,
     val description: String,
     val category: EventCategory,
     val status: String, // Store as String, convert to/from EventStatus enum
@@ -19,7 +20,7 @@ data class EventEntity(
     val date: String,
     val startTime: String,
     val endTime: String,
-    val duration: Int, // how many day
+    val duration: String, // how many day
 
     val location: String,
 
@@ -28,8 +29,8 @@ data class EventEntity(
     val totalSeats: Int,
     val availableSeats: Int,
 
-    val rockZonePrice: Int,
-    val normalZonePrice: Int,
+    val rockZonePrice: Double,
+    val normalZonePrice: Double,
 
     val imagePath: String? = null,
 )

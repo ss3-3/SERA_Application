@@ -18,6 +18,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 
 data class EventFormData(
     val name: String = "",
@@ -30,7 +34,8 @@ data class EventFormData(
     val normalZoneSeats: String = "",
     val rockZonePrice: Double = 0.0,
     val normalZonePrice: Double = 0.0,
-    val description: String = ""
+    val description: String = "",
+    val imagePath: String? = null // Drawable name for local images, or URL for server images
 )
 
 data class VenueCapacity(
@@ -139,19 +144,41 @@ fun EventFormScreen(
                     // !!!initialEventData != null -> eventName.isNotEmpty()!!!
                     if (isEditMode && initialEventData != null) {
                         // EDIT MODE: Show existing event image
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color(0xFF1A1A2E), RoundedCornerShape(12.dp)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = eventName,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                                textAlign = TextAlign.Center
+                        val context = LocalContext.current
+                        val imageRes = remember(initialEventData.imagePath) {
+                            if (initialEventData.imagePath != null && initialEventData.imagePath.isNotBlank()) {
+                                context.resources.getIdentifier(
+                                    initialEventData.imagePath,
+                                    "drawable",
+                                    context.packageName
+                                )
+                            } else {
+                                0
+                            }
+                        }
+                        
+                        if (imageRes != 0) {
+                            Image(
+                                painter = painterResource(id = imageRes),
+                                contentDescription = eventName,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
                             )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Color(0xFF1A1A2E), RoundedCornerShape(12.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = eventName,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
                         }
                     } else {
                         // CREATE MODE: Show upload placeholder
@@ -615,7 +642,8 @@ fun EventFormScreen(
                                     normalZoneSeats = normalZoneSeats,
                                     rockZonePrice = rockZonePrice.toDoubleOrNull() ?: 0.0,
                                     normalZonePrice = normalZonePrice.toDoubleOrNull() ?: 0.0,
-                                    description = eventDescription
+                                    description = eventDescription,
+                                    imagePath = initialEventData?.imagePath // Preserve imagePath when editing
                                 )
                                 onSubmitClick(formData)
                             }
@@ -704,7 +732,8 @@ fun EditEventScreen(
         normalZoneSeats = "320",
         rockZonePrice = 60.00,
         normalZonePrice = 35.00,
-        description = "Music fiesta 6.0 is a large-scale campus concert and carnival proudly organized by Music Society of Tunku Abdul Rahman University of Management and Technology (TARUMT)."
+        description = "Music fiesta 6.0 is a large-scale campus concert and carnival proudly organized by Music Society of Tunku Abdul Rahman University of Management and Technology (TARUMT).",
+        imagePath = "musicfiesta" // Sample drawable name for preview
     )
 
     EventFormScreen(

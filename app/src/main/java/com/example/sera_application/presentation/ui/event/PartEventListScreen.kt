@@ -43,6 +43,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -72,6 +73,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.example.sera_application.R
 import com.example.sera_application.domain.model.Event
 import com.example.sera_application.domain.model.enums.EventCategory
+import com.example.sera_application.presentation.viewmodel.event.EventListViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 
 // UI-specific model for displaying events
 data class EventDisplayModel(
@@ -133,20 +138,62 @@ enum class EventCategoryUI(
 @Composable
 fun EventListScreen(
     onEventClick: (String) -> Unit = {}, // Pass event ID
-    onProfileClick: () -> Unit = {}
+    onProfileClick: () -> Unit = {},
+    viewModel: EventListViewModel = hiltViewModel()
 ) {
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var selectedCategory by rememberSaveable { mutableStateOf<EventCategoryUI?>(null) }
 
-    // TODO: Replace with ViewModel data
-    val events = rememberSaveable {
-        getSampleEvents()
+    val uiState by viewModel.uiState.collectAsState()
+    
+    // Load events on first composition
+    LaunchedEffect(Unit) {
+        viewModel.loadEvents()
+    }
+    
+    // Update ViewModel when search or category changes
+    LaunchedEffect(searchQuery, selectedCategory) {
+        // For now, filtering is done locally in UI
+        // Future: Can move to ViewModel if needed
     }
 
+    val events = uiState.events.map { EventDisplayModel.fromDomain(it) }
+
     val filteredEvents = events.filter { event ->
-        val matchesSearch = event.name.contains(searchQuery, ignoreCase = true)
+        val matchesSearch = event.name.contains(searchQuery, ignoreCase = true) ||
+                event.description.contains(searchQuery, ignoreCase = true)
         val matchesCategory = selectedCategory == null || event.category == selectedCategory
         matchesSearch && matchesCategory
+    }
+    
+    // Show loading/error states
+    if (uiState.isLoading && events.isEmpty()) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("Loading events...", color = Color.Gray)
+        }
+        return
+    }
+    
+    if (uiState.errorMessage != null && events.isEmpty()) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = uiState.errorMessage ?: "Failed to load events",
+                    color = Color.Red,
+                    modifier = Modifier.padding(16.dp)
+                )
+                Button(onClick = { viewModel.loadEvents() }) {
+                    Text("Retry")
+                }
+            }
+        }
+        return
     }
 
     Scaffold(
@@ -196,8 +243,8 @@ fun EventListScreen(
 
                         Spacer(modifier = Modifier.width(8.dp))
 
-                        // Notification
-                        IconButton(onClick = { /* TODO: handle notification click */ }) {
+                        // Notification (future: connect to notification screen)
+                        IconButton(onClick = { /* handle notification click */ }) {
                             Icon(
                                 imageVector = Icons.Default.Notifications,
                                 contentDescription = "Notifications",
@@ -238,7 +285,7 @@ fun EventListScreen(
                 .padding(horizontal = 16.dp)
         ) {
             // Event Banner
-            item{
+            item {
                 Spacer(modifier = Modifier.height(16.dp))
 //                EventBanner( event = events.firstOrNull()) // show first event
                 LazyRow(
@@ -320,51 +367,109 @@ fun EventListScreen(
     }
 }
 
-// TODO: Replace with Lazy Row
 @Composable
 private fun EventBanner(
     event: EventDisplayModel?
-){
-    if (event != null){
-        Card (
-            modifier = Modifier.width(280.dp).height(180.dp),
-            shape = RoundedCornerShape(16.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-        ) {
+) {
+    if (event == null) return
+
+    Card(
+        modifier = Modifier
+            .width(280.dp)
+            .height(180.dp),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        val imageRes = event.bannerUrl?.let { drawableFromName(it) }
+
+        if (imageRes != null) {
+            Image(
+                painter = painterResource(id = imageRes),
+                contentDescription = event.name,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        } else {
             Box(
-                modifier = Modifier.fillMaxSize().background(
-                    brush = Brush.verticalGradient( // 渐变色
-                        colors = listOf(Color(0xFF1A237E), Color(0xFF0D47A1))
-                    )
-                ),
-                contentAlignment = Alignment.Center
-            ){
-                // TODO: Load actual image to banner
-                // TODO: If no image uploaded by organizer
-                if (event.bannerUrl == null) {
-                    Text(
-                        text = event.name,
-                        color = Color.White,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(16.dp)
-                    )
-                } else {
-                    val imageRes = drawableFromName(event.bannerUrl!!)
-                    if (imageRes != null) {
-                        Image(
-                            painter = painterResource(id = imageRes),
-                            contentDescription = event.name,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                Color(0xFF1A237E),
+                                Color(0xFF0D47A1)
+                            )
                         )
-                    }
-                }
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = event.name,
+                    color = Color.White,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(16.dp)
+                )
             }
         }
     }
 }
+//@Composable
+//private fun EventBanner(
+//    event: EventDisplayModel?
+//){
+//    if (event != null){
+//        Card (
+//            modifier = Modifier.width(280.dp).height(180.dp),
+//            shape = RoundedCornerShape(16.dp),
+//            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+//        ) {
+//            val imageRes = drawableFromName(event.bannerUrl!!)
+//
+//            if (imageRes != null) {
+//                Image(
+//                    painter = painterResource(id = imageRes),
+//                    contentDescription = event.name,
+//                    modifier = Modifier.fillMaxSize(),
+//                    contentScale = ContentScale.Crop
+//                )
+//            } else {
+//                Box(
+//                    modifier = Modifier.fillMaxSize().background(
+//                        brush = Brush.verticalGradient( // 渐变色
+//                            colors = listOf(Color(0xFF1A237E), Color(0xFF0D47A1))
+//                        )
+//                    ),
+//                    contentAlignment = Alignment.Center
+//                ){
+//                    // TODO: Load actual image to banner
+//                    // TODO: If no image uploaded by organizer
+//                    if (event.bannerUrl == null) {
+//                        Text(
+//                            text = event.name,
+//                            color = Color.White,
+//                            fontSize = 24.sp,
+//                            fontWeight = FontWeight.Bold,
+//                            textAlign = TextAlign.Center,
+//                            modifier = Modifier.padding(16.dp)
+//                        )
+//                    } else {
+//                        val imageRes = drawableFromName(event.bannerUrl!!)
+//                        if (imageRes != null) {
+//                            Image(
+//                                painter = painterResource(id = imageRes),
+//                                contentDescription = event.name,
+//                                modifier = Modifier.fillMaxSize(),
+//                                contentScale = ContentScale.Crop
+//                            )
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//    }
+//}
 
 @Composable
 private fun CategoryChip(
@@ -606,8 +711,47 @@ private fun getSampleEvents(): List<EventDisplayModel> {
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 private fun EventListScreenPreview() {
-    EventListScreen(
-        onEventClick = {},
-        onProfileClick = {}
-    )
+    val sampleEvents = getSampleEvents()
+    // Use a simple preview of the UI using sample data
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var selectedCategory by rememberSaveable { mutableStateOf<EventCategoryUI?>(null) }
+
+    val filteredEvents = sampleEvents.filter { event ->
+        val matchesSearch = event.name.contains(searchQuery, ignoreCase = true)
+        val matchesCategory = selectedCategory == null || event.category == selectedCategory
+        matchesSearch && matchesCategory
+    }
+
+    Scaffold(
+        topBar = { },
+        bottomBar = { }
+    ) { padding ->
+        // Reuse main content layout for preview
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White)
+                .padding(padding)
+                .padding(horizontal = 16.dp)
+        ) {
+            items(filteredEvents.chunked(2)) { rowEvents ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    rowEvents.forEach { event ->
+                        EventCard(
+                            event = event,
+                            onClick = {},
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    if (rowEvents.size == 1) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+        }
+    }
 }

@@ -1,5 +1,6 @@
 package com.example.sera_application.presentation.ui.event
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,6 +27,7 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -40,43 +42,91 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.sera_application.domain.model.enums.EventCategory
+import com.example.sera_application.presentation.viewmodel.event.OrganizerEventManagementViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrganizerEventManagementScreen(
+    organizerId: String = "organizer_1", // TODO: Get from current user/auth
     onAddEventClick: () -> Unit = {},
     onEditEventClick: (String) -> Unit = {},
     onDeleteEventClick: (String) -> Unit = {},
     onHomeClick: () -> Unit = {},
-    onProfileClick: () -> Unit = {}
+    onProfileClick: () -> Unit = {},
+    viewModel: OrganizerEventManagementViewModel = hiltViewModel()
 ) {
     var searchQuery by rememberSaveable { mutableStateOf("") }
+    var showDeleteConfirmDialog by remember { mutableStateOf<String?>(null) } // Double confirm
 
-    // TODO: Replace with ViewModel data
-    val myEvents = rememberSaveable {
-        getOrganizerSampleEvents()
+    val uiState by viewModel.uiState.collectAsState()
+
+    // Initialize ViewModel with organizer ID
+    LaunchedEffect(organizerId) {
+        if (uiState.organizerId != organizerId) {
+            viewModel.initialize(organizerId)
+        }
     }
 
-    val filteredEvents = myEvents.filter { event ->
-        event.name.contains(searchQuery, ignoreCase = true)
+    // Update ViewModel search query
+    LaunchedEffect(searchQuery) {
+        viewModel.updateSearchQuery(searchQuery)
+    }
+
+    val filteredEvents = viewModel.getFilteredEvents()
+    
+    // If no events and loading, show loading state
+    if (uiState.isLoading && filteredEvents.isEmpty()) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("Loading your events...", color = Color.Gray)
+        }
+        return
+    }
+    
+    // Handle delete with double confirmation
+    val handleDelete = { eventId: String ->
+        if (showDeleteConfirmDialog == null) {
+            // First confirmation
+            showDeleteConfirmDialog = eventId
+        } else if (showDeleteConfirmDialog == eventId) {
+            // Second confirmation - actually delete
+            viewModel.deleteEvent(eventId) { success, error ->
+                showDeleteConfirmDialog = null
+                if (success) {
+                    // Success handled in ViewModel (refreshes list)
+                } else {
+                    // Error shown in UI state
+                }
+            }
+        }
     }
 
     Scaffold(
@@ -199,7 +249,7 @@ fun OrganizerEventManagementScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)
                 ) {
-                    items(myEvents.take(3)) { event ->
+                    items(filteredEvents.take(3)) { event ->
                         OrganizerEventBanner(event = event)
                     }
                 }
@@ -221,15 +271,50 @@ fun OrganizerEventManagementScreen(
                 OrganizerEventCard(
                     event = event,
                     onEditClick = { onEditEventClick(event.id) },
-                    onDeleteClick = { onDeleteEventClick(event.id) },
+                    onDeleteClick = { handleDelete(event.id) },
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                 )
+            }
+            
+            // Error message display
+            if (uiState.errorMessage != null) {
+                item {
+                    Text(
+                        text = uiState.errorMessage ?: "Error",
+                        color = Color.Red,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
             }
 
             // Bottom spacing
             item {
                 Spacer(modifier = Modifier.height(80.dp))
             }
+        }
+        
+        // Double Confirm Delete Dialog
+        showDeleteConfirmDialog?.let { eventId ->
+            val eventName = filteredEvents.find { it.id == eventId }?.name ?: "this event"
+            AlertDialog(
+                onDismissRequest = { showDeleteConfirmDialog = null },
+                title = { Text("Delete Event") },
+                text = { 
+                    Text("Are you sure you want to delete \"$eventName\"? This action cannot be undone. Click Delete again to confirm.") 
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = { handleDelete(eventId) }
+                    ) {
+                        Text("Delete", color = Color.Red)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteConfirmDialog = null }) {
+                        Text("Cancel")
+                    }
+                }
+            )
         }
     }
 }
@@ -245,36 +330,82 @@ private fun OrganizerEventBanner(
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
+        val context = LocalContext.current
+
+        val imageRes = remember(event.bannerUrl) {
+            if (!event.bannerUrl.isNullOrBlank()) {
+                context.resources.getIdentifier(
+                    event.bannerUrl,
+                    "drawable",
+                    context.packageName
+                )
+            } else 0
+        }
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(Color(0xFF1A237E), Color(0xFF0D47A1))
-                    )
-                ),
+            modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            // TODO: Load actual image from bannerUrl
-            if (event.bannerUrl == null) {
-                Text(
-                    text = event.name,
-                    color = Color.White,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(16.dp)
+            if (imageRes != 0) {
+                Image(
+                    painter = painterResource(id = imageRes),
+                    contentDescription = event.name,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
                 )
             } else {
-                // TODO: Use AsyncImage from Coil library
-                // AsyncImage(
-                //     model = event.bannerUrl,
-                //     contentDescription = event.name,
-                //     modifier = Modifier.fillMaxSize(),
-                //     contentScale = ContentScale.Crop
-                // )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(Color(0xFF1A237E), Color(0xFF0D47A1))
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = event.name,
+                        color = Color.White,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
             }
         }
+
+//        Box(
+//            modifier = Modifier
+//                .fillMaxSize()
+//                .background(
+//                    brush = Brush.verticalGradient(
+//                        colors = listOf(Color(0xFF1A237E), Color(0xFF0D47A1))
+//                    )
+//                ),
+//            contentAlignment = Alignment.Center
+//        ) {
+//            // TODO: Load actual image from bannerUrl
+//            if (event.bannerUrl == null) {
+//                Text(
+//                    text = event.name,
+//                    color = Color.White,
+//                    fontSize = 24.sp,
+//                    fontWeight = FontWeight.Bold,
+//                    textAlign = TextAlign.Center,
+//                    modifier = Modifier.padding(16.dp)
+//                )
+//            } else {
+//                // TODO: Use AsyncImage from Coil library
+//                // AsyncImage(
+//                //     model = event.bannerUrl,
+//                //     contentDescription = event.name,
+//                //     modifier = Modifier.fillMaxSize(),
+//                //     contentScale = ContentScale.Crop
+//                // )
+//
+//            }
+//        }
     }
 }
 
@@ -302,35 +433,50 @@ private fun OrganizerEventCard(
                 shape = RoundedCornerShape(12.dp),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
+                val context = LocalContext.current
+
+                val imageRes = remember(event.bannerUrl) {
+                    if (!event.bannerUrl.isNullOrBlank()) {
+                        context.resources.getIdentifier(
+                            event.bannerUrl,
+                            "drawable",
+                            context.packageName
+                        )
+                    } else 0
+                }
+
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(Color(0xFF1A237E), Color(0xFF0D47A1))
-                            )
-                        ),
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    // TODO: Load actual image from bannerUrl
-                    if (event.bannerUrl == null) {
-                        Text(
-                            text = event.name,
-                            color = Color.White,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(8.dp),
-                            overflow = TextOverflow.Ellipsis
+                    if (imageRes != 0) {
+                        Image(
+                            painter = painterResource(id = imageRes),
+                            contentDescription = event.name,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
                         )
                     } else {
-                        // TODO: Use AsyncImage from Coil library
-                        // AsyncImage(
-                        //     model = event.bannerUrl,
-                        //     contentDescription = event.name,
-                        //     modifier = Modifier.fillMaxSize(),
-                        //     contentScale = ContentScale.Crop
-                        // )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    brush = Brush.verticalGradient(
+                                        colors = listOf(Color(0xFF1A237E), Color(0xFF0D47A1))
+                                    )
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = event.name,
+                                color = Color.White,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(8.dp),
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                 }
             }
@@ -448,64 +594,17 @@ private fun OrganizerEventCard(
     }
 }
 
-// Sample data function for organizer events
-private fun getOrganizerSampleEvents(): List<EventDisplayModel> {
-    return listOf(
-        EventDisplayModel(
-            id = "1",
-            name = "MUSIC FIESTA 6.0",
-            organizer = "Music Society",
-            date = "12/01/2026",
-            time = "19:00PM",
-            venue = "Rimba, TAR UMT",
-            priceRange = "RM 35 - RM 60",
-            availableSeats = 180,
-            totalSeats = 400,
-            category = EventCategoryUI.MUSIC,
-            description = "Music Fiesta 6.0 is a large-scale campus concert and carnival.",
-            bannerUrl = null
-        ),
-        EventDisplayModel(
-            id = "2",
-            name = "GOTAR Festival",
-            organizer = "Student Council",
-            date = "25/12/2025",
-            time = "09:00AM",
-            venue = "Arena, TAR UMT",
-            priceRange = "RM 20 - RM 40",
-            availableSeats = 150,
-            totalSeats = 200,
-            category = EventCategoryUI.FESTIVAL,
-            description = "Annual festival celebrating culture and arts.",
-            bannerUrl = null
-        ),
-        EventDisplayModel(
-            id = "3",
-            name = "VOICHESTRA",
-            organizer = "Choir Club",
-            date = "08/12/2025",
-            time = "19:00PM",
-            venue = "DTAR, TAR UMT",
-            priceRange = "RM 25",
-            availableSeats = 100,
-            totalSeats = 120,
-            category = EventCategoryUI.MUSIC,
-            description = "A cappella choir performance event.",
-            bannerUrl = null
-        )
-    )
-}
 
-// ==================== PREVIEW ====================
-
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-private fun OrganizerEventManagementScreenPreview() {
-    OrganizerEventManagementScreen(
-        onAddEventClick = {},
-        onEditEventClick = {},
-        onDeleteEventClick = {},
-        onHomeClick = {},
-        onProfileClick = {}
-    )
-}
+//// ==================== PREVIEW ====================
+//
+//@Preview(showBackground = true, showSystemUi = true)
+//@Composable
+//private fun OrganizerEventManagementScreenPreview() {
+//    OrganizerEventManagementScreen(
+//        onAddEventClick = {},
+//        onEditEventClick = {},
+//        onDeleteEventClick = {},
+//        onHomeClick = {},
+//        onProfileClick = {}
+//    )
+//}

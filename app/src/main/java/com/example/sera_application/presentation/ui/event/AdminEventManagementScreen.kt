@@ -1,5 +1,6 @@
 package com.example.sera_application.presentation.ui.event
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -20,7 +21,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import com.example.sera_application.domain.model.enums.EventStatus
+import com.example.sera_application.presentation.viewmodel.event.AdminEventManagementViewModel
 
 // UI model for admin event list
 data class AdminEventModel(
@@ -55,22 +64,25 @@ fun AdminEventManagementScreen(
     onDeleteEventClick: (String) -> Unit = {},
     onHomeClick: () -> Unit = {},
     onReservationClick: () -> Unit = {},
-    onProfileClick: () -> Unit = {}
+    onProfileClick: () -> Unit = {},
+    viewModel: AdminEventManagementViewModel = hiltViewModel()
 ) {
-    var searchQuery by remember { mutableStateOf("") }
-    var selectedStatus by remember { mutableStateOf(EventStatus.APPROVED) }
+    val uiState by viewModel.uiState.collectAsState()
+    var selectedStatus by remember { mutableStateOf<EventStatus?>(EventStatus.APPROVED) }
+    var showDeleteDialog by remember { mutableStateOf<String?>(null) }
 
-    // TODO: Replace with ViewModel data
-    val allEvents = remember {
-        getAdminSampleEvents()
+    // Load events on first composition
+    LaunchedEffect(Unit) {
+        viewModel.loadAllEvents()
     }
 
-    // Filter events by status and search query
-    val filteredEvents = allEvents.filter { event ->
-        val matchesSearch = event.name.contains(searchQuery, ignoreCase = true)
-        val matchesStatus = event.status == selectedStatus
-        matchesSearch && matchesStatus
+    // Update ViewModel when search query or status changes
+    LaunchedEffect(selectedStatus) {
+        viewModel.updateStatusFilter(selectedStatus)
     }
+
+    // Get filtered events from ViewModel
+    val filteredEvents = viewModel.getFilteredEvents()
 
     Scaffold(
         topBar = {
@@ -102,8 +114,8 @@ fun AdminEventManagementScreen(
 
                         // Search bar
                         OutlinedTextField(
-                            value = searchQuery,
-                            onValueChange = { searchQuery = it },
+                            value = uiState.searchQuery,
+                            onValueChange = { viewModel.updateSearchQuery(it) },
                             placeholder = { Text("Search", fontSize = 12.sp, color = Color.LightGray.copy(alpha = 0.6f)) },
                             leadingIcon = {
                                 Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.LightGray)
@@ -193,6 +205,30 @@ fun AdminEventManagementScreen(
                         )
                     }
                 }
+                
+                // Show loading or error state
+                if (uiState.isLoading && filteredEvents.isEmpty()) {
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Loading events...", color = Color.Gray)
+                    }
+                }
+                
+                if (uiState.errorMessage != null && filteredEvents.isEmpty()) {
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = uiState.errorMessage ?: "Error loading events",
+                            color = Color.Red
+                        )
+                    }
+                }
             }
 
             // Event List
@@ -206,7 +242,9 @@ fun AdminEventManagementScreen(
                     AdminEventCard(
                         event = event,
                         onManageClick = { onEventClick(event.id) },
-                        onDeleteClick = { onDeleteEventClick(event.id) }
+                        onDeleteClick = {
+                            showDeleteDialog = event.id
+                        }
                     )
                 }
 
@@ -214,6 +252,34 @@ fun AdminEventManagementScreen(
                 item {
                     Spacer(modifier = Modifier.height(16.dp))
                 }
+            }
+            
+            // Delete Confirmation Dialog
+            showDeleteDialog?.let { eventId ->
+                AlertDialog(
+                    onDismissRequest = { showDeleteDialog = null },
+                    title = { Text("Delete Event") },
+                    text = { Text("Are you sure you want to delete this event? This action cannot be undone.") },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                viewModel.deleteEvent(eventId) { success, error ->
+                                    showDeleteDialog = null
+                                    if (!success) {
+                                        // Error is shown in UI state
+                                    }
+                                }
+                            }
+                        ) {
+                            Text("Delete", color = Color.Red)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDeleteDialog = null }) {
+                            Text("Cancel")
+                        }
+                    }
+                )
             }
         }
     }
@@ -228,8 +294,10 @@ private fun StatusFilterChip(
     val backgroundColor = when {
         isSelected -> when (status) {
             EventStatus.APPROVED -> Color(0xFFE3FDE3)
-            EventStatus.PENDING -> Color(0xFFE3F2FD) // 0xFFFFF3E0
+            EventStatus.PENDING -> Color(0xFFE3F2FD)
             EventStatus.REJECTED -> Color(0xFFFFEBEE)
+            EventStatus.COMPLETED -> Color(0xFFFFF3E0)
+            EventStatus.CANCELLED -> Color(0xFFEEEEEE)
         }
         else -> Color(0xFFF5F5F5)
     }
@@ -239,6 +307,8 @@ private fun StatusFilterChip(
             EventStatus.APPROVED -> Color(0xFF4CAF50)
             EventStatus.PENDING -> Color(0xFF2196F3) // orange: 0xFFFF9800
             EventStatus.REJECTED -> Color(0xFFE91E63)
+            EventStatus.COMPLETED -> Color(0xFFFF9800)
+            EventStatus.CANCELLED -> Color.Gray
         }
         else -> Color.Gray
     }
@@ -266,32 +336,6 @@ private fun AdminEventCard(
     onManageClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
-    var showDeleteDialog by remember { mutableStateOf(false) }
-
-
-    // Delete Confirmation Dialog
-    if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Delete Event") },
-            text = { Text("Are you sure you want to delete this event? This action cannot be undone.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        onDeleteClick()
-                        showDeleteDialog = false
-                    }
-                ) {
-                    Text("Delete", color = Color.Red)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -310,6 +354,18 @@ private fun AdminEventCard(
                 shape = RoundedCornerShape(12.dp),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
+                val context = LocalContext.current
+                val imageRes = remember(event.bannerUrl) {
+                    if (event.bannerUrl != null && event.bannerUrl.isNotBlank()) {
+                        context.resources.getIdentifier(
+                            event.bannerUrl,
+                            "drawable",
+                            context.packageName
+                        )
+                    } else {
+                        0
+                    }
+                }
                 // Event Banner
                 Box(
                     modifier = Modifier
@@ -318,14 +374,23 @@ private fun AdminEventCard(
                         .background(Color(0xFF1A1A2E)),
                     contentAlignment = Alignment.Center
                 ) {
-                    // TODO: Load actual image
-                    Text(
-                        text = event.name.take(12),
-                        color = Color.White,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    if (imageRes != 0) {
+                        Image(
+                            painter = painterResource(id = imageRes),
+                            contentDescription = event.name,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        // fallback (same as before)
+                        Text(
+                            text = event.name.take(12),
+                            color = Color.White,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
             }
 
@@ -377,6 +442,8 @@ private fun AdminEventCard(
                             EventStatus.APPROVED -> Color(0xFF4CAF50)
                             EventStatus.PENDING -> Color(0xFF2196F3) // 0xFFFF9800
                             EventStatus.REJECTED -> Color(0xFFE91E63)
+                            EventStatus.COMPLETED -> Color(0xFFFF9800)
+                            EventStatus.CANCELLED -> Color.Gray
                         },
                         fontWeight = FontWeight.Medium
                     )
@@ -405,7 +472,7 @@ private fun AdminEventCard(
 
                     // Delete Button
                     IconButton(
-                        onClick = { showDeleteDialog = true },
+                        onClick = onDeleteClick,
                         modifier = Modifier.size(35.dp)
                     ) {
                         Icon(
@@ -419,40 +486,6 @@ private fun AdminEventCard(
             }
         }
     }
-}
-
-// Sample data function
-private fun getAdminSampleEvents(): List<AdminEventModel> {
-    return listOf(
-        AdminEventModel(
-            id = "1",
-            name = "MUSIC FIESTA 6.0",
-            date = "12/01/2026",
-            time = "19:00PM",
-            status = EventStatus.APPROVED
-        ),
-        AdminEventModel(
-            id = "2",
-            name = "GOTAR Festival",
-            date = "25/12/2025",
-            time = "9:00AM",
-            status = EventStatus.APPROVED
-        ),
-        AdminEventModel(
-            id = "3",
-            name = "VOICHESTRA",
-            date = "31/12/2025",
-            time = "19:00PM",
-            status = EventStatus.APPROVED
-        ),
-        AdminEventModel(
-            id = "4",
-            name = "MUSIC FIESTA 6.0",
-            date = "15/12/2025",
-            time = "9:00AM",
-            status = EventStatus.APPROVED
-        )
-    )
 }
 
 // ==================== PREVIEW ====================

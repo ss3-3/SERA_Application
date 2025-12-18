@@ -77,6 +77,7 @@ dependencies {
     // Hilt
     implementation(libs.hilt.android)
     ksp(libs.hilt.android.compiler)
+    implementation(libs.hilt.navigation.compose)
 
     //Lifecycle & ViewModel
     implementation(libs.androidx.lifecycle.viewmodel.compose)
@@ -111,6 +112,8 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
+    // Icon
+    implementation(libs.androidx.compose.material.icons.extended)
 }
 
 

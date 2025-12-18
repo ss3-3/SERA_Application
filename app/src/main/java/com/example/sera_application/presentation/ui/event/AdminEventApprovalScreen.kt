@@ -1,6 +1,7 @@
 package com.example.sera_application.presentation.ui.event
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -16,6 +17,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import com.example.sera_application.presentation.viewmodel.event.AdminEventApprovalViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -24,11 +33,24 @@ fun AdminEventApprovalScreen(
     onBackClick: () -> Unit = {},
     onApproveClick: () -> Unit = {},
     onRejectClick: () -> Unit = {},
-    onCancelClick: () -> Unit = {}
+    onCancelClick: () -> Unit = {},
+    viewModel: AdminEventApprovalViewModel = hiltViewModel()
 ) {
-    // TODO: Load event data from ViewModel using eventId
-    val event = remember {
-        getAdminEventDetailsById(eventId)
+    val uiState by viewModel.uiState.collectAsState()
+    val event = uiState.event
+
+    // Load event details when screen opens
+    LaunchedEffect(eventId) {
+        if (eventId.isNotEmpty()) {
+            viewModel.loadEventDetails(eventId)
+        }
+    }
+
+    // Handle approval/rejection success - navigate back
+    LaunchedEffect(uiState.isApprovalSuccess, uiState.isRejectionSuccess) {
+        if (uiState.isApprovalSuccess || uiState.isRejectionSuccess) {
+            onApproveClick() // Navigate back after success
+        }
     }
 
     var showApproveDialog by remember { mutableStateOf(false) }
@@ -39,7 +61,7 @@ fun AdminEventApprovalScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = event.name,
+                        text = event?.name ?: "Event Details",
                         color = Color.White,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Medium
@@ -70,7 +92,6 @@ fun AdminEventApprovalScreen(
             )
         },
         bottomBar = {
-            // !!!Action Buttons - Now fixed at bottom!!!
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -146,33 +167,76 @@ fun AdminEventApprovalScreen(
             }
         }
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color(0xFF1A1A1A))
-                .padding(padding)
-        ) {
-            // Event Banner
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp)
-                        .background(Color(0xFF1A1A2E)),
-                    contentAlignment = Alignment.Center
+        if (event == null) {
+            // Loading or error state
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFF1A1A1A))
+                    .padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // TODO: Load actual image from event.bannerUrl
-                    Text(
-                        text = event.name,
-                        color = Color.White,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    if (uiState.isLoading) {
+                        Text("Loading event details...", color = Color.White)
+                    } else {
+                        Text(
+                            text = uiState.errorMessage ?: "Event not found",
+                            color = Color.White
+                        )
+                    }
                 }
             }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFF1A1A1A))
+                    .padding(padding)
+            ) {
+                // Event Banner
+                item {
+                    val context = LocalContext.current
+                    val imageRes = remember(event.bannerUrl) {
+                        if (event.bannerUrl != null && event.bannerUrl.isNotBlank()) {
+                            context.resources.getIdentifier(
+                                event.bannerUrl,
+                                "drawable",
+                                context.packageName
+                            )
+                        } else {
+                            0
+                        }
+                    }
 
-            // Event Details Card
-            item {
+                    if (imageRes != 0) {
+                        Image(
+                            painter = painterResource(id = imageRes),
+                            contentDescription = event.name,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color(0xFF1A1A2E)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = event.name.take(12),
+                                color = Color.White,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
+                // Event Details Card
+                item {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -404,7 +468,7 @@ fun AdminEventApprovalScreen(
     }
 
     // Approve Confirmation Dialog
-    if (showApproveDialog) {
+    if (showApproveDialog && event != null) {
         AlertDialog(
             onDismissRequest = { showApproveDialog = false },
             title = { Text("Approve Event") },
@@ -412,8 +476,12 @@ fun AdminEventApprovalScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        onApproveClick()
-                        showApproveDialog = false
+                        viewModel.approveEvent(event.id) { success, error ->
+                            showApproveDialog = false
+                            if (success) {
+                                onApproveClick() // Navigate back
+                            }
+                        }
                     }
                 ) {
                     Text("Approve", color = Color(0xFF4CAF50))
@@ -428,7 +496,7 @@ fun AdminEventApprovalScreen(
     }
 
     // Reject Confirmation Dialog
-    if (showRejectDialog) {
+    if (showRejectDialog && event != null) {
         AlertDialog(
             onDismissRequest = { showRejectDialog = false },
             title = { Text("Reject Event") },
@@ -436,8 +504,12 @@ fun AdminEventApprovalScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        onRejectClick()
-                        showRejectDialog = false
+                        viewModel.rejectEvent(event.id) { success, error ->
+                            showRejectDialog = false
+                            if (success) {
+                                onRejectClick() // Navigate back
+                            }
+                        }
                     }
                 ) {
                     Text("Reject", color = Color.Red)
@@ -450,29 +522,12 @@ fun AdminEventApprovalScreen(
             }
         )
     }
-}
+}}
 
-// Sample data function
-private fun getAdminEventDetailsById(eventId: String): AdminEventDetails {
-    return AdminEventDetails(
-        id = eventId,
-        name = "MUSIC FIESTA 6.0",
-        description = "Music Fiesta 6.0 is a large-scale campus concert and carnival proudly organized by Music Society of Tunku Abdul Rahman University of Management and Technology (TARUMT).",
-        rockZoneSeats = "80",
-        normalZoneSeats = "320",
-        date = "12/01/2026",
-        duration = "3 hour",
-        startTime = "19.00 PM",
-        endTime = "22.00 PM",
-        venue = "Rimba, TARUMT",
-        organizer = "Organizer1"
-    )
-}
-
-// ==================== PREVIEW ====================
-
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-private fun AdminEventApprovalScreenPreview() {
-    AdminEventApprovalScreen(eventId = "1")
-}
+//// ==================== PREVIEW ====================
+//
+//@Preview(showBackground = true, showSystemUi = true)
+//@Composable
+//private fun AdminEventApprovalScreenPreview() {
+//    AdminEventApprovalScreen(eventId = "1")
+//}
