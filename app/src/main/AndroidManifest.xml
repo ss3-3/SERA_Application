@@ -6,7 +6,6 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <application
-        android:name=".SeraApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -15,23 +14,15 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.SERA_Application"
-        android:usesCleartextTraffic="true">
+        android:usesCleartextTraffic="true"
+        tools:targetApi="34">
 
+        <!-- Payment Activity with deep links -->
         <activity
-            android:name=".MainActivity"
-            android:exported="true"
-            android:label="@string/app_name"
-            android:theme="@style/Theme.SERA_Application">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-
-        <activity
-            android:name=".presentation.ui.payment.PaymentActivity"
+            android:name="com.example.sera_application.presentation.ui.payment.PaymentActivity"
             android:exported="true"
             android:theme="@style/Theme.SERA_Application">
+            <!-- PayPal return -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -41,33 +32,44 @@
                     android:host="paypal.return" />
             </intent-filter>
 
+            <!-- PayPal cancel -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-
                 <data
                     android:scheme="sera"
                     android:host="paypal.cancel" />
             </intent-filter>
         </activity>
 
+        <!-- Other Payment Activities -->
         <activity
-            android:name=".presentation.ui.payment.PaymentStatusActivity"
+            android:name="com.example.sera_application.presentation.ui.payment.PaymentStatusActivity"
             android:exported="false"
             android:theme="@style/Theme.SERA_Application" />
+
         <activity
-            android:name=".presentation.ui.payment.ReceiptActivity"
-            android:exported="false" />
+            android:name="com.example.sera_application.presentation.ui.payment.ReceiptActivity"
+            android:exported="false"
+            android:theme="@style/Theme.SERA_Application" />
+
         <activity
-            android:name=".presentation.ui.payment.RefundRequestActivity"
-            android:exported="false" />
+            android:name="com.example.sera_application.presentation.ui.payment.RefundRequestActivity"
+            android:exported="false"
+            android:theme="@style/Theme.SERA_Application" />
+
         <activity
-            android:name=".presentation.ui.payment.PaymentHistoryActivity"
-            android:exported="false" />
+            android:name="com.example.sera_application.presentation.ui.payment.PaymentHistoryActivity"
+            android:exported="false"
+            android:theme="@style/Theme.SERA_Application" />
+
         <activity
-            android:name=".presentation.ui.payment.OrganizerPaymentManagementActivity"
-            android:exported="false" />
+            android:name="com.example.sera_application.presentation.ui.payment.OrganizerPaymentManagementActivity"
+            android:exported="false"
+            android:theme="@style/Theme.SERA_Application" />
+
+        <!-- FileProvider for PDF receipts -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

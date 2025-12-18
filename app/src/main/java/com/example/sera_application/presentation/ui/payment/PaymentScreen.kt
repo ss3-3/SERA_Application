@@ -33,7 +33,7 @@ import androidx.lifecycle.lifecycleScope
 import com.example.sera_application.BottomNavigationBar
 import com.example.sera_application.R
 import com.example.sera_application.ui.theme.SERA_ApplicationTheme
-import com.example.sera_application.data.api.PayPalRepository
+import com.example.sera_application.data.remote.paypal.repository.PayPalRepository
 import kotlinx.coroutines.launch
 
 class PaymentActivity : ComponentActivity() {

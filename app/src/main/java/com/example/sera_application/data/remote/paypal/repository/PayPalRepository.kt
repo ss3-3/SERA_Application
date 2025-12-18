@@ -1,7 +1,16 @@
-package com.example.sera_application.data.api
+package com.example.sera_application.data.remote.paypal.repository
 
 import android.util.Base64
 import android.util.Log
+import com.example.sera_application.data.remote.paypal.api.Amount
+import com.example.sera_application.data.remote.paypal.api.ApplicationContext
+import com.example.sera_application.data.remote.paypal.api.PayPalApiService
+import com.example.sera_application.data.remote.paypal.api.PayPalCaptureResponse
+import com.example.sera_application.data.remote.paypal.api.PayPalOrderRequest
+import com.example.sera_application.data.remote.paypal.api.PayPalOrderResponse
+import com.example.sera_application.data.remote.paypal.api.PurchaseUnit
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class PayPalRepository(
     private val clientId: String,
@@ -12,9 +21,13 @@ class PayPalRepository(
     private var accessToken: String? = null
     private val TAG = "PayPalRepository"
 
+    @Suppress("NewApi")
     private fun getBasicAuthHeader(): String {
         val credentials = "$clientId:$clientSecret"
-        val encoded = Base64.encodeToString(credentials.toByteArray(), Base64.NO_WRAP)
+        val encoded = Base64.encodeToString(
+            credentials.toByteArray(Charsets.UTF_8),
+            Base64.NO_WRAP
+        )
         return "Basic $encoded"
     }
 
@@ -22,8 +35,8 @@ class PayPalRepository(
         return "Bearer $accessToken"
     }
 
-    suspend fun authenticate(): Result<String> {
-        return try {
+    suspend fun authenticate(): Result<String> = withContext(Dispatchers.IO) {
+        try {
             Log.d(TAG, "Authenticating with PayPal...")
 
             val response = apiService.getAccessToken(
@@ -50,11 +63,11 @@ class PayPalRepository(
         amount: String,
         currencyCode: String = "MYR",
         description: String = "Event Ticket Purchase"
-    ): Result<PayPalOrderResponse> {
-        return try {
+    ): Result<PayPalOrderResponse> = withContext(Dispatchers.IO) {
+        try {
             if (accessToken == null) {
                 Log.d(TAG, "No access token, authenticating first...")
-                authenticate().getOrNull() ?: return Result.failure(Exception("Failed to authenticate"))
+                authenticate().getOrNull() ?: return@withContext Result.failure(Exception("Failed to authenticate"))
             }
 
             Log.d(TAG, "Creating order: Amount=$amount $currencyCode")
@@ -96,11 +109,11 @@ class PayPalRepository(
         }
     }
 
-    suspend fun captureOrder(orderId: String): Result<PayPalCaptureResponse> {
-        return try {
+    suspend fun captureOrder(orderId: String): Result<PayPalCaptureResponse> = withContext(Dispatchers.IO) {
+        try {
             if (accessToken == null) {
                 Log.d(TAG, "No access token, authenticating first...")
-                authenticate().getOrNull() ?: return Result.failure(Exception("Failed to authenticate"))
+                authenticate().getOrNull() ?: return@withContext Result.failure(Exception("Failed to authenticate"))
             }
 
             Log.d(TAG, "Capturing order: $orderId")

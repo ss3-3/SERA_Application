@@ -1,4 +1,4 @@
-package com.example.sera_application.data.api
+package com.example.sera_application.data.remote.paypal.api
 
 import com.google.gson.annotations.SerializedName
 import okhttp3.OkHttpClient

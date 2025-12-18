@@ -2,7 +2,7 @@ package com.example.sera_application.presentation.viewmodel.payment
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.sera_application.data.api.PayPalRepository
+import com.example.sera_application.data.remote.paypal.repository.PayPalRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

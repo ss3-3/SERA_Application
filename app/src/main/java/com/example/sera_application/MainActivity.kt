@@ -26,7 +26,7 @@ import com.example.sera_application.presentation.ui.payment.PaymentActivity
 import com.example.sera_application.presentation.ui.payment.PaymentHistoryActivity
 import com.example.sera_application.ui.theme.SERA_ApplicationTheme
 
-class MainActivity : ComponentActivity() {
+class PaymentActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
