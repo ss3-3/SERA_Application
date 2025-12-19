@@ -14,4 +14,6 @@ interface AuthRemoteDataSource {
     suspend fun logout()
     
     suspend fun getCurrentUserId(): String?
+    
+    suspend fun updatePassword(currentPassword: String, newPassword: String): Boolean
 }

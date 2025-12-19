@@ -9,16 +9,16 @@ interface EventDao {
     @Query("SELECT * FROM events WHERE eventId = :eventId")
     suspend fun getEventById(eventId: String): EventEntity?
 
-    @Query("SELECT * FROM events ORDER BY dateTime DESC")
+    @Query("SELECT * FROM events ORDER BY createdAt DESC")
     suspend fun getAllEvents(): List<EventEntity>
 
-    @Query("SELECT * FROM events WHERE organizerId = :organizerId ORDER BY dateTime DESC")
+    @Query("SELECT * FROM events WHERE organizerId = :organizerId ORDER BY createdAt DESC")
     suspend fun getEventsByOrganizer(organizerId: String): List<EventEntity>
 
-    @Query("SELECT * FROM events WHERE status = :status ORDER BY dateTime DESC")
+    @Query("SELECT * FROM events WHERE status = :status ORDER BY createdAt DESC")
     suspend fun getEventsByStatus(status: String): List<EventEntity>
 
-    @Query("SELECT * FROM events WHERE dateTime >= :fromTime AND dateTime <= :toTime ORDER BY dateTime ASC")
+    @Query("SELECT * FROM events WHERE createdAt >= :fromTime AND createdAt <= :toTime ORDER BY createdAt ASC")
     suspend fun getEventsByDateRange(fromTime: Long, toTime: Long): List<EventEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -42,6 +42,6 @@ interface EventDao {
     @Query("DELETE FROM events")
     suspend fun clearAllEvents()
 
-    @Query("SELECT * FROM events WHERE title LIKE '%' || :query || '%' OR description LIKE '%' || :query || '%' ORDER BY dateTime DESC")
+    @Query("SELECT * FROM events WHERE eventName LIKE '%' || :query || '%' OR description LIKE '%' || :query || '%' ORDER BY createdAt DESC")
     suspend fun searchEvents(query: String): List<EventEntity>
 }

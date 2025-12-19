@@ -11,6 +11,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -20,22 +24,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-// Extension properties for ReservationStatus
-val ReservationStatus.label: String
-    get() = when (this) {
-        ReservationStatus.PENDING -> "Pending"
-        ReservationStatus.CONFIRMED -> "Confirmed"
-        ReservationStatus.CANCELLED -> "Cancelled"
-        ReservationStatus.COMPLETED -> "Completed"
-    }
-
-val ReservationStatus.color: Color
-    get() = when (this) {
-        ReservationStatus.PENDING -> Color(0xFFFFC107)
-        ReservationStatus.CONFIRMED -> Color(0xFF4CAF50)
-        ReservationStatus.CANCELLED -> Color(0xFFF44336)
-        ReservationStatus.COMPLETED -> Color(0xFF2196F3)
-    }
 
 data class ReservationDetailUiModel(
     val reservationId: String,
@@ -55,60 +43,103 @@ data class ReservationDetailUiModel(
     val pricePerSeat: String
 )
 
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReservationDetailScreen(
-    reservation: ReservationDetailUiModel,
+    reservationId: String,
     modifier: Modifier = Modifier,
-    onBack: () -> Unit = {}
+    onBack: () -> Unit = {},
+    viewModel: com.example.sera_application.presentation.viewmodel.reservation.ReservationDetailsViewModel = androidx.hilt.navigation.compose.hiltViewModel()
 ) {
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Text(
-                        "Reservation Detail",
-                        color = Color.White,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.Default.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.White
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color(0xFF2C2C2E) // Dark grey header
-                )
+    androidx.compose.runtime.LaunchedEffect(reservationId) {
+        viewModel.loadReservation(reservationId)
+    }
+
+    val uiState by viewModel.uiState.collectAsState()
+    
+    val reservationVal = uiState.reservation
+    val eventVal = uiState.event
+    val participantVal = uiState.participant
+    
+    if (uiState.isLoading) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+    } else if (reservationVal != null) {
+        val uiModel = remember(reservationVal, eventVal, participantVal) {
+             ReservationDetailUiModel(
+                reservationId = reservationVal.reservationId,
+                participantName = participantVal?.fullName ?: "Unknown",
+                participantEmail = participantVal?.email ?: "Unknown",
+                eventName = eventVal?.name ?: "Unknown Event",
+                venue = eventVal?.location ?: "Unknown Venue",
+                eventDate = eventVal?.date ?: "",
+                eventTime = eventVal?.startTime ?: "",
+                seatNumbers = "${reservationVal.seats} Seats", // Placeholder
+                status = reservationVal.status,
+                paymentMethod = "Online Banking", // Placeholder
+                paymentAccount = "****-****-****-1234",
+                zoneName = "General",
+                quantity = reservationVal.seats,
+                totalPrice = "RM ${(eventVal?.priceRange?.filter { it.isDigit() }?.toIntOrNull() ?: 10) * reservationVal.seats}", // Rough estimate
+                pricePerSeat = eventVal?.priceRange ?: "RM 10"
             )
-        },
-        modifier = modifier.fillMaxSize()
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .background(Color(0xFFF5F5F5)) // Light grey background
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Participant Info Card
-            ParticipantInfoCard(reservation)
+        }
+    
+        Scaffold(
+            topBar = {
+                CenterAlignedTopAppBar(
+                    title = {
+                        Text(
+                            "Reservation Detail",
+                            color = Color.White,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                Icons.Default.ArrowBack,
+                                contentDescription = "Back",
+                                tint = Color.White
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = Color(0xFF2C2C2E) // Dark grey header
+                    )
+                )
+            },
+            modifier = modifier.fillMaxSize()
+        ) { padding ->
+            Column(
+                modifier = Modifier
+                    .padding(padding)
+                    .fillMaxSize()
+                    .background(Color(0xFFF5F5F5)) // Light grey background
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Participant Info Card
+                ParticipantInfoCard(uiModel)
 
-            // Reservation Info Card
-            ReservationInfoCard(reservation)
+                // Reservation Info Card
+                ReservationInfoCard(uiModel)
 
-            // Seats Card
-            SeatsCard(reservation)
+                // Seats Card
+                SeatsCard(uiModel)
 
-            // Payment Card
-            PaymentCard(reservation)
+                // Payment Card
+                PaymentCard(uiModel)
+            }
+        }
+    } else {
+        // Error or empty state
+         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("Reservation not found.")
         }
     }
 }
@@ -133,7 +164,7 @@ private fun ParticipantInfoCard(reservation: ReservationDetailUiModel) {
                 color = Color.Black
             )
 
-            Divider(color = Color(0xFFE0E0E0))
+            HorizontalDivider(color = Color(0xFFE0E0E0))
 
             InfoRow("Name:", reservation.participantName)
             InfoRow("Email:", reservation.participantEmail)
@@ -180,13 +211,13 @@ private fun ReservationInfoCard(reservation: ReservationDetailUiModel) {
                 }
             }
 
-            Divider(color = Color(0xFFE0E0E0))
+            HorizontalDivider(color = Color(0xFFE0E0E0))
 
             InfoRow("Reservation ID:", reservation.reservationId)
             InfoRow("Event Name:", reservation.eventName)
             InfoRow("Location:", reservation.venue)
             InfoRow("Date and Time:", "${reservation.eventDate}, ${reservation.eventTime}")
-            InfoRow("Location:", reservation.seatNumbers)
+            InfoRow("Seat Numbers:", reservation.seatNumbers)
         }
     }
 }
@@ -211,7 +242,7 @@ private fun PaymentCard(reservation: ReservationDetailUiModel) {
                 color = Color.Black
             )
 
-            Divider(color = Color(0xFFE0E0E0))
+            HorizontalDivider(color = Color(0xFFE0E0E0))
 
             InfoRow(reservation.paymentMethod, reservation.paymentAccount)
         }
@@ -238,7 +269,7 @@ private fun SeatsCard(reservation: ReservationDetailUiModel) {
                 color = Color.Black
             )
 
-            Divider(color = Color(0xFFE0E0E0))
+            HorizontalDivider(color = Color(0xFFE0E0E0))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -254,7 +285,7 @@ private fun SeatsCard(reservation: ReservationDetailUiModel) {
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        "${reservation.quantity}",
+                        "${reservation.quantity} seat${if (reservation.quantity > 1) "s" else ""}",
                         fontSize = 14.sp,
                         color = Color(0xFF757575)
                     )
@@ -336,31 +367,3 @@ private fun InfoRowWithIcon(
         )
     }
 }
-
-
-@Preview(showBackground = true)
-@Composable
-private fun ReservationDetailScreenPreview() {
-    MaterialTheme {
-        ReservationDetailScreen(
-            reservation = ReservationDetailUiModel(
-                reservationId = "XXX123",
-                participantName = "Haha haha ha",
-                participantEmail = "haha@gmail.com",
-                eventName = "Music Fiesta 6.0",
-                venue = "Rimba, TARUMT",
-                eventDate = "8 Nov 2025",
-                eventTime = "6 PM",
-                seatNumbers = "A12, A13",
-                status = ReservationStatus.CONFIRMED,
-                paymentMethod = "PayPal",
-                paymentAccount = "1234-1234-1234",
-                zoneName = "NORMAL ZONE",
-                quantity = 2,
-                totalPrice = "RM 70.00",
-                pricePerSeat = "RM 35.00"
-            )
-        )
-    }
-}
-

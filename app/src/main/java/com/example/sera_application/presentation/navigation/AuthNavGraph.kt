@@ -20,9 +20,8 @@ fun AuthNavGraph(
     ) {
         composable(Screen.Login.route) {
             LoginScreen(
-                onLoginClick = { email, password, rememberMe ->
-                    // Handle login logic here
-                    // For now, just navigate on success
+                onLoginSuccess = { user ->
+                    // Handle login success - user is authenticated
                     onLoginSuccess()
                 },
                 onForgotPasswordClick = {
@@ -33,12 +32,10 @@ fun AuthNavGraph(
                 }
             )
         }
-        
+
         composable(Screen.SignUp.route) {
             SignUpScreen(
-                onRegisterClick = { name, email, password, confirmPassword ->
-                    // Handle registration logic here
-                    // For now, just navigate to login on success
+                onRegisterSuccess = { user ->
                     navController.popBackStack()
                 },
                 onLoginClick = {

@@ -7,16 +7,14 @@ import javax.inject.Inject
 class CreateReservationUseCase @Inject constructor(
     private val reservationRepository: ReservationRepository
 ) {
-    suspend operator fun invoke(reservation: EventReservation): Result<EventReservation> {
+    suspend operator fun invoke(reservation: EventReservation): Boolean {
+        // Validate seats
+        if (reservation.seats <= 0) return false
+
         return try {
-            val success = reservationRepository.createReservation(reservation)
-            if (success) {
-                Result.success(reservation)
-            } else {
-                Result.failure(Exception("Failed to create reservation"))
-            }
+            reservationRepository.createReservation(reservation)
         } catch (e: Exception) {
-            Result.failure(e)
+            false
         }
     }
 }

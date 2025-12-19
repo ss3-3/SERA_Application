@@ -2,13 +2,16 @@ package com.example.sera_application.presentation.ui.user
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -26,17 +29,19 @@ fun ChangePasswordScreen(
     onBack: () -> Unit = {},
     onConfirm: (String, String, String) -> Unit = {olePassword, newPassword, confirmPassword -> } // oldPassword, newPassword, confirmPassword
 ) {
-    var oldPassword by remember { mutableStateOf("") }
-    var newPassword by remember { mutableStateOf("") }
-    var confirmPassword by remember { mutableStateOf("") }
+    var oldPassword by rememberSaveable { mutableStateOf("") }
+    var newPassword by rememberSaveable { mutableStateOf("") }
+    var confirmPassword by rememberSaveable { mutableStateOf("") }
 
-    var showOldPassword by remember { mutableStateOf(false) }
-    var showNewPassword by remember { mutableStateOf(false) }
-    var showConfirmPassword by remember { mutableStateOf(false) }
+    var showOldPassword by rememberSaveable { mutableStateOf(false) }
+    var showNewPassword by rememberSaveable { mutableStateOf(false) }
+    var showConfirmPassword by rememberSaveable { mutableStateOf(false) }
 
     var showConfirmationDialog by remember { mutableStateOf(false) }
 
     var passwordError by remember { mutableStateOf<String?>(null) }
+
+    val scrollState = rememberScrollState()
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -69,7 +74,8 @@ fun ChangePasswordScreen(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .background(Color(0xFFF5F5F5))
+                .background(Color.White)
+                .verticalScroll(scrollState)
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {

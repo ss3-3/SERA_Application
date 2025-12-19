@@ -1,6 +1,7 @@
 package com.example.sera_application.presentation.ui.reservation
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,8 +13,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
@@ -56,50 +59,49 @@ fun MyReservationScreen(
     modifier: Modifier = Modifier,
     onBack: () -> Unit = {},
     onViewDetails: (ReservationUiModel) -> Unit = {},
-    onCancelReservation: (ReservationUiModel) -> Unit = {}
+    onCancelReservation: (ReservationUiModel) -> Unit = {},
+    viewModel: com.example.sera_application.presentation.viewmodel.reservation.ReservationListViewModel = androidx.hilt.navigation.compose.hiltViewModel()
 ) {
     var selectedTab by remember { mutableStateOf(ReservationTab.UPCOMING) }
+    
+    val currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+    
+    LaunchedEffect(currentUserId) {
+        if (currentUserId != null) {
+            viewModel.fetchReservations(currentUserId)
+        }
+    }
 
-    // TODO: replace with real data from DB
-    val allReservations = remember {
-        listOf(
+    val reservationDetailsList by viewModel.reservations.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val scrollState = rememberScrollState()
+
+    // Map domain model to UI model
+    val allReservations = remember(reservationDetailsList) {
+        reservationDetailsList.map { details ->
             ReservationUiModel(
-                reservationId = "R1",
-                eventId = "Event id??",
-                eventName = "GOTAR Festival",
-                organizerName = "Organizer Name",
-                date = "19/12/2025",
-                tab = ReservationTab.UPCOMING,
-                status = ReservationStatus.CONFIRMED
-            ),
-            ReservationUiModel(
-                reservationId = "R2",
-                eventId = "Event id??",
-                eventName = "GOTAR Festival",
-                organizerName = "Organizer Name",
-                date = "19/12/2025",
-                tab = ReservationTab.UPCOMING,
-                status = ReservationStatus.CONFIRMED
-            ),
-            ReservationUiModel(
-                reservationId = "R3",
-                eventId = "Event id??",
-                eventName = "GOTAR Festival",
-                organizerName = "Organizer Name",
-                date = "19/12/2025",
-                tab = ReservationTab.COMPLETED,
-                status = ReservationStatus.COMPLETED
-            ),
-            ReservationUiModel(
-                reservationId = "R4",
-                eventId = "Event id??",
-                eventName = "GOTAR Festival",
-                organizerName = "Organizer Name",
-                date = "19/12/2025",
-                tab = ReservationTab.CANCELLED,
-                status = ReservationStatus.CANCELLED
+                reservationId = details.reservation.reservationId,
+                eventId = details.reservation.eventId,
+                eventName = details.event?.name ?: "Unknown Event",
+                organizerName = details.event?.organizerId ?: "Unknown Organizer", // Ideal: Fetch organizer name too
+                date = details.event?.date ?: "Unknown Date",
+                // Logic to determine tab based on status or date
+                tab = when (details.reservation.status) {
+                     com.example.sera_application.domain.model.enums.ReservationStatus.CONFIRMED, 
+                     com.example.sera_application.domain.model.enums.ReservationStatus.PENDING -> ReservationTab.UPCOMING // Simplification
+                     com.example.sera_application.domain.model.enums.ReservationStatus.COMPLETED -> ReservationTab.COMPLETED
+                     com.example.sera_application.domain.model.enums.ReservationStatus.CANCELLED -> ReservationTab.CANCELLED
+                     else -> ReservationTab.UPCOMING
+                },
+                status = when(details.reservation.status) {
+                    com.example.sera_application.domain.model.enums.ReservationStatus.CONFIRMED -> ReservationStatus.CONFIRMED
+                    com.example.sera_application.domain.model.enums.ReservationStatus.PENDING -> ReservationStatus.PENDING
+                    com.example.sera_application.domain.model.enums.ReservationStatus.CANCELLED -> ReservationStatus.CANCELLED
+                    com.example.sera_application.domain.model.enums.ReservationStatus.COMPLETED -> ReservationStatus.COMPLETED
+                    else -> ReservationStatus.PENDING
+                }
             )
-        )
+        }
     }
 
     val reservations = allReservations.filter { it.tab == selectedTab }
@@ -135,6 +137,7 @@ fun MyReservationScreen(
             Modifier
                 .padding(padding)
                 .fillMaxSize()
+                .verticalScroll(scrollState)
                 .background(Color(0xFFF4F4F4))
         ) {
             ReservationTabs(

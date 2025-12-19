@@ -11,6 +11,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -20,7 +23,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.sera_application.domain.model.enums.UserRole
+import com.example.sera_application.presentation.viewmodel.UserViewModel
 
 data class ProfileMenuItem(
     val title: String,
@@ -31,11 +36,10 @@ data class ProfileMenuItem(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
-    userName: String,
-    userRole: UserRole,
-    profileImageUrl: String? = null,
     modifier: Modifier = Modifier,
+    viewModel: UserViewModel = hiltViewModel(),
     onBack: () -> Unit = {},
+    // Pass through actions that initiate navigation or require inputs
     onEditUserName: () -> Unit = {},
     onPasswordUpdate: () -> Unit = {},
     onOrderHistory: () -> Unit = {},
@@ -45,26 +49,40 @@ fun ProfileScreen(
     onUserManagement: () -> Unit = {},
     onEventApproval: () -> Unit = {},
     onAdminReports: () -> Unit = {},
-    onLogout: () -> Unit = {},
+    onLogoutSuccess: () -> Unit = {},
     onDeleteAccount: () -> Unit = {},
     onHomeClick: () -> Unit = {},
     onAddEventClick: () -> Unit = {},
     onProfileClick: () -> Unit = {}
 ) {
-    val menuItems = getMenuItemsForRole(
-        userRole = userRole,
-        onEditUserName = onEditUserName,
-        onPasswordUpdate = onPasswordUpdate,
-        onOrderHistory = onOrderHistory,
-        onPaymentHistory = onPaymentHistory,
-        onReservationManagement = onReservationManagement,
-        onReport = onReport,
-        onUserManagement = onUserManagement,
-        onEventApproval = onEventApproval,
-        onAdminReports = onAdminReports,
-        onLogout = onLogout,
-        onDeleteAccount = onDeleteAccount
-    )
+    val uiState by viewModel.uiState.collectAsState()
+    val currentUser = uiState.currentUser
+    
+    // Refresh user data when entering screen
+    LaunchedEffect(Unit) {
+        viewModel.loadCurrentUser()
+    }
+
+    val menuItems = if (currentUser != null) {
+        getMenuItemsForRole(
+            userRole = currentUser.role,
+            onEditUserName = onEditUserName,
+            onPasswordUpdate = onPasswordUpdate,
+            onOrderHistory = onOrderHistory,
+            onPaymentHistory = onPaymentHistory,
+            onReservationManagement = onReservationManagement,
+            onReport = onReport,
+            onUserManagement = onUserManagement,
+            onEventApproval = onEventApproval,
+            onAdminReports = onAdminReports,
+            onLogout = {
+                viewModel.logout { onLogoutSuccess() }
+            },
+            onDeleteAccount = onDeleteAccount
+        )
+    } else {
+        MenuItemsGroup(emptyList(), emptyList())
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -93,51 +111,69 @@ fun ProfileScreen(
             )
         },
         bottomBar = {
-            BottomNavigationBar(
-                userRole = userRole,
-                onHomeClick = onHomeClick,
-                onAddEventClick = onAddEventClick,
-                onProfileClick = onProfileClick
-            )
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .background(Color(0xFFF5F5F5))
-                .verticalScroll(rememberScrollState())
-        ) {
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Profile Picture Section
-            ProfilePictureSection(
-                userName = userName,
-                profileImageUrl = profileImageUrl
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Menu Items Group 1
-            MenuItemsCard(
-                items = menuItems.firstGroup,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Menu Items Group 2
-            if (menuItems.secondGroup.isNotEmpty()) {
-                MenuItemsCard(
-                    items = menuItems.secondGroup,
-                    modifier = Modifier.padding(horizontal = 16.dp)
+            if (currentUser != null) {
+                BottomNavigationBar(
+                    userRole = currentUser.role,
+                    onHomeClick = onHomeClick,
+                    onAddEventClick = onAddEventClick,
+                    onProfileClick = onProfileClick
                 )
             }
+        }
+    ) { padding ->
+        if (uiState.isLoading) {
+             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                 CircularProgressIndicator()
+             }
+        } else if (currentUser != null) {
+            Column(
+                modifier = Modifier
+                    .padding(padding)
+                    .fillMaxSize()
+                    .background(Color.White)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Spacer(modifier = Modifier.height(32.dp))
 
-            Spacer(modifier = Modifier.height(16.dp))
+                // Profile Picture Section
+                ProfilePictureSection(
+                    userName = currentUser.fullName,
+                    profileImageUrl = currentUser.profileImagePath
+                )
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // Menu Items Group 1
+                MenuItemsCard(
+                    items = menuItems.firstGroup,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Menu Items Group 2
+                if (menuItems.secondGroup.isNotEmpty()) {
+                    MenuItemsCard(
+                        items = menuItems.secondGroup,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+        } else {
+             // Error or empty state
+             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                 Text("Failed to load profile. Please try again.")
+             }
+             // Could trigger navigation back to login
         }
     }
 }
+
+// ... Rest of the file (ProfilePictureSection, MenuItemsCard, etc.) remains mostly the same 
+// but I'll need to append them if write_to_file overwrites everything.
+// Since write_to_file DOES overwrite, I must include the helper components.
 
 @Composable
 private fun ProfilePictureSection(
@@ -158,8 +194,7 @@ private fun ProfilePictureSection(
         ) {
             if (profileImageUrl != null) {
                 // TODO: Load image from URL using Coil
-                // AsyncImage(...)
-                Icon(
+                 Icon(
                     Icons.Default.Person,
                     contentDescription = "Profile Picture",
                     modifier = Modifier.size(80.dp),
@@ -201,8 +236,7 @@ private fun MenuItemsCard(
         Column {
             items.forEachIndexed { index, item ->
                 MenuItemRow(
-                    item = item,
-                    showDivider = index < items.size - 1
+                    item = item
                 )
             }
         }
@@ -211,8 +245,7 @@ private fun MenuItemsCard(
 
 @Composable
 private fun MenuItemRow(
-    item: ProfileMenuItem,
-    showDivider: Boolean = true
+    item: ProfileMenuItem
 ) {
     Row(
         modifier = Modifier
@@ -241,13 +274,6 @@ private fun MenuItemRow(
             modifier = Modifier.size(20.dp)
         )
     }
-    if (showDivider) {
-        HorizontalDivider(
-            color = Color(0xFFE0E0E0),
-            thickness = 1.dp,
-            modifier = Modifier.padding(horizontal = 16.dp)
-        )
-    }
 }
 
 @Composable
@@ -262,82 +288,132 @@ private fun BottomNavigationBar(
         color = Color.White,
         shadowElevation = 8.dp
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp),
-            horizontalArrangement = when (userRole) {
-                UserRole.PARTICIPANT -> Arrangement.SpaceEvenly
-                UserRole.ORGANIZER -> Arrangement.SpaceEvenly
-                UserRole.ADMIN -> Arrangement.SpaceEvenly
-            },
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Home Button (All Roles)
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier
-                    .weight(1f)
-                    .clickable(onClick = onHomeClick)
-                    .padding(vertical = 8.dp)
-            ) {
-                Icon(
-                    Icons.Default.Home,
-                    contentDescription = "Home",
-                    tint = Color(0xFF757575),
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    "Home",
-                    fontSize = 12.sp,
-                    color = Color(0xFF757575)
-                )
-            }
-
-            // Add Event Button (Organizer Only)
-            if (userRole == UserRole.ORGANIZER) {
-                FloatingActionButton(
-                    onClick = onAddEventClick,
-                    modifier = Modifier.size(56.dp),
-                    containerColor = Color(0xFF1976D2),
-                    contentColor = Color.White
+        when (userRole) {
+            UserRole.PARTICIPANT -> {
+                // Participant: Home | Me
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        Icons.Default.Add,
-                        contentDescription = "Add Event",
-                        modifier = Modifier.size(24.dp)
+                    BottomNavItem(
+                        icon = Icons.Default.Home,
+                        label = "Home",
+                        isSelected = false,
+                        onClick = onHomeClick
+                    )
+                    BottomNavItem(
+                        icon = Icons.Default.Person,
+                        label = "Me",
+                        isSelected = true,
+                        onClick = onProfileClick
                     )
                 }
-            } else {
-                Spacer(modifier = Modifier.width(56.dp))
             }
 
-            // Profile Button (All Roles)
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier
-                    .weight(1f)
-                    .clickable(onClick = onProfileClick)
-                    .padding(vertical = 8.dp)
-            ) {
-                Icon(
-                    Icons.Default.Person,
-                    contentDescription = "Me",
-                    tint = Color(0xFF1976D2), // Highlighted when selected
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    "Me",
-                    fontSize = 12.sp,
-                    color = Color(0xFF1976D2) // Highlighted when selected
-                )
+            UserRole.ORGANIZER -> {
+                // Organizer: Home | Add Event (+) | Me
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    BottomNavItem(
+                        icon = Icons.Default.Home,
+                        label = "Home",
+                        isSelected = false,
+                        onClick = onHomeClick
+                    )
+                    FloatingActionButton(
+                        onClick = onAddEventClick,
+                        modifier = Modifier.size(56.dp),
+                        containerColor = Color.Black,
+                        contentColor = Color.White
+                    ) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = "Add Event",
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    BottomNavItem(
+                        icon = Icons.Default.Person,
+                        label = "Me",
+                        isSelected = true,
+                        onClick = onProfileClick
+                    )
+                }
+            }
+
+            UserRole.ADMIN -> {
+                // Admin: Home | Event | Registration | Me
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    BottomNavItem(
+                        icon = Icons.Default.Home,
+                        label = "Home",
+                        isSelected = false,
+                        onClick = onHomeClick
+                    )
+                    BottomNavItem(
+                        icon = Icons.Default.Event,
+                        label = "Event",
+                        isSelected = false,
+                        onClick = onAddEventClick
+                    )
+                    BottomNavItem(
+                        icon = Icons.Default.Assignment,
+                        label = "Registration",
+                        isSelected = false,
+                        onClick = {}
+                    )
+                    BottomNavItem(
+                        icon = Icons.Default.Person,
+                        label = "Me",
+                        isSelected = true,
+                        onClick = onProfileClick
+                    )
+                }
             }
         }
     }
 }
-
+@Composable
+private fun BottomNavItem(
+    icon: ImageVector,
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            tint = if (isSelected) Color(0xFF1976D2) else Color(0xFF757575),
+            modifier = Modifier.size(24.dp)
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = label,
+            fontSize = 12.sp,
+            color = if (isSelected) Color(0xFF1976D2) else Color(0xFF757575)
+        )
+    }
+}
 data class MenuItemsGroup(
     val firstGroup: List<ProfileMenuItem>,
     val secondGroup: List<ProfileMenuItem>
@@ -393,39 +469,6 @@ private fun getMenuItemsForRole(
             secondGroup = listOf(
                 ProfileMenuItem("Log out account", Icons.Default.ExitToApp, onLogout)
             )
-        )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun ProfileScreenPreview() {
-    MaterialTheme {
-        ProfileScreen(
-            userName = "Participant1",
-            userRole = UserRole.PARTICIPANT
-        )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun ProfileScreenOrganizerPreview() {
-    MaterialTheme {
-        ProfileScreen(
-            userName = "Organizer1",
-            userRole = UserRole.ORGANIZER
-        )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun ProfileScreenAdminPreview() {
-    MaterialTheme {
-        ProfileScreen(
-            userName = "Admin1",
-            userRole = UserRole.ADMIN
         )
     }
 }

@@ -16,4 +16,14 @@ interface AuthRepository {
     suspend fun logout(): Boolean
 
     suspend fun getCurrentUser(): User?
+
+    suspend fun sendEmailVerification(): Result<Boolean>
+
+    suspend fun isEmailVerified(): Boolean
+
+    suspend fun reloadUser(): Result<Boolean>
+
+    suspend fun updatePassword(currentPassword: String, newPassword: String): Boolean
+
+    suspend fun sendPasswordResetEmail(email: String): Result<Boolean>
 }

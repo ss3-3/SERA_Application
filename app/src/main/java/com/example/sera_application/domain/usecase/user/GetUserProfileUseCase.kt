@@ -7,10 +7,8 @@ import javax.inject.Inject
 class GetUserProfileUseCase @Inject constructor(
     private val userRepository: UserRepository
 ) {
-    suspend operator fun invoke(userId: String): Result<User> {
-        if (userId.isBlank()) {
-            return Result.failure(IllegalArgumentException("User ID cannot be blank"))
-        }
+    suspend operator fun invoke(userId: String): User? {
+        if (userId.isBlank()) return null
         return userRepository.getUserById(userId)
     }
 }

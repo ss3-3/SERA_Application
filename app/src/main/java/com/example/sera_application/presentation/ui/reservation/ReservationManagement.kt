@@ -1,6 +1,7 @@
 package com.example.sera_application.presentation.ui.reservation
 
 import androidx.compose.foundation.background
+import com.example.sera_application.domain.model.enums.ReservationStatus
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -18,7 +19,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -44,49 +44,38 @@ fun ReservationManagementScreen(
     modifier: Modifier = Modifier,
     onBack: () -> Unit = {},
     onViewReservation: (String) -> Unit = {},
-    onExportParticipantList: () -> Unit = {}
+    onExportParticipantList: () -> Unit = {},
+    viewModel: com.example.sera_application.presentation.viewmodel.reservation.ReservationManagementViewModel = androidx.hilt.navigation.compose.hiltViewModel()
 ) {
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var selectedEventFilter by rememberSaveable  { mutableStateOf("All Events") }
     var selectedStatusFilter by rememberSaveable  { mutableStateOf(FilterStatus.ALL) }
     var showEventDropdown by rememberSaveable  { mutableStateOf(false) }
 
-    // TODO: replace with real data from DB
-    val allReservations = remember {
-        listOf(
+    val reservationList by viewModel.reservations.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+
+    // Map to UI model
+    val allReservations = remember(reservationList) {
+        reservationList.map { details ->
             ReservationManagementUiModel(
-                reservationId = "xxx123",
-                eventName = "Music Fiesta 6.0",
-                eventId = "EV001",
-                dateTime = "Nov 16,2025, 7.00PM",
-                status = ReservationStatus.CONFIRMED
-            ),
-            ReservationManagementUiModel(
-                reservationId = "xxx124",
-                eventName = "Music Fiesta 6.0",
-                eventId = "EV001",
-                dateTime = "Nov 16,2025, 7.00PM",
-                status = ReservationStatus.PENDING
-            ),
-            ReservationManagementUiModel(
-                reservationId = "xxx125",
-                eventName = "Music Fiesta 6.0",
-                eventId = "EV001",
-                dateTime = "Nov 15,2025, 6.00PM",
-                status = ReservationStatus.COMPLETED
-            ),
-            ReservationManagementUiModel(
-                reservationId = "xxx126",
-                eventName = "GOTAR Festival",
-                eventId = "EV002",
-                dateTime = "Nov 20,2025, 8.00PM",
-                status = ReservationStatus.CANCELLED
+                reservationId = details.reservation.reservationId,
+                eventName = details.event?.name ?: "Unknown Event",
+                eventId = details.reservation.eventId,
+                dateTime = details.event?.date ?: "Unknown Date", // Or format createdAt
+                status = details.reservation.status
             )
-        )
+        }
+    }
+    
+    // Dynamically get unique event names for filter
+    val eventNames = remember(allReservations) {
+        listOf("All Events") + allReservations.map { it.eventName }.distinct()
     }
 
     // Filter reservations based on search and filters
     val filteredReservations = remember(
+        allReservations,
         searchQuery,
         selectedEventFilter,
         selectedStatusFilter
@@ -221,27 +210,15 @@ fun ReservationManagementScreen(
                         onDismissRequest = { showEventDropdown = false },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        DropdownMenuItem(
-                            text = { Text("All Events") },
-                            onClick = {
-                                selectedEventFilter = "All Events"
-                                showEventDropdown = false
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Music Fiesta 6.0") },
-                            onClick = {
-                                selectedEventFilter = "Music Fiesta 6.0"
-                                showEventDropdown = false
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("GOTAR Festival") },
-                            onClick = {
-                                selectedEventFilter = "GOTAR Festival"
-                                showEventDropdown = false
-                            }
-                        )
+                        eventNames.forEach { name ->
+                            DropdownMenuItem(
+                                text = { Text(name) },
+                                onClick = {
+                                    selectedEventFilter = name
+                                    showEventDropdown = false
+                                }
+                            )
+                        }
                     }
                 }
 
@@ -407,12 +384,3 @@ private fun ReservationManagementCard(
         }
     }
 }
-
-@Preview(showBackground = true)
-@Composable
-private fun ReservationManagementScreenPreview() {
-    MaterialTheme {
-        ReservationManagementScreen()
-    }
-}
-

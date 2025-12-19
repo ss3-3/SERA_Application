@@ -4,6 +4,7 @@ import com.example.sera_application.data.remote.datasource.NotificationRemoteDat
 import com.example.sera_application.domain.model.Notification
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
+import kotlin.jvm.java
 
 class FirebaseNotificationDataSource(
     private val firestore: FirebaseFirestore

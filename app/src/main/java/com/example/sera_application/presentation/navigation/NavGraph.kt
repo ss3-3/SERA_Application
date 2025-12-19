@@ -1,11 +1,22 @@
 package com.example.sera_application.presentation.navigation
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
+//import com.example.sera_application.presentation.ui.event.EventListScreen
+import com.example.sera_application.presentation.ui.user.UserListScreen
+import com.example.sera_application.presentation.ui.reservation.ReservationListScreen
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -26,7 +37,9 @@ import com.example.sera_application.presentation.ui.reservation.UserReservationD
 import com.example.sera_application.presentation.ui.reservation.UserReservationDetailUiModel
 import com.example.sera_application.presentation.ui.user.ChangePasswordScreen
 import com.example.sera_application.presentation.ui.user.EditUsernameScreen
+//import com.example.sera_application.presentation.viewmodel.UserViewModel
 import com.example.sera_application.presentation.ui.user.ProfileScreen
+import com.google.firebase.auth.FirebaseAuth
 
 fun NavHostController.navigateToReservationDetails(reservationId: String) {
     navigate(Screen.ReservationDetails.createRoute(reservationId))
@@ -47,13 +60,11 @@ fun MainNavGraph(
         // Auth Screens
         composable(Screen.Login.route) {
             LoginScreen(
-                onLoginClick = { email, password, rememberMe ->
-                    // TODO: Handle actual login logic (e.g. call ViewModel)
-                    
-                    // For now, simulate login by setting role (could be based on email/logic)
-                    selectedUserRole = UserRole.PARTICIPANT 
-                    
-                    // Navigate to Profile (Home replacement)
+                onLoginSuccess = { user ->
+                    // Set user role based on authenticated user from Firebase
+                    selectedUserRole = user.role
+
+                    // Navigate to Profile
                     navController.navigate(Screen.Profile.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
@@ -66,12 +77,11 @@ fun MainNavGraph(
                 }
             )
         }
-        
+
         composable(Screen.SignUp.route) {
             SignUpScreen(
-                onRegisterClick = { name, email, password, confirmPassword ->
-                    // TODO: Handle registration logic here
-                    // Navigate back to login
+                onRegisterSuccess = { user ->
+                    // Navigate back to login or auto-login
                     navController.popBackStack()
                 },
                 onLoginClick = {
@@ -79,7 +89,7 @@ fun MainNavGraph(
                 }
             )
         }
-        
+
         // Reservation Details Screen (Organizer View)
         composable(
             route = Screen.ReservationDetails.route,
@@ -91,30 +101,8 @@ fun MainNavGraph(
         ) { backStackEntry ->
             val reservationId = backStackEntry.arguments?.getString("reservationId") ?: ""
             
-            // TODO: Replace with actual data fetching from ViewModel/Repository
-            // For now, using sample data
-            val sampleReservation = remember(reservationId) {
-                ReservationDetailUiModel(
-                    reservationId = reservationId,
-                    participantName = "Sample User",
-                    participantEmail = "sample@example.com",
-                    eventName = "Sample Event",
-                    venue = "Sample Venue",
-                    eventDate = "1 Jan 2025",
-                    eventTime = "10:00 AM",
-                    seatNumbers = "A1, A2",
-                    status = ReservationStatus.CONFIRMED,
-                    paymentMethod = "Credit Card",
-                    paymentAccount = "****-****-****-1234",
-                    zoneName = "VIP Zone",
-                    quantity = 2,
-                    totalPrice = "RM 100.00",
-                    pricePerSeat = "RM 50.00"
-                )
-            }
-            
             ReservationDetailScreen(
-                reservation = sampleReservation,
+                reservationId = reservationId,
                 onBack = {
                     navController.popBackStack()
                 }
@@ -162,27 +150,8 @@ fun MainNavGraph(
         ) { backStackEntry ->
             val reservationId = backStackEntry.arguments?.getString("reservationId") ?: ""
 
-            // TODO: get real data from ViewModel/Repository
-            val sampleReservation = UserReservationDetailUiModel(
-                reservationId = reservationId,
-                eventName = "Music Fiesta 6.0",
-                venue = "Rimba, TARUMT",
-                eventDate = "8 Nov 2025",
-                eventTime = "6 PM",
-                seatNumbers = "A12, A13",
-                status = ReservationStatus.CONFIRMED,
-                transactionDate = "29 Sep 2025",
-                transactionTime = "9:28 PM",
-                transactionId = "1234-1234-1234",
-                paymentMethod = "PayPal",
-                zoneName = "NORMAL ZONE",
-                quantity = 2,
-                totalPrice = "RM 70.00",
-                pricePerSeat = "RM 35.00"
-            )
-
             UserReservationDetailScreen(
-                reservation = sampleReservation,
+                reservationId = reservationId,
                 onBack = {
                     navController.popBackStack()
                 },
@@ -195,47 +164,76 @@ fun MainNavGraph(
 
         // Edit Username Screen
         composable(Screen.EditUsername.route) {
-            EditUsernameScreen(
-                currentUsername = "Sample User",
-                onBack = {
-                    navController.popBackStack()
-                },
-                onConfirm = { newUsername ->
-                    // TODO: Handle username update
-                    navController.popBackStack()
+            val viewModel: com.example.sera_application.presentation.viewmodel.UserViewModel = hiltViewModel()
+            val uiState by viewModel.uiState.collectAsState()
+            val currentUser = uiState.currentUser
+
+            // Handle loading user if not present (though Profile should have loaded it)
+            LaunchedEffect(Unit) {
+                if (currentUser == null) {
+                    viewModel.loadCurrentUser()
                 }
-            )
+            }
+
+            if (currentUser != null) {
+                EditUsernameScreen(
+                    currentUsername = currentUser.fullName,
+                    onBack = {
+                        navController.popBackStack()
+                    },
+                    onConfirm = { newName ->
+                        viewModel.updateUsername(
+                            userId = currentUser.userId,
+                            newName = newName,
+                            onSuccess = {
+                                navController.popBackStack()
+                            },
+                            onError = { error ->
+                                // Optional: Show error (passed via nav args or handled in VM state)
+                                // identifying error handling strategy later
+                            }
+                        )
+                    }
+                )
+            } else {
+                 // Show loading or fallback
+                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                     CircularProgressIndicator()
+                 }
+            }
         }
 
         // Change Password Screen
         composable(Screen.ChangePassword.route) {
+            val viewModel: com.example.sera_application.presentation.viewmodel.UserViewModel = hiltViewModel()
+            
             ChangePasswordScreen(
                 onBack = {
                     navController.popBackStack()
                 },
                 onConfirm = { oldPassword, newPassword, confirmPassword ->
-                    // TODO: Handle password update
-                    navController.popBackStack()
+                     // confirmPassword check is already done in UI, but good to double check or just ignore
+                    if (newPassword == confirmPassword) {
+                        viewModel.updatePassword(
+                            currentPassword = oldPassword,
+                            newPassword = newPassword,
+                            onSuccess = {
+                                navController.popBackStack()
+                            },
+                            onError = { error ->
+                                // Optional: Show error
+                            }
+                        )
+                    }
                 }
             )
         }
 
         // Profile Screen
         composable(Screen.Profile.route) {
-            val userName = when (selectedUserRole) {
-                UserRole.PARTICIPANT -> "Participant1"
-                UserRole.ORGANIZER -> "Organizer1"
-                UserRole.ADMIN -> "Admin1"
-            }
-
             ProfileScreen(
-                userName = userName,
-                userRole = selectedUserRole, 
                 onBack = {
-                    // If we go back from profile, we might want to exit app or go to login?
-                    // Usually Profile is a top level destination.
-                    // For now, let's pop back which might exit app if it's start of stack (after login replacement)
-                    navController.popBackStack() 
+                    navController.popBackStack()
                 },
                 onEditUserName = {
                     navController.navigate(Screen.EditUsername.route)
@@ -244,67 +242,94 @@ fun MainNavGraph(
                     navController.navigate(Screen.ChangePassword.route)
                 },
                 onOrderHistory = {
+                    // Navigate to user's order history
                     navController.navigate(Screen.UserReservationHistory.route)
                 },
-                onPaymentHistory = {
-                    // TODO: Navigate to payment history screen
-                },
+                onPaymentHistory = { },
                 onReservationManagement = {
                     navController.navigate(Screen.ReservationManagement.route)
                 },
-                onReport = {
-                    // TODO: Navigate to report screen
-                },
+                onReport = { },
                 onUserManagement = {
-                    // TODO: Navigate to user management screen
+                    navController.navigate(Screen.AdminUserManagement.route)
                 },
-                onEventApproval = {
-                    // TODO: Navigate to event approval screen
-                },
-                onAdminReports = {
-                    // TODO: Navigate to admin reports screen
-                },
-                onLogout = {
-                    // Navigate back to Login
+                onEventApproval = { },
+                onAdminReports = { },
+                onLogoutSuccess = {
                     navController.navigate(Screen.Login.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
                 },
-                onDeleteAccount = {
-                    // TODO: Handle delete account
-                },
+                onDeleteAccount = { },
                 onHomeClick = {
-                    // Since we removed Home, maybe refresh Profile or do nothing
+                    navController.navigate(Screen.EventList.route) {
+                        popUpTo(Screen.EventList.route) { inclusive = true }
+                    }
                 },
-                onAddEventClick = {
-                    // TODO: Navigate to add event screen
-                },
-                onProfileClick = {
-                    // Already on profile screen
+                onAddEventClick = { },
+                onProfileClick = { }
+            )
+        }
+
+        // Create Reservation Screen
+        composable(
+            route = Screen.CreateReservation.route,
+            arguments = listOf(
+                navArgument("eventId") {
+                    type = NavType.StringType
+                }
+            )
+        ) { backStackEntry ->
+            val eventId = backStackEntry.arguments?.getString("eventId") ?: ""
+            CreateReservationScreen(
+                eventId = eventId,
+                onBack = {
+                    navController.popBackStack()
                 }
             )
         }
-        
-        // Create Reservation Screen
-        composable(Screen.CreateReservation.route) {
-            CreateReservationScreen(
-                eventName = "Sample Event", // TODO: Pass real event data
-                eventDate = "15 Dec 2025",
-                eventTime = "7:00 PM",
-                venue = "Sample Venue",
-                description = "This is a sample event description.",
-                zones = listOf(
-                    TicketZone("VIP Zone", "RM 100.00", 50),
-                    TicketZone("Normal Zone", "RM 50.00", 100)
-                ),
-                eventStatusLabel = "Available",
-                eventStatusColor = Color(0xFF4CAF50),
+
+//        // Event List Screen
+//        composable(Screen.EventList.route) {
+//            EventListScreen(
+//                onBack = {
+//                    navController.popBackStack()
+//                }
+//            )
+//        }
+
+        // User List Screen
+        composable(Screen.UserList.route) {
+            UserListScreen(
                 onBack = {
                     navController.popBackStack()
-                },
-                onPurchase = { quantities ->
-                    // TODO: Handle purchase logic
-                    // Navigate to payment or confirmation screen
+                }
+            )
+        }
+
+        // Reservation List Screen
+        composable(
+            route = Screen.ReservationList.route,
+            arguments = listOf(
+                navArgument("userId") {
+                    type = NavType.StringType
+                }
+            )
+        ) { backStackEntry ->
+            val userId = backStackEntry.arguments?.getString("userId") ?: ""
+            ReservationListScreen(
+                userId = userId,
+                onBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        // Admin User Management Screen
+        composable(Screen.AdminUserManagement.route) {
+            com.example.sera_application.presentation.ui.user.AdminUserManagementScreen(
+                onBack = {
+                    navController.popBackStack()
                 }
             )
         }

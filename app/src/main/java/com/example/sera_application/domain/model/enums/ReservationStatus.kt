@@ -1,19 +1,28 @@
 package com.example.sera_application.domain.model.enums
+import androidx.compose.ui.graphics.Color
 
-enum class ReservationStatus {
-    PENDING,
-    CONFIRMED,
-    CANCELLED,
-    COMPLETED
+enum class ReservationStatus(
+    val label: String,
+    val color: Color
+) {
+    PENDING(
+        label = "Pending",
+        color = Color(0xFFFFA726) // Orange
+    ),
+    CONFIRMED(
+        label = "Confirmed",
+        color = Color(0xFF66BB6A) // Green
+    ),
+    CANCELLED(
+        label = "Cancelled",
+        color = Color(0xFFEF5350) // Red
+    ),
+    COMPLETED(
+        label = "Completed",
+        color = Color(0xFF42A5F5) // Blue
+    ),
+    EXPIRED(
+        label = "Expired",
+        color = Color(0xFF9E9E9E) // Grey
+    )
 }
-
-data class Reservation(
-    val reservationId: String,
-    val eventId: String,
-    val userId: String,
-//    val seats: List<Seat>,
-    val status: ReservationStatus,
-    val createdAt: Long,
-    val paymentMethod: String? = null,
-    val transactionId: String? = null
-)

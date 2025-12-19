@@ -43,4 +43,14 @@ class FirebaseReservationDataSource(
             .await()
         return snapshot.documents.mapNotNull { it.toObject(EventReservation::class.java) }
     }
+
+    override suspend fun getAllReservations(): List<EventReservation> {
+        val snapshot = reservationsRef.get().await()
+        return snapshot.documents.mapNotNull { it.toObject(EventReservation::class.java) }
+    }
+
+    override suspend fun getReservationById(reservationId: String): EventReservation? {
+        val snapshot = reservationsRef.document(reservationId).get().await()
+        return snapshot.toObject(EventReservation::class.java)
+    }
 }

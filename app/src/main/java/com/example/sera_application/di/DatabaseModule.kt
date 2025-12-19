@@ -53,8 +53,8 @@ object DatabaseModule {
         return database.paymentDao()
     }
 
-    @Provides
-    fun provideNotificationDao(database: AppDatabase): NotificationDao {
-        return database.notificationDao()
-    }
+//    @Provides
+//    fun provideNotificationDao(database: AppDatabase): NotificationDao {
+//        return database.notificationDao()
+//    }
 }

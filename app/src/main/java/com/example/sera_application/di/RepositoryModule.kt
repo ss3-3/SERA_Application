@@ -3,8 +3,8 @@ package com.example.sera_application.di
 import com.example.sera_application.data.repository.AuthRepositoryImpl
 import com.example.sera_application.data.repository.EventRepositoryImpl
 import com.example.sera_application.data.repository.ImageRepositoryImpl
-import com.example.sera_application.data.repository.NotificationRepositoryImpl
-import com.example.sera_application.data.repository.PaymentRepositoryImpl
+//import com.example.sera_application.data.repository.NotificationRepositoryImpl
+//import com.example.sera_application.data.repository.PaymentRepositoryImpl
 import com.example.sera_application.data.repository.ReservationRepositoryImpl
 import com.example.sera_application.data.repository.UserRepositoryImpl
 import com.example.sera_application.domain.repository.AuthRepository
@@ -52,17 +52,17 @@ abstract class RepositoryModule {
         reservationRepositoryImpl: ReservationRepositoryImpl
     ): ReservationRepository
 
-    @Binds
-    @Singleton
-    abstract fun bindPaymentRepository(
-        paymentRepositoryImpl: PaymentRepositoryImpl
-    ): PaymentRepository
+//    @Binds
+//    @Singleton
+//    abstract fun bindPaymentRepository(
+//        paymentRepositoryImpl: PaymentRepositoryImpl
+//    ): PaymentRepository
 
-    @Binds
-    @Singleton
-    abstract fun bindNotificationRepository(
-        notificationRepositoryImpl: NotificationRepositoryImpl
-    ): NotificationRepository
+//    @Binds
+//    @Singleton
+//    abstract fun bindNotificationRepository(
+//        notificationRepositoryImpl: NotificationRepositoryImpl
+//    ): NotificationRepository
 
     @Binds
     @Singleton

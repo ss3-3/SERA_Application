@@ -13,6 +13,10 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -20,10 +24,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.sera_application.domain.model.enums.ReservationStatus
 
 data class UserReservationDetailUiModel(
     val reservationId: String,
@@ -47,82 +49,122 @@ data class UserReservationDetailUiModel(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserReservationDetailScreen(
-    reservation: UserReservationDetailUiModel,
+    reservationId: String, // Changed from reservation object to ID
     modifier: Modifier = Modifier,
     onBack: () -> Unit = {},
-    onCancelReservation: () -> Unit = {}
+    onCancelReservation: () -> Unit = {},
+    viewModel: com.example.sera_application.presentation.viewmodel.reservation.ReservationDetailsViewModel = androidx.hilt.navigation.compose.hiltViewModel()
 ) {
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Text(
-                        "Reservation Detail",
-                        color = Color.White,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.Default.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.White
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color(0xFF2C2C2E) // Dark grey header
-                )
+    androidx.compose.runtime.LaunchedEffect(reservationId) {
+        viewModel.loadReservation(reservationId)
+    }
+
+    val uiState by viewModel.uiState.collectAsState()
+    
+    val reservationVal = uiState.reservation
+    val eventVal = uiState.event
+    
+    if (uiState.isLoading) {
+         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+    } else if (reservationVal != null) {
+        val uiModel = remember(reservationVal, eventVal) {
+             UserReservationDetailUiModel(
+                reservationId = reservationVal.reservationId,
+                eventName = eventVal?.name ?: "Unknown Event",
+                venue = eventVal?.location ?: "Unknown Venue",
+                eventDate = eventVal?.date ?: "",
+                eventTime = eventVal?.startTime ?: "",
+                seatNumbers = "${reservationVal.seats} Seats",
+                status = reservationVal.status,
+                transactionDate = java.text.SimpleDateFormat("dd MMM yyyy").format(java.util.Date(reservationVal.createdAt)),
+                transactionTime = java.text.SimpleDateFormat("hh:mm a").format(java.util.Date(reservationVal.createdAt)),
+                transactionId = reservationVal.reservationId, // Using reservation ID as transaction ID
+                paymentMethod = "Credit Card",
+                zoneName = "General",
+                quantity = reservationVal.seats,
+                totalPrice = "RM ${(eventVal?.priceRange?.filter { it.isDigit() }?.toIntOrNull() ?: 10) * reservationVal.seats}",
+                pricePerSeat = eventVal?.priceRange ?: "RM 10"
             )
-        },
-        modifier = modifier.fillMaxSize()
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .background(Color(0xFFF5F5F5)) // Light grey background
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Reservation Info Card
-            UserReservationInfoCard(reservation)
-
-            // Order Details Card
-            UserOrderDetailsCard(reservation)
-
-            // Seats Card
-            UserSeatsCard(reservation)
-
-            // QR Code
-            QRCodeSection(reservation.qrCodeData.ifEmpty { reservation.reservationId })
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Cancel Reservation Button
-            Button(
-                onClick = onCancelReservation,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFE3F2FD), // Light blue
-                    contentColor = Color(0xFF1976D2) // Dark blue text
-                ),
-                enabled = reservation.status == ReservationStatus.CONFIRMED ||
-                        reservation.status == ReservationStatus.PENDING
-            ) {
-                Text(
-                    "Cancel Reservation",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(vertical = 8.dp)
+        }
+    
+        Scaffold(
+            topBar = {
+                CenterAlignedTopAppBar(
+                    title = {
+                        Text(
+                            "Reservation Detail",
+                            color = Color.White,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                Icons.Default.ArrowBack,
+                                contentDescription = "Back",
+                                tint = Color.White
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = Color(0xFF2C2C2E) // Dark grey header
+                    )
                 )
+            },
+            modifier = modifier.fillMaxSize()
+        ) { padding ->
+            Column(
+                modifier = Modifier
+                    .padding(padding)
+                    .fillMaxSize()
+                    .background(Color(0xFFF5F5F5)) // Light grey background
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Reservation Info Card
+                UserReservationInfoCard(uiModel)
+
+                // Order Details Card
+                UserOrderDetailsCard(uiModel)
+
+                // Seats Card
+                UserSeatsCard(uiModel)
+
+                // QR Code
+                QRCodeSection(uiModel.qrCodeData.ifEmpty { uiModel.reservationId })
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Cancel Reservation Button
+                Button(
+                    onClick = onCancelReservation,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFE3F2FD), // Light blue
+                        contentColor = Color(0xFF1976D2) // Dark blue text
+                    ),
+                    enabled = uiModel.status == com.example.sera_application.domain.model.enums.ReservationStatus.CONFIRMED ||
+                            uiModel.status == com.example.sera_application.domain.model.enums.ReservationStatus.PENDING
+                ) {
+                    Text(
+                        "Cancel Reservation",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+                }
             }
+        }
+    } else {
+         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("Reservation not found.")
         }
     }
 }
@@ -371,30 +413,3 @@ private fun QRCodeSection(qrCodeData: String) {
         }
     }
 }
-
-@Preview(showBackground = true)
-@Composable
-private fun UserReservationDetailScreenPreview() {
-    MaterialTheme {
-        UserReservationDetailScreen(
-            reservation = UserReservationDetailUiModel(
-                reservationId = "XXX123",
-                eventName = "Music Fiesta 6.0",
-                venue = "Rimba, TARUMT",
-                eventDate = "8 Nov 2025",
-                eventTime = "6 PM",
-                seatNumbers = "A12, A13",
-                status = ReservationStatus.CONFIRMED,
-                transactionDate = "29 Sep 2025",
-                transactionTime = "9:28 PM",
-                transactionId = "1234-1234-1234",
-                paymentMethod = "PayPal",
-                zoneName = "NORMAL ZONE",
-                quantity = 2,
-                totalPrice = "RM 70.00",
-                pricePerSeat = "RM 35.00"
-            )
-        )
-    }
-}
-

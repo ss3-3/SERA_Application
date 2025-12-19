@@ -1,7 +1,6 @@
 package com.example.sera_application.presentation.ui.reservation
 
 
-import android.R.attr.top
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -25,6 +24,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -41,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.sera_application.R
+import com.example.sera_application.domain.model.enums.EventStatus
 
 // Data Model
 data class TicketZone(
@@ -48,23 +50,60 @@ data class TicketZone(
     val priceLabel: String,
     val available: Int
 )
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateReservationScreen(
     modifier: Modifier = Modifier,
-    eventName: String,
-    eventDate: String,
-    eventTime: String,
-    venue: String,
-    description: String,
-    zones: List<TicketZone>,
-    eventStatusLabel: String? = null,
-    eventStatusColor: Color = Color(0xFF1F7AE0),
+    eventId: String, // Pass eventId instead of raw data
     onBack: () -> Unit = {},
-    onPurchase: (Map<String, Int>) -> Unit = {}
+    viewModel: com.example.sera_application.presentation.viewmodel.reservation.CreateReservationViewModel = androidx.hilt.navigation.compose.hiltViewModel()
 ) {
+    // Load event data
+    LaunchedEffect(eventId) {
+        viewModel.loadEvent(eventId)
+    }
+
+    val event by viewModel.event.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val error by viewModel.error.collectAsState()
+
+    // Default values or loading state
+    val eventName = event?.name ?: "Loading..."
+    val eventDate = event?.date ?: ""
+    val eventTime = event?.startTime ?: ""
+    val venue = event?.location ?: ""
+    val description = event?.description ?: "No description available."
+    
+    val eventStatusLabel = event?.status?.name?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "Available"
+    val eventStatusColor = when (event?.status) {
+        EventStatus.ACTIVE,
+        EventStatus.APPROVED -> Color(0xFF4CAF50) // Green
+        EventStatus.FULL -> Color(0xFFF44336) // Red
+        EventStatus.PENDING -> Color(0xFFFFC107) // Amber
+        EventStatus.COMPLETED -> Color(0xFF2196F3) // Blue
+        EventStatus.CANCELLED,
+        EventStatus.REJECTED -> Color(0xFF757575) // Grey
+        EventStatus.ONGOING -> Color(0xFFFF9800) // Orange
+        null -> Color(0xFF4CAF50) // Default for null (Loading/Available)
+    }
+
+    val zones = listOf(
+        TicketZone("General Admission", event?.priceRange ?: "Free", 100) // Placeholder logic for zones
+    )
+
     var quantities by remember { mutableStateOf(zones.associate { it.name to 0 }) }
+    
+    // Purchase handler wrapper
+    val onPurchase: (Map<String, Int>) -> Unit = { selectedQuantities ->
+         viewModel.createReservation(
+             eventId = eventId,
+             quantities = selectedQuantities,
+             onSuccess = { 
+                 onBack() // Or navigate to success screen
+             },
+             onError = { /* Handle error toast */ }
+         )
+    }
 
     val configuration = LocalConfiguration.current
     val screenHeight = configuration.screenHeightDp.dp

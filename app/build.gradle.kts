@@ -1,14 +1,12 @@
 plugins {
-    // Add the Google services Gradle plugin
-    id("com.google.gms.google-services")
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-
     alias(libs.plugins.ksp)
-    alias(libs.plugins.hilt)
+    alias(libs.plugins.hilt.android)
 
-    id("kotlin-kapt")
+    // Google services plugin must be last
+    alias(libs.plugins.google.services)
 }
 
 android {
@@ -56,9 +54,7 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
-    implementation("androidx.compose.material:material-icons-extended")
     implementation(libs.androidx.room.common.jvm)
-    implementation(libs.firebase.sessions)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -67,49 +63,54 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 
+    // Import the Firebase BoM
+    implementation(platform("com.google.firebase:firebase-bom:34.7.0"))
+
     //Navigation
-    implementation("androidx.navigation:navigation-compose:2.9.4")
+    implementation(libs.androidx.navigation.compose)
 
     // Room Database
-    implementation("androidx.room:room-runtime:2.6.1")
-    implementation("androidx.room:room-ktx:2.6.1")
-    ksp("androidx.room:room-compiler:2.6.1")
-
-    //Lifecycle & ViewModel
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.3")
-    implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.9.3")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.3")
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.3")
-
-    // Import the Firebase BoM FIRST
-    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
-
-    // Firebase dependencies (no version needed due to BOM)
-    implementation("com.google.firebase:firebase-auth-ktx")
-    implementation("com.google.firebase:firebase-analytics-ktx")
-    implementation("com.google.firebase:firebase-firestore-ktx")
-    implementation("com.google.firebase:firebase-storage-ktx")
-
-    //User profile - photo
-    implementation("io.coil-kt:coil-compose:2.4.0")
-
-    // Add Gson for type converters
-    implementation("com.google.code.gson:gson:2.10.1")
-
-    // Add coroutines for Firebase
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
-
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
-
-    implementation("androidx.compose.material:material-icons-extended:1.6.0")
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
 
     // Hilt
     implementation(libs.hilt.android)
-    ksp(libs.hilt.compiler)
-    implementation(libs.hilt.navigation.compose)
-}
+    ksp(libs.hilt.android.compiler)
+    implementation(libs.androidx.hilt.navigation.compose)
 
-//kapt {
-//    correctErrorTypes = true
-//}
+    //Lifecycle & ViewModel
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.livedata.ktx)
+    implementation(libs.androidx.lifecycle.viewmodel.ktx)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+
+    // Firebase dependencies
+    implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-firestore")
+    implementation("com.google.firebase:firebase-storage")
+    implementation("com.google.firebase:firebase-analytics")
+
+    //User profile - photo
+    implementation(libs.coil.compose)
+
+    // Add Gson for type converters
+    implementation(libs.gson)
+
+    //User profile - photo
+    implementation(libs.coil.compose)
+
+    // Add Gson for type converters
+    implementation(libs.gson)
+
+    // Add coroutines for Firebase (you commented it out)
+    implementation(libs.kotlinx.coroutines.play.services)
+
+    // Retrofit for PayPal backend API calls
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+
+    implementation("androidx.compose.material:material-icons-extended:1.6.0")
+}

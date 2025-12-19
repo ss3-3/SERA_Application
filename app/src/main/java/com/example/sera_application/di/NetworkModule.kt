@@ -4,7 +4,7 @@ import com.example.sera_application.data.remote.datasource.AuthRemoteDataSource
 import com.example.sera_application.data.remote.datasource.EventRemoteDataSource
 import com.example.sera_application.data.remote.datasource.NotificationRemoteDataSource
 import com.example.sera_application.data.remote.datasource.PaymentRemoteDataSource
-import com.example.sera_application.data.remote.datasource.PayPalRemoteDataSource
+//import com.example.sera_application.data.remote.datasource.PayPalRemoteDataSource
 import com.example.sera_application.data.remote.datasource.ReservationRemoteDataSource
 import com.example.sera_application.data.remote.datasource.UserRemoteDataSource
 import com.example.sera_application.data.remote.firebase.FirebaseAuthDataSource
@@ -17,7 +17,7 @@ import com.example.sera_application.data.remote.paypal.api.PayPalBackendApi
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
-import com.example.sera_application.data.remote.paypal.PayPalDataSourceImpl
+//import com.example.sera_application.data.remote.paypal.PayPalDataSourceImpl
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import dagger.Binds
@@ -35,7 +35,7 @@ import javax.inject.Singleton
 /**
  * Network module for dependency injection.
  * Provides Firebase instances, Retrofit, and remote datasources.
- * 
+ *
  * Note: Replace BASE_URL with your actual backend server URL.
  * Backend should handle PayPal OAuth2 and API communication.
  */
@@ -160,10 +160,10 @@ abstract class NetworkModule {
         }
     }
 
-    // PayPal Remote Datasource binding
-    @Binds
-    @Singleton
-    abstract fun bindPayPalDataSource(
-        payPalRemoteDataSourceImpl: PayPalDataSourceImpl
-    ): PayPalRemoteDataSource
+//    // PayPal Remote Datasource binding
+//    @Binds
+//    @Singleton
+//    abstract fun bindPayPalDataSource(
+//        payPalRemoteDataSourceImpl: PayPalDataSourceImpl
+//    ): PayPalRemoteDataSource
 }

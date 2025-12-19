@@ -28,7 +28,7 @@ class FirebaseAuthDataSource(
                 .setDisplayName(fullName)
                 .build()
         )?.await()
-        
+
         return userId
     }
 
@@ -38,5 +38,17 @@ class FirebaseAuthDataSource(
 
     override suspend fun getCurrentUserId(): String? {
         return auth.currentUser?.uid
+    }
+
+    override suspend fun updatePassword(currentPassword: String, newPassword: String): Boolean {
+        val user = auth.currentUser ?: throw Exception("User not logged in")
+        val credential = com.google.firebase.auth.EmailAuthProvider.getCredential(user.email!!, currentPassword)
+        
+        // Re-authenticate first
+        user.reauthenticate(credential).await()
+        
+        // Update password
+        user.updatePassword(newPassword).await()
+        return true
     }
 }

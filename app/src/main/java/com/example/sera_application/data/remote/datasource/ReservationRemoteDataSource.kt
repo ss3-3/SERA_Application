@@ -11,4 +11,8 @@ interface ReservationRemoteDataSource {
     suspend fun getReservationsByUser(userId: String): List<EventReservation>
     
     suspend fun getReservationsByEvent(eventId: String): List<EventReservation>
+
+    suspend fun getAllReservations(): List<EventReservation>
+
+    suspend fun getReservationById(reservationId: String): EventReservation?
 }

@@ -1,21 +1,26 @@
 package com.example.sera_application.presentation.ui.user
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
+import androidx.compose.ui.window.Dialog
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditUsernameScreen(
@@ -24,8 +29,10 @@ fun EditUsernameScreen(
     onBack: () -> Unit = {},
     onConfirm: (String) -> Unit = {}
 ) {
-    var newUsername by remember { mutableStateOf(TextFieldValue(currentUsername)) }
-    var showConfirmationDialog by remember { mutableStateOf(false) }
+    var newUsername by rememberSaveable { mutableStateOf(TextFieldValue(currentUsername)) }
+    var showConfirmationDialog by rememberSaveable { mutableStateOf(false) }
+
+    val scrollState = rememberScrollState()
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -58,7 +65,8 @@ fun EditUsernameScreen(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .background(Color(0xFFF5F5F5))
+                .background(Color.White)
+                .verticalScroll(scrollState)
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
@@ -80,19 +88,31 @@ fun EditUsernameScreen(
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF212121)
                 )
-                OutlinedTextField(
-                    value = newUsername,
-                    onValueChange = { newUsername = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        focusedBorderColor = Color(0xFF1976D2),
-                        unfocusedBorderColor = Color(0xFFE0E0E0)
-                    ),
-                    singleLine = true
-                )
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(
+                            width = 2.dp,
+                            color = Color(0xFFE0E0E0),
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                ) {
+                    OutlinedTextField(
+                        value = newUsername,
+                        onValueChange = { newUsername = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color.White,
+                            focusedBorderColor = Color(0xFF1976D2),
+                            unfocusedBorderColor = Color(0xFFE0E0E0)
+                        ),
+
+                        singleLine = true
+                    )
+                }
             }
             Box(
                 modifier = Modifier.fillMaxWidth(),
@@ -127,44 +147,93 @@ fun EditUsernameScreen(
 
     // Confirmation Dialog
     if (showConfirmationDialog) {
-        AlertDialog(
-            onDismissRequest = { showConfirmationDialog = false },
-            title = {
-                Text(
-                    text = "Confirm Username Change",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
+        Dialog(
+            onDismissRequest = { showConfirmationDialog = false }
+        ) {
+            Card(
+                modifier = Modifier
+                    .width(320.dp)
+                    .height(200.dp)
+                    .padding(16.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color.White
                 )
-            },
-            text = {
-                Text(
-                    text = "Are you sure you want to change your username to \"${newUsername.text}\"?",
-                    fontSize = 14.sp
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        onConfirm(newUsername.text)
-                        showConfirmationDialog = false
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF1976D2),
-                        contentColor = Color.White
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // Title
+                    Text(
+                        text = "Update Username",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF212121)
                     )
-                ) {
-                    Text("Confirm")
+
+                    // Message
+                    Text(
+                        text = "Are you sure you want to update?",
+                        fontSize = 14.sp,
+                        color = Color(0xFF757575),
+                        textAlign = TextAlign.Center
+                    )
+
+                    // Buttons Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        // Cancel Button
+                        OutlinedButton(
+                            onClick = { showConfirmationDialog = false },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = Color(0xFF64B5F6)
+                            ),
+                            border = ButtonDefaults.outlinedButtonBorder.copy(
+                                width = 1.dp
+                            )
+                        ) {
+                            Text(
+                                text = "Cancel",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+
+                        // Confirm Button
+                        Button(
+                            onClick = {
+                                onConfirm(newUsername.text)
+                                showConfirmationDialog = false
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF64B5F6),
+                                contentColor = Color.White
+                            )
+                        ) {
+                            Text(
+                                text = "Confirm",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
                 }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { showConfirmationDialog = false }
-                ) {
-                    Text("Cancel")
-                }
-            },
-            shape = RoundedCornerShape(16.dp)
-        )
+            }
+        }
     }
 }
 

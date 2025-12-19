@@ -78,6 +78,43 @@ class ReservationRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun getAllReservations(): List<EventReservation> {
+        return try {
+            val remoteReservations = remoteDataSource.getAllReservations()
+            // Cache locally
+            if (remoteReservations.isNotEmpty()) {
+                reservationDao.insertReservations(mapper.toEntityList(remoteReservations))
+            }
+            remoteReservations
+        } catch (e: Exception) {
+            // No direct all method in DAO yet, maybe fetch all or filter?
+            // For now return empty list or implement getAll in DAO
+            emptyList() 
+        }
+    }
+
+    override suspend fun getReservationById(reservationId: String): EventReservation? {
+        return try {
+            // Try local first
+            val localReservation = reservationDao.getReservationById(reservationId)
+            if (localReservation != null) {
+                 return mapper.toDomain(localReservation)
+            }
+            
+            // Try remote
+            val remoteReservation = remoteDataSource.getReservationById(reservationId)
+            if (remoteReservation != null) {
+                // Cache it
+                reservationDao.insertReservation(mapper.toEntity(remoteReservation))
+                remoteReservation
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     override suspend fun updateReservationStatus(reservationId: String, status: String): Boolean {
         return try {
             val reservation = reservationDao.getReservationById(reservationId)
