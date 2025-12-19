@@ -205,7 +205,7 @@ fun AdminEventManagementScreen(
                         )
                     }
                 }
-                
+
                 // Show loading or error state
                 if (uiState.isLoading && filteredEvents.isEmpty()) {
                     Spacer(modifier = Modifier.height(20.dp))
@@ -216,7 +216,7 @@ fun AdminEventManagementScreen(
                         Text("Loading events...", color = Color.Gray)
                     }
                 }
-                
+
                 if (uiState.errorMessage != null && filteredEvents.isEmpty()) {
                     Spacer(modifier = Modifier.height(20.dp))
                     Box(
@@ -253,7 +253,7 @@ fun AdminEventManagementScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                 }
             }
-            
+
             // Delete Confirmation Dialog
             showDeleteDialog?.let { eventId ->
                 AlertDialog(

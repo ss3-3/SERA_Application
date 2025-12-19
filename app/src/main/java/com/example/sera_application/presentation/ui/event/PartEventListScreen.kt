@@ -94,7 +94,7 @@ data class EventDisplayModel(
     val bannerUrl: String? = null, // for Firebase/server
 ) {
     companion object {
-         // Convert domain Event to UI EventDisplayModel
+        // Convert domain Event to UI EventDisplayModel
         fun fromDomain(event: Event): EventDisplayModel {
             return EventDisplayModel(
                 id = event.eventId,
@@ -145,12 +145,12 @@ fun EventListScreen(
     var selectedCategory by rememberSaveable { mutableStateOf<EventCategoryUI?>(null) }
 
     val uiState by viewModel.uiState.collectAsState()
-    
+
     // Load events on first composition
     LaunchedEffect(Unit) {
         viewModel.loadEvents()
     }
-    
+
     // Update ViewModel when search or category changes
     LaunchedEffect(searchQuery, selectedCategory) {
         // For now, filtering is done locally in UI
@@ -165,7 +165,7 @@ fun EventListScreen(
         val matchesCategory = selectedCategory == null || event.category == selectedCategory
         matchesSearch && matchesCategory
     }
-    
+
     // Show loading/error states
     if (uiState.isLoading && events.isEmpty()) {
         Box(
@@ -176,7 +176,7 @@ fun EventListScreen(
         }
         return
     }
-    
+
     if (uiState.errorMessage != null && events.isEmpty()) {
         Box(
             modifier = Modifier.fillMaxSize(),

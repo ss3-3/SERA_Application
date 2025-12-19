@@ -99,7 +99,7 @@ fun OrganizerEventManagementScreen(
     }
 
     val filteredEvents = viewModel.getFilteredEvents()
-    
+
     // If no events and loading, show loading state
     if (uiState.isLoading && filteredEvents.isEmpty()) {
         Box(
@@ -110,7 +110,7 @@ fun OrganizerEventManagementScreen(
         }
         return
     }
-    
+
     // Handle delete with double confirmation
     val handleDelete = { eventId: String ->
         if (showDeleteConfirmDialog == null) {
@@ -275,7 +275,7 @@ fun OrganizerEventManagementScreen(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                 )
             }
-            
+
             // Error message display
             if (uiState.errorMessage != null) {
                 item {
@@ -292,15 +292,15 @@ fun OrganizerEventManagementScreen(
                 Spacer(modifier = Modifier.height(80.dp))
             }
         }
-        
+
         // Double Confirm Delete Dialog
         showDeleteConfirmDialog?.let { eventId ->
             val eventName = filteredEvents.find { it.id == eventId }?.name ?: "this event"
             AlertDialog(
                 onDismissRequest = { showDeleteConfirmDialog = null },
                 title = { Text("Delete Event") },
-                text = { 
-                    Text("Are you sure you want to delete \"$eventName\"? This action cannot be undone. Click Delete again to confirm.") 
+                text = {
+                    Text("Are you sure you want to delete \"$eventName\"? This action cannot be undone. Click Delete again to confirm.")
                 },
                 confirmButton = {
                     TextButton(

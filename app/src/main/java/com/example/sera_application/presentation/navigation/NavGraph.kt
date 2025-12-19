@@ -3,7 +3,6 @@ package com.example.sera_application.presentation.navigation
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
-//import com.example.sera_application.presentation.ui.event.EventListScreen
 import com.example.sera_application.presentation.ui.user.UserListScreen
 import com.example.sera_application.presentation.ui.reservation.ReservationListScreen
 import androidx.compose.runtime.Composable
@@ -15,7 +14,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -27,6 +25,10 @@ import com.example.sera_application.domain.model.enums.ReservationStatus
 import com.example.sera_application.domain.model.enums.UserRole
 import com.example.sera_application.presentation.ui.auth.LoginScreen
 import com.example.sera_application.presentation.ui.auth.SignUpScreen
+import com.example.sera_application.presentation.ui.event.AdminEventApprovalScreen
+import com.example.sera_application.presentation.ui.event.AdminEventManagementScreen
+import com.example.sera_application.presentation.ui.event.EventDetailsScreen
+import com.example.sera_application.presentation.ui.event.OrganizerEventManagementScreen
 import com.example.sera_application.presentation.ui.reservation.CreateReservationScreen
 import com.example.sera_application.presentation.ui.reservation.MyReservationScreen
 import com.example.sera_application.presentation.ui.reservation.ReservationDetailScreen
@@ -37,9 +39,8 @@ import com.example.sera_application.presentation.ui.reservation.UserReservationD
 import com.example.sera_application.presentation.ui.reservation.UserReservationDetailUiModel
 import com.example.sera_application.presentation.ui.user.ChangePasswordScreen
 import com.example.sera_application.presentation.ui.user.EditUsernameScreen
-//import com.example.sera_application.presentation.viewmodel.UserViewModel
 import com.example.sera_application.presentation.ui.user.ProfileScreen
-import com.google.firebase.auth.FirebaseAuth
+import com.example.sera_application.presentation.ui.event.*
 
 fun NavHostController.navigateToReservationDetails(reservationId: String) {
     navigate(Screen.ReservationDetails.createRoute(reservationId))
@@ -100,7 +101,7 @@ fun MainNavGraph(
             )
         ) { backStackEntry ->
             val reservationId = backStackEntry.arguments?.getString("reservationId") ?: ""
-            
+
             ReservationDetailScreen(
                 reservationId = reservationId,
                 onBack = {
@@ -206,7 +207,7 @@ fun MainNavGraph(
         // Change Password Screen
         composable(Screen.ChangePassword.route) {
             val viewModel: com.example.sera_application.presentation.viewmodel.UserViewModel = hiltViewModel()
-            
+
             ChangePasswordScreen(
                 onBack = {
                     navController.popBackStack()

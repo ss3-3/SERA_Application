@@ -86,29 +86,29 @@ class FirebaseEventDataSource(
         map["description"] = event.description
         map["category"] = event.category.name  // Store enum as string
         map["status"] = event.status.name  // Store enum as string
-        
+
         // Date & Time
         map["date"] = event.date
         map["startTime"] = event.startTime
         map["endTime"] = event.endTime
         map["duration"] = event.duration
-        
+
         // Location
         map["location"] = event.location
-        
+
         // Seats
         map["rockZoneSeats"] = event.rockZoneSeats
         map["normalZoneSeats"] = event.normalZoneSeats
         map["totalSeats"] = event.totalSeats
         map["availableSeats"] = event.availableSeats
-        
+
         // Pricing
         map["rockZonePrice"] = event.rockZonePrice
         map["normalZonePrice"] = event.normalZonePrice
-        
+
         // Media
         map["imagePath"] = event.imagePath ?: ""
-        
+
         // Timestamps (convert to Timestamp for Firestore)
         fun longToTimestamp(millis: Long): Timestamp {
             return Timestamp(
@@ -116,7 +116,7 @@ class FirebaseEventDataSource(
                 ((millis % 1000) * 1_000_000).toInt()
             )
         }
-        
+
         map["createdAt"] = longToTimestamp(event.createdAt)
         map["updatedAt"] = longToTimestamp(event.updatedAt)
 

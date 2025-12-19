@@ -37,8 +37,8 @@ class EventListViewModel @Inject constructor(
             try {
                 val allEvents = getEventListUseCase()
                 // Filter only APPROVED events for participants
-                val approvedEvents = allEvents.filter { 
-                    it.status == com.example.sera_application.domain.model.enums.EventStatus.APPROVED 
+                val approvedEvents = allEvents.filter {
+                    it.status == com.example.sera_application.domain.model.enums.EventStatus.APPROVED
                 }
                 _uiState.update {
                     it.copy(
@@ -62,4 +62,3 @@ class EventListViewModel @Inject constructor(
         _uiState.update { it.copy(errorMessage = null) }
     }
 }
-

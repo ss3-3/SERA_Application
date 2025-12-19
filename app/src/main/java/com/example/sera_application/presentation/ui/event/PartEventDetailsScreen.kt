@@ -184,164 +184,164 @@ fun EventDetailsScreen(
             }
         } else {
             LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color(0xFFF5F5F5))
-                .padding(padding)
-        ) {
-            item {
-                Column(
-                    modifier = Modifier.padding(20.dp)
-                ) {
-                    // Event Banner and Info Row
-                    Row(
-                        modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFFF5F5F5))
+                    .padding(padding)
+            ) {
+                item {
+                    Column(
+                        modifier = Modifier.padding(20.dp)
                     ) {
-                        // Event Banner Image (smaller, rounded)
-                        Card(
-                            modifier = Modifier.size(140.dp),
-                            shape = RoundedCornerShape(16.dp),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        // Event Banner and Info Row
+                        Row(
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            val context = LocalContext.current
-                            val imageRes = remember(event.bannerUrl) {
-                                if (event.bannerUrl != null && event.bannerUrl.isNotBlank()) {
-                                    context.resources.getIdentifier(
-                                        event.bannerUrl,
-                                        "drawable",
-                                        context.packageName
+                            // Event Banner Image (smaller, rounded)
+                            Card(
+                                modifier = Modifier.size(140.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                            ) {
+                                val context = LocalContext.current
+                                val imageRes = remember(event.bannerUrl) {
+                                    if (event.bannerUrl != null && event.bannerUrl.isNotBlank()) {
+                                        context.resources.getIdentifier(
+                                            event.bannerUrl,
+                                            "drawable",
+                                            context.packageName
+                                        )
+                                    } else {
+                                        0
+                                    }
+                                }
+
+                                if (imageRes != 0) {
+                                    Image(
+                                        painter = painterResource(id = imageRes),
+                                        contentDescription = event.name,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
                                     )
                                 } else {
-                                    0
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(
+                                                brush = Brush.verticalGradient(
+                                                    colors = listOf(Color(0xFF1A237E), Color(0xFF0D47A1))
+                                                )
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = event.name,
+                                            color = Color.White,
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            textAlign = TextAlign.Center,
+                                            modifier = Modifier.padding(8.dp)
+                                        )
+                                    }
                                 }
                             }
-                            
-                            if (imageRes != 0) {
-                                Image(
-                                    painter = painterResource(id = imageRes),
-                                    contentDescription = event.name,
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop
+
+                            Spacer(modifier = Modifier.width(16.dp))
+
+                            // Event Info Column (beside banner)
+                            Column(
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Spacer(modifier = Modifier.height(15.dp))
+
+                                // Event Name
+                                Text(
+                                    text = event.name,
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.Black
                                 )
-                            } else {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .background(
-                                            brush = Brush.verticalGradient(
-                                                colors = listOf(Color(0xFF1A237E), Color(0xFF0D47A1))
-                                            )
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = event.name,
-                                        color = Color.White,
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier.padding(8.dp)
-                                    )
-                                }
+
+                                Spacer(modifier = Modifier.height(6.dp))
+
+                                // Organizer Name
+                                Text(
+                                    text = event.organizer,
+                                    fontSize = 15.sp,
+                                    color = Color.Gray
+                                )
+
+                                Spacer(modifier = Modifier.height(45.dp))
+
+                                // Price Range
+                                Text(
+                                    text = event.priceRange,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFE91E63)
+                                )
                             }
                         }
 
-                        Spacer(modifier = Modifier.width(16.dp))
+                        Spacer(modifier = Modifier.height(20.dp))
 
-                        // Event Info Column (beside banner)
-                        Column(
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Spacer(modifier = Modifier.height(15.dp))
+                        // Date
+                        EventDetailRow(
+                            icon = Icons.Default.CalendarToday,
+                            value = event.date,
+                            iconTint = Color(0xFFFFA726)
+                        )
 
-                            // Event Name
-                            Text(
-                                text = event.name,
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.Black
-                            )
+                        Spacer(modifier = Modifier.height(14.dp))
 
-                            Spacer(modifier = Modifier.height(6.dp))
+                        // Time
+                        EventDetailRow(
+                            icon = Icons.Default.AccessTime,
+                            value = event.time.ifBlank { "Not specified" },
+                            iconTint = Color(0xFFFFA726)
+                        )
 
-                            // Organizer Name
-                            Text(
-                                text = event.organizer,
-                                fontSize = 15.sp,
-                                color = Color.Gray
-                            )
+                        Spacer(modifier = Modifier.height(14.dp))
 
-                            Spacer(modifier = Modifier.height(45.dp))
+                        // Venue
+                        EventDetailRow(
+                            icon = Icons.Default.LocationOn,
+                            value = event.venue.ifBlank { "Not specified" },
+                            iconTint = Color(0xFFFFA726)
+                        )
 
-                            // Price Range
-                            Text(
-                                text = event.priceRange,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFFE91E63)
-                            )
-                        }
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        // Divider
+                        Divider(
+                            color = Color(0xFFE0E0E0),
+                            thickness = 1.dp
+                        )
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        // Description Section
+                        Text(
+                            text = "Description",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Text(
+                            text = event.description,
+                            fontSize = 14.sp,
+                            color = Color(0xFF666666),
+                            lineHeight = 22.sp,
+                            textAlign = TextAlign.Justify
+                        )
                     }
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    // Date
-                    EventDetailRow(
-                        icon = Icons.Default.CalendarToday,
-                        value = event.date,
-                        iconTint = Color(0xFFFFA726)
-                    )
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // Time
-                    EventDetailRow(
-                        icon = Icons.Default.AccessTime,
-                        value = event.time.ifBlank { "Not specified" },
-                        iconTint = Color(0xFFFFA726)
-                    )
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // Venue
-                    EventDetailRow(
-                        icon = Icons.Default.LocationOn,
-                        value = event.venue.ifBlank { "Not specified" },
-                        iconTint = Color(0xFFFFA726)
-                    )
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // Divider
-                    Divider(
-                        color = Color(0xFFE0E0E0),
-                        thickness = 1.dp
-                    )
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    // Description Section
-                    Text(
-                        text = "Description",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Text(
-                        text = event.description,
-                        fontSize = 14.sp,
-                        color = Color(0xFF666666),
-                        lineHeight = 22.sp,
-                        textAlign = TextAlign.Justify
-                    )
                 }
             }
         }
     }
-}
 }
 
 //@Composable
