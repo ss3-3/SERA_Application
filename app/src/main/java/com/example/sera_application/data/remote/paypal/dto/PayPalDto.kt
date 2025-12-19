@@ -1,43 +1,34 @@
 package com.example.sera_application.data.remote.paypal.dto
 
-/**
- * Data Transfer Objects for communication with backend PayPal API.
- * These DTOs represent the request/response structure expected by the backend.
- */
+import com.google.gson.annotations.SerializedName
 
-/**
- * Request DTO for creating a PayPal order.
- */
-//data class CreateOrderRequest(
-//    val amount: Double,
-//    val currency: String
-//)
-//
-///**
-// * Response DTO for creating a PayPal order.
-// */
-//data class CreateOrderResponse(
-//    val success: Boolean,
-//    val orderId: String?,
-//    val approvalUrl: String?,
-//    val error: String? = null
-//)
-//
-///**
-// * Request DTO for capturing a PayPal order.
-// */
-//data class CaptureOrderRequest(
-//    val orderId: String
-//)
-//
-///**
-// * Response DTO for capturing a PayPal order.
-// */
-//data class CaptureOrderResponse(
-//    val success: Boolean,
-//    val captureId: String?,
-//    val status: String?,
-//    val amount: Double?,
-//    val currency: String?,
-//    val error: String? = null
-//)
+// Request DTOs
+data class CreateOrderRequest(
+    val amount: Double,
+    val currency: String
+)
+
+data class CaptureOrderRequest(
+    @SerializedName("order_id")
+    val orderId: String
+)
+
+// Response DTOs
+data class CreateOrderResponse(
+    val success: Boolean,
+    @SerializedName("order_id")
+    val orderId: String? = null,
+    @SerializedName("approval_url")
+    val approvalUrl: String? = null,
+    val error: String? = null
+)
+
+data class CaptureOrderResponse(
+    val success: Boolean,
+    @SerializedName("capture_id")
+    val captureId: String? = null,
+    val status: String? = null,
+    val amount: Double? = null,
+    val currency: String? = null,
+    val error: String? = null
+)
