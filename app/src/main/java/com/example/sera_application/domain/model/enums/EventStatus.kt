@@ -4,11 +4,8 @@ enum class EventStatus {
     PENDING,
     APPROVED,
     REJECTED,
-    ACTIVE,
-    FULL,
     COMPLETED,
-    CANCELLED,
-    ONGOING
+    CANCELLED
 }
 
 enum class EventCategory(val displayName: String) {
