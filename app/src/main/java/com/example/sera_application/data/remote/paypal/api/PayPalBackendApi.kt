@@ -8,31 +8,17 @@ import retrofit2.http.Body
 import retrofit2.http.POST
 
 /**
- * Retrofit API interface for PayPal backend endpoints.
- *
- * Assumes backend endpoints:
- * - POST /paypal/create-order
- * - POST /paypal/capture-order
- *
- * Note: Backend handles OAuth2 token retrieval and PayPal API communication.
- * Android app only communicates with backend, never directly with PayPal.
+ * Backend API interface for PayPal operations.
+ * Your backend server handles direct PayPal API communication.
  */
 interface PayPalBackendApi {
 
-    /**
-     * Creates a PayPal order via backend.
-     * Backend handles OAuth2 token and PayPal Order API call.
-     */
-    @POST("paypal/create-order")
+    @POST("api/paypal/create-order")
     suspend fun createOrder(
         @Body request: CreateOrderRequest
     ): CreateOrderResponse
 
-    /**
-     * Captures a PayPal order via backend.
-     * Backend handles OAuth2 token and PayPal Capture API call.
-     */
-    @POST("paypal/capture-order")
+    @POST("api/paypal/capture-order")
     suspend fun captureOrder(
         @Body request: CaptureOrderRequest
     ): CaptureOrderResponse

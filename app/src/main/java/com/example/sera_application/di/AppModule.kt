@@ -26,21 +26,4 @@ import javax.inject.Singleton
 object AppModule {
     // Application Context is automatically provided by Hilt
     
-    @Provides
-    @Singleton
-    fun provideEventMapper(): EventMapper {
-        return EventMapperImpl()
-    }
-    
-    @Provides
-    @Singleton
-    fun provideUserMapper(): UserMapper {
-        return UserMapperImpl()
-    }
-    
-    @Provides
-    @Singleton
-    fun provideReservationMapper(): ReservationMapper {
-        return ReservationMapperImpl()
-    }
 }

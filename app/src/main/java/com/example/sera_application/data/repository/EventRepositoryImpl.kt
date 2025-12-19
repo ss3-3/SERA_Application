@@ -1,6 +1,7 @@
 package com.example.sera_application.data.repository
 
 import com.example.sera_application.data.local.dao.EventDao
+import com.example.sera_application.data.local.entity.EventEntity
 import com.example.sera_application.data.mapper.EventMapper
 import com.example.sera_application.data.remote.datasource.EventRemoteDataSource
 import com.example.sera_application.data.remote.datasource.UserRemoteDataSource
@@ -77,13 +78,13 @@ class EventRepositoryImpl @Inject constructor(
     override suspend fun createEvent(event: Event): Boolean {
         return try {
             val eventId = remoteDataSource.createEvent(event)
-            
+
             // Cache locally if event was created successfully
             val createdEvent = remoteDataSource.getEventById(eventId)
             createdEvent?.let {
                 eventDao.insertEvent(mapper.toEntity(it))
             }
-            
+
             eventId.isNotEmpty()
         } catch (e: Exception) {
             false
@@ -113,7 +114,7 @@ class EventRepositoryImpl @Inject constructor(
     override suspend fun getEventList(): List<Event> {
         return try {
             val remoteEvents = remoteDataSource.getEventList()
-            
+
             // Cache locally
             if (remoteEvents.isNotEmpty()) {
                 val entities = remoteEvents.map { event ->
@@ -121,7 +122,7 @@ class EventRepositoryImpl @Inject constructor(
                 }
                 eventDao.insertEvents(entities)
             }
-            
+
             // Preload organizer names for all events to avoid N+1 calls
             preloadOrganizerNamesForEvents(remoteEvents)
             val organizerNameSnapshot = organizerNameCache.toMap()
@@ -173,7 +174,7 @@ class EventRepositoryImpl @Inject constructor(
     override suspend fun getEventsByOrganizer(organizerId: String): List<Event> {
         return try {
             val remoteEvents = remoteDataSource.getEventsByOrganizer(organizerId)
-            
+
             // Cache locally
             if (remoteEvents.isNotEmpty()) {
                 val entities = remoteEvents.map { event ->
@@ -181,7 +182,7 @@ class EventRepositoryImpl @Inject constructor(
                 }
                 eventDao.insertEvents(entities)
             }
-            
+
             // Preload organizer names for these events
             preloadOrganizerNamesForEvents(remoteEvents)
             val organizerNameSnapshot = organizerNameCache.toMap()
@@ -239,4 +240,33 @@ class EventRepositoryImpl @Inject constructor(
             false
         }
     }
+
+    override suspend fun syncEventsFromFirebase(): List<Event> {
+        val snapshot = remoteDataSource.getEventListFromFirebase()
+
+        val entities = snapshot.map { event ->
+            mapper.toEntity(event)
+        }
+
+        eventDao.clearAndInsertEvents(entities)
+
+        return snapshot
+    }
+
+    override suspend fun getPublicEvents(): List<Event> {
+        return try {
+            val events = remoteDataSource.getPublicEvents()
+
+            // cache locally (optional)
+            if (events.isNotEmpty()) {
+                eventDao.insertEvents(events.map { mapper.toEntity(it) })
+            }
+
+            preloadOrganizerNamesForEvents(events)
+            events
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
 }

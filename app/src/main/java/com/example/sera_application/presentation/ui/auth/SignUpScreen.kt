@@ -201,7 +201,7 @@ fun SignUpScreen(
 
             // TARUMT Logo
             Image(
-                painter = painterResource(id = R.drawable.tarumt_logo),
+                painter = painterResource(id = R.drawable.tarumt_logo_transparent),
                 contentDescription = "TARUMT Logo",
                 modifier = Modifier
                     .width(500.dp)

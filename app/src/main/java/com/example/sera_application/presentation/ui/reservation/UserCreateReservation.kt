@@ -76,14 +76,11 @@ fun CreateReservationScreen(
     
     val eventStatusLabel = event?.status?.name?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "Available"
     val eventStatusColor = when (event?.status) {
-        EventStatus.ACTIVE,
         EventStatus.APPROVED -> Color(0xFF4CAF50) // Green
-        EventStatus.FULL -> Color(0xFFF44336) // Red
         EventStatus.PENDING -> Color(0xFFFFC107) // Amber
         EventStatus.COMPLETED -> Color(0xFF2196F3) // Blue
         EventStatus.CANCELLED,
         EventStatus.REJECTED -> Color(0xFF757575) // Grey
-        EventStatus.ONGOING -> Color(0xFFFF9800) // Orange
         null -> Color(0xFF4CAF50) // Default for null (Loading/Available)
     }
 

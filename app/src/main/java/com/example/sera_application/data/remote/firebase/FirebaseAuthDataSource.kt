@@ -51,4 +51,8 @@ class FirebaseAuthDataSource(
         user.updatePassword(newPassword).await()
         return true
     }
+
+    override suspend fun deleteAccount() {
+        auth.currentUser?.delete()?.await()
+    }
 }

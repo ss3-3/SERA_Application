@@ -30,4 +30,8 @@ class FirebaseUserDataSource(
         val snapshot = usersRef.get().await()
         return snapshot.documents.mapNotNull { it.toObject(User::class.java) }
     }
+
+    override suspend fun deleteUser(userId: String) {
+        usersRef.document(userId).delete().await()
+    }
 }

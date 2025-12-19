@@ -7,9 +7,9 @@ interface PaymentRemoteDataSource {
     suspend fun savePayment(payment: Payment): String // Returns paymentId
 
     suspend fun getPaymentByReservation(reservationId: String): Payment?
-    
+
     suspend fun getPaymentById(paymentId: String): Payment?
-    
+
     suspend fun getPaymentsByUser(userId: String): List<Payment>
 
     suspend fun updatePaymentStatus(

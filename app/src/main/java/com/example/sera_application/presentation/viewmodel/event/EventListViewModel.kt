@@ -8,39 +8,58 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+data class EventListUiState(
+    val events: List<Event> = emptyList(),
+    val isLoading: Boolean = false,
+    val errorMessage: String? = null
+)
 
 @HiltViewModel
 class EventListViewModel @Inject constructor(
     private val getEventListUseCase: GetEventListUseCase
 ) : ViewModel() {
 
-    private val _events = MutableStateFlow<List<Event>>(emptyList())
-    val events: StateFlow<List<Event>> = _events.asStateFlow()
-
-    private val _isLoading = MutableStateFlow(false)
-    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
-
-    private val _error = MutableStateFlow<String?>(null)
-    val error: StateFlow<String?> = _error.asStateFlow()
+    private val _uiState = MutableStateFlow(EventListUiState())
+    val uiState: StateFlow<EventListUiState> = _uiState.asStateFlow()
 
     init {
-        fetchEvents()
+        loadEvents()
     }
 
-    fun fetchEvents() {
+    fun loadEvents() {
         viewModelScope.launch {
-            _isLoading.value = true
-            _error.value = null
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+
             try {
-                val eventList = getEventListUseCase()
-                _events.value = eventList
+                val allEvents = getEventListUseCase()
+                // Filter only APPROVED events for participants
+                val approvedEvents = allEvents.filter {
+                    it.status == com.example.sera_application.domain.model.enums.EventStatus.APPROVED
+                }
+                _uiState.update {
+                    it.copy(
+//                        events = approvedEvents,
+                        events = allEvents,
+                        isLoading = false,
+                        errorMessage = null
+                    )
+                }
             } catch (e: Exception) {
-                _error.value = e.message ?: "Failed to fetch events"
-            } finally {
-                _isLoading.value = false
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = "Failed to load events: ${e.message}"
+                    )
+                }
             }
         }
+    }
+
+    fun clearError() {
+        _uiState.update { it.copy(errorMessage = null) }
     }
 }

@@ -1,9 +1,11 @@
 package com.example.sera_application.presentation.viewmodel.event
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.sera_application.domain.usecase.event.DeleteEventUseCase
 import com.example.sera_application.domain.usecase.event.GetEventsByOrganizerUseCase
+import com.example.sera_application.domain.usecase.event.GetPublicEventsUseCase
 import com.example.sera_application.presentation.ui.event.EventDisplayModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,11 +14,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.google.firebase.auth.FirebaseAuth
 
 /**
  * UI State for Organizer Event Management Screen
  */
 data class OrganizerEventManagementUiState(
+    val bannerEvents: List<EventDisplayModel> = emptyList(),
     val events: List<EventDisplayModel> = emptyList(),
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
@@ -31,8 +35,10 @@ data class OrganizerEventManagementUiState(
 @HiltViewModel
 class OrganizerEventManagementViewModel @Inject constructor(
     private val getEventsByOrganizerUseCase: GetEventsByOrganizerUseCase,
+    private val getPublicEventsUseCase: GetPublicEventsUseCase,
     private val deleteEventUseCase: DeleteEventUseCase
 ) : ViewModel() {
+    private val auth = FirebaseAuth.getInstance()
 
     private val _uiState = MutableStateFlow(OrganizerEventManagementUiState())
     val uiState: StateFlow<OrganizerEventManagementUiState> = _uiState.asStateFlow()
@@ -40,31 +46,39 @@ class OrganizerEventManagementViewModel @Inject constructor(
     /**
      * Initialize with organizer ID and load events
      */
-    fun initialize(organizerId: String) {
-        _uiState.update { it.copy(organizerId = organizerId) }
-        loadMyEvents()
-    }
+//    fun initialize(organizerId: String) {
+//        _uiState.update { it.copy(organizerId = organizerId) }
+//        loadMyEvents()
+//    }
 
     /**
      * Load events created by this organizer
      */
     fun loadMyEvents() {
         viewModelScope.launch {
-            val currentOrganizerId = _uiState.value.organizerId
-            if (currentOrganizerId.isBlank()) {
+            val currentUser = auth.currentUser
+            if (currentUser == null) {
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        errorMessage = "Organizer ID not set"
+                        errorMessage = "User not logged in"
                     )
                 }
                 return@launch
             }
 
-            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            val organizerId = currentUser.uid
+
+            _uiState.update {
+                it.copy(
+                    organizerId = organizerId,
+                    isLoading = true,
+                    errorMessage = null
+                )
+            }
 
             try {
-                val events = getEventsByOrganizerUseCase(currentOrganizerId)
+                val events = getEventsByOrganizerUseCase(organizerId)
                 val displayModels = events.map { EventDisplayModel.fromDomain(it) }
 
                 _uiState.update {
@@ -81,6 +95,22 @@ class OrganizerEventManagementViewModel @Inject constructor(
                         errorMessage = "Failed to load events: ${e.message}"
                     )
                 }
+            }
+        }
+    }
+
+    fun loadBannerEvents() {
+        viewModelScope.launch {
+            try {
+                val events = getPublicEventsUseCase()
+                _uiState.update {
+                    it.copy(
+                        bannerEvents = events.map(EventDisplayModel::fromDomain)
+                    )
+                }
+            } catch (e: Exception) {
+                // banner failure should NOT break page
+                Log.e("BannerEvents", "Failed to load banner events", e)
             }
         }
     }

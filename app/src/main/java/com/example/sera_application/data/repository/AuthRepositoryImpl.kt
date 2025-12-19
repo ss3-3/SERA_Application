@@ -191,4 +191,21 @@ class AuthRepositoryImpl @Inject constructor(
             Result.failure(Exception(errorMessage))
         }
     }
+
+    override suspend fun deleteAccount(): Result<Boolean> {
+        return try {
+            val userId = firebaseAuth.currentUser?.uid ?: return Result.failure(Exception("No user logged in"))
+            
+            // 1. Delete Firestore user data
+            userRemoteDataSource.deleteUser(userId)
+            
+            // 2. Delete Firebase Auth account
+            authRemoteDataSource.deleteAccount()
+            
+            Result.success(true)
+        } catch (e: Exception) {
+            Log.e("AuthRepository", "Delete account failed", e)
+            Result.failure(e)
+        }
+    }
 }

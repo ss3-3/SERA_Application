@@ -2,7 +2,6 @@ package com.example.sera_application.domain.model
 
 import com.example.sera_application.domain.model.enums.EventCategory
 import com.example.sera_application.domain.model.enums.EventStatus
-import com.google.firebase.firestore.PropertyName
 
 data class Event(
     val eventId: String = "",
@@ -22,22 +21,18 @@ data class Event(
     // Location
     val location: String,          // Full: "Rimba, TARUMT (400 seats)"
 
-
     // Seats
     val rockZoneSeats: Int,
     val normalZoneSeats: Int,
     val totalSeats: Int,
     val availableSeats: Int,
 
-
     // Pricing
     val rockZonePrice: Double,
     val normalZonePrice: Double,
 
-
     // Media
     val imagePath: String? = null,
-
 
     // Timestamps
     val createdAt: Long = System.currentTimeMillis(),
@@ -55,7 +50,6 @@ data class Event(
                 maxOf(rockZonePrice, normalZonePrice)
             )
         }
-
 
     /**
      * Helper property to get full time range

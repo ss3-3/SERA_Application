@@ -166,4 +166,29 @@ class UserViewModel @Inject constructor(
             }
         }
     }
+    fun deleteAccount(onSuccess: () -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            try {
+                val result = authRepository.deleteAccount()
+                result.fold(
+                    onSuccess = {
+                        _uiState.update { UserUiState() } // Reset state
+                        onSuccess()
+                    },
+                    onFailure = { e ->
+                        _uiState.update {
+                            it.copy(isLoading = false, error = e.message ?: "Delete account failed")
+                        }
+                        onError(e.message ?: "Delete account failed")
+                    }
+                )
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(isLoading = false, error = e.message ?: "Delete account failed")
+                }
+                onError(e.message ?: "Delete account failed")
+            }
+        }
+    }
 }
