@@ -68,7 +68,7 @@ fun AdminEventManagementScreen(
     viewModel: AdminEventManagementViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var selectedStatus by remember { mutableStateOf<EventStatus?>(EventStatus.APPROVED) }
+    var selectedStatus by remember { mutableStateOf<EventStatus?>(EventStatus.PENDING) }
     var showDeleteDialog by remember { mutableStateOf<String?>(null) }
 
     // Load events on first composition

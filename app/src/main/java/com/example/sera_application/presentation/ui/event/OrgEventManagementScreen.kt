@@ -87,10 +87,9 @@ fun OrganizerEventManagementScreen(
     val uiState by viewModel.uiState.collectAsState()
 
     // Initialize ViewModel with organizer ID
-    LaunchedEffect(organizerId) {
-        if (uiState.organizerId != organizerId) {
-            viewModel.initialize(organizerId)
-        }
+    LaunchedEffect(Unit) {
+        viewModel.loadBannerEvents()
+        viewModel.loadMyEvents()
     }
 
     // Update ViewModel search query
@@ -249,7 +248,7 @@ fun OrganizerEventManagementScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)
                 ) {
-                    items(filteredEvents.take(3)) { event ->
+                    items(uiState.bannerEvents.take(3)) { event ->
                         OrganizerEventBanner(event = event)
                     }
                 }

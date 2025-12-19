@@ -42,7 +42,8 @@ class EventListViewModel @Inject constructor(
                 }
                 _uiState.update {
                     it.copy(
-                        events = approvedEvents,
+//                        events = approvedEvents,
+                        events = allEvents,
                         isLoading = false,
                         errorMessage = null
                     )

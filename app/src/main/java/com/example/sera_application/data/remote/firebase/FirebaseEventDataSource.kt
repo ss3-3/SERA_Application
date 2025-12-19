@@ -1,5 +1,6 @@
 package com.example.sera_application.data.remote.firebase
 
+import android.util.Log
 import com.example.sera_application.data.remote.datasource.EventRemoteDataSource
 import com.example.sera_application.domain.model.Event
 import com.example.sera_application.domain.model.enums.EventCategory
@@ -22,14 +23,12 @@ class FirebaseEventDataSource(
             eventsRef.document(event.eventId)
         }
         val eventWithId = event.copy(eventId = docRef.id)
-        // Convert to Firestore-compatible map
         val eventMap = eventToFirestoreMap(eventWithId)
         docRef.set(eventMap).await()
         return docRef.id
     }
 
     override suspend fun updateEvent(event: Event) {
-        // Convert to Firestore-compatible map
         val eventMap = eventToFirestoreMap(event)
         eventsRef.document(event.eventId)
             .set(eventMap)
@@ -72,66 +71,50 @@ class FirebaseEventDataSource(
             .await()
     }
 
-    /**
-     * Convert Event domain model to Firestore-compatible map
-     * Handles field name mapping (name -> eventName) for Firebase
-     */
+    override suspend fun getEventListFromFirebase(): List<Event> {
+        val snapshot = eventsRef.get().await()
+        return snapshot.documents.mapNotNull { it.toEvent() }
+    }
+
+    override suspend fun getPublicEvents(): List<Event> {
+        return firestore.collection("events")
+            .whereEqualTo("status", EventStatus.APPROVED.name)
+            .limit(10)
+            .get()
+            .await()
+            .toObjects(Event::class.java)
+    }
+
     private fun eventToFirestoreMap(event: Event): Map<String, Any?> {
         val map = mutableMapOf<String, Any?>()
-
         map["eventId"] = event.eventId
-        map["eventName"] = event.name  // Firebase uses eventName, not name
+        map["eventName"] = event.name
         map["organizerId"] = event.organizerId
         map["organizerName"] = event.organizerName
         map["description"] = event.description
-        map["category"] = event.category.name  // Store enum as string
-        map["status"] = event.status.name  // Store enum as string
-
-        // Date & Time
+        map["category"] = event.category.name
+        map["status"] = event.status.name
         map["date"] = event.date
         map["startTime"] = event.startTime
         map["endTime"] = event.endTime
         map["duration"] = event.duration
-
-        // Location
         map["location"] = event.location
-
-        // Seats
         map["rockZoneSeats"] = event.rockZoneSeats
         map["normalZoneSeats"] = event.normalZoneSeats
         map["totalSeats"] = event.totalSeats
         map["availableSeats"] = event.availableSeats
-
-        // Pricing
         map["rockZonePrice"] = event.rockZonePrice
         map["normalZonePrice"] = event.normalZonePrice
-
-        // Media
         map["imagePath"] = event.imagePath ?: ""
-
-        // Timestamps (convert to Timestamp for Firestore)
-        fun longToTimestamp(millis: Long): Timestamp {
-            return Timestamp(
-                millis / 1000,
-                ((millis % 1000) * 1_000_000).toInt()
-            )
-        }
-
-        map["createdAt"] = longToTimestamp(event.createdAt)
-        map["updatedAt"] = longToTimestamp(event.updatedAt)
-
+        map["createdAt"] = Timestamp.now()
+        map["updatedAt"] = Timestamp.now()
         return map
     }
 
-    /**
-     * Convert Firestore document to Event domain model
-     * Handles field name mapping (eventName -> name) and enum conversions
-     */
     private fun DocumentSnapshot.toEvent(): Event? {
         return try {
             val data = this.data ?: return null
 
-            // Convert Timestamp to Long (milliseconds)
             fun timestampToLong(timestamp: Any?): Long {
                 return when (timestamp) {
                     is Timestamp -> timestamp.seconds * 1000 + timestamp.nanoseconds / 1_000_000
@@ -140,25 +123,15 @@ class FirebaseEventDataSource(
                 }
             }
 
-            // Parse category enum
             val categoryStr = data["category"]?.toString() ?: return null
-            val category = try {
-                EventCategory.valueOf(categoryStr)
-            } catch (e: Exception) {
-                return null
-            }
+            val category = EventCategory.valueOf(categoryStr)
 
-            // Parse status enum
             val statusStr = data["status"]?.toString() ?: "PENDING"
-            val status = try {
-                EventStatus.valueOf(statusStr)
-            } catch (e: Exception) {
-                EventStatus.PENDING
-            }
+            val status = EventStatus.valueOf(statusStr)
 
             Event(
                 eventId = this.id,
-                name = data["eventName"]?.toString() ?: return null, // Firebase uses "eventName"
+                name = data["eventName"]?.toString() ?: return null,
                 organizerId = data["organizerId"]?.toString() ?: "",
                 organizerName = data["organizerName"]?.toString() ?: "",
                 description = data["description"]?.toString() ?: "",
@@ -180,6 +153,7 @@ class FirebaseEventDataSource(
                 updatedAt = timestampToLong(data["updatedAt"])
             )
         } catch (e: Exception) {
+            Log.e("FirebaseEventDataSource", "Error converting document ${this.id}", e)
             null
         }
     }
