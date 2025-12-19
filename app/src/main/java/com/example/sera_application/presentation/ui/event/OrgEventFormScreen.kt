@@ -1,5 +1,7 @@
 package com.example.sera_application.presentation.ui.event
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -18,10 +20,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.Image
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
+import coil.compose.AsyncImage
+import java.io.File
 
 data class EventFormData(
     val name: String = "",
@@ -35,7 +36,7 @@ data class EventFormData(
     val rockZonePrice: Double = 0.0,
     val normalZonePrice: Double = 0.0,
     val description: String = "",
-    val imagePath: String? = null // Drawable name for local images, or URL for server images
+    val imagePath: String? = null // Local file path (e.g. /data/user/0/.../event_123.jpg)
 )
 
 data class VenueCapacity(
@@ -53,8 +54,22 @@ fun EventFormScreen(
     initialEventData: EventFormData? = null,  // Pre-filled data for Edit mode
     onBackClick: () -> Unit = {},
     onSubmitClick: (EventFormData) -> Unit = {},  // Returns form data when submitted
-    onImagePickClick: () -> Unit = {}
+    onImageSelected: ((android.net.Uri) -> Unit)? = null
 ) {
+    // Track selected image URI
+    var selectedImageUri by remember { mutableStateOf<android.net.Uri?>(null) }
+
+    // Image picker launcher
+    val imagePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let {
+            selectedImageUri = it
+
+            onImageSelected?.invoke(it)
+        }
+    }
+
     // Initialize form fields
     // If Edit mode: use initialEventData values, otherwise use empty strings
     var eventName by remember { mutableStateOf(initialEventData?.name ?: "") }
@@ -97,7 +112,6 @@ fun EventFormScreen(
 
     val locationOptions = venueCapacities.map { it.name }
 
-    // // !!!MODIFY THE SPORT -> ART (based on the figma)!!!
     val categoryOptions = listOf("Academic", "Career", "Art", "Wellness", "Music", "Festival")
 
     // Dynamic title and button text based on mode
@@ -138,68 +152,105 @@ fun EventFormScreen(
                         .fillMaxWidth()
                         .height(if (isEditMode) 140.dp else 160.dp)
                         .border(2.dp, Color(0xFFE0E0E0), RoundedCornerShape(12.dp))
-                        .clickable(onClick = onImagePickClick),
+                        .clickable{
+                            imagePicker.launch("image/*")
+                        },
                     contentAlignment = Alignment.Center
                 ) {
-                    // !!!initialEventData != null -> eventName.isNotEmpty()!!!
-                    if (isEditMode && initialEventData != null) {
-                        // EDIT MODE: Show existing event image
-                        val context = LocalContext.current
-                        val imageRes = remember(initialEventData.imagePath) {
-                            if (initialEventData.imagePath != null && initialEventData.imagePath.isNotBlank()) {
-                                context.resources.getIdentifier(
-                                    initialEventData.imagePath,
-                                    "drawable",
-                                    context.packageName
-                                )
-                            } else {
-                                0
-                            }
-                        }
-                        
-                        if (imageRes != 0) {
-                            Image(
-                                painter = painterResource(id = imageRes),
-                                contentDescription = eventName,
+                    // Show newly selected image first, then existing image, then placeholder
+                    when {
+                        selectedImageUri != null -> {
+                            AsyncImage(
+                                model = selectedImageUri,
+                                contentDescription = "Selected Event Image",
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop
                             )
-                        } else {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(Color(0xFF1A1A2E), RoundedCornerShape(12.dp)),
-                                contentAlignment = Alignment.Center
-                            ) {
+                        }
+                        !initialEventData?.imagePath.isNullOrBlank() -> {
+                            AsyncImage(
+                                model = File(initialEventData?.imagePath!!),
+                                contentDescription = "Event Image",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+                        else -> {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    imageVector = Icons.Default.Image,
+                                    contentDescription = "Upload Image",
+                                    modifier = Modifier.size(48.dp),
+                                    tint = Color.Gray
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
                                 Text(
-                                    text = eventName,
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White,
-                                    textAlign = TextAlign.Center
+                                    text = "Tap to upload image",
+                                    fontSize = 14.sp,
+                                    color = Color.Gray
                                 )
                             }
                         }
-                    } else {
-                        // CREATE MODE: Show upload placeholder
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Image,
-                                contentDescription = "Upload Image",
-                                modifier = Modifier.size(48.dp),
-                                tint = Color.Gray
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                // !!!TAP TO UPLOAD IMAGE??!!!
-                                text = "Event profile picture",
-                                fontSize = 14.sp,
-                                color = Color.Gray
-                            )
-                        }
                     }
+//                    // !!!initialEventData != null -> eventName.isNotEmpty()!!!
+//                    if (isEditMode && initialEventData != null) {
+//                        // EDIT MODE: Show existing event image
+//                        val context = LocalContext.current
+//                        val imageRes = remember(initialEventData.imagePath) {
+//                            if (initialEventData.imagePath != null && initialEventData.imagePath.isNotBlank()) {
+//                                context.resources.getIdentifier(
+//                                    initialEventData.imagePath,
+//                                    "drawable",
+//                                    context.packageName
+//                                )
+//                            } else {
+//                                0
+//                            }
+//                        }
+//
+//                        if (imageRes != 0) {
+//                            Image(
+//                                painter = painterResource(id = imageRes),
+//                                contentDescription = eventName,
+//                                modifier = Modifier.fillMaxSize(),
+//                                contentScale = ContentScale.Crop
+//                            )
+//                        } else {
+//                            Box(
+//                                modifier = Modifier
+//                                    .fillMaxSize()
+//                                    .background(Color(0xFF1A1A2E), RoundedCornerShape(12.dp)),
+//                                contentAlignment = Alignment.Center
+//                            ) {
+//                                Text(
+//                                    text = eventName,
+//                                    fontSize = 16.sp,
+//                                    fontWeight = FontWeight.Bold,
+//                                    color = Color.White,
+//                                    textAlign = TextAlign.Center
+//                                )
+//                            }
+//                        }
+//                    } else {
+//                        // CREATE MODE: Show upload placeholder
+//                        Column(
+//                            horizontalAlignment = Alignment.CenterHorizontally
+//                        ) {
+//                            Icon(
+//                                imageVector = Icons.Default.Image,
+//                                contentDescription = "Upload Image",
+//                                modifier = Modifier.size(48.dp),
+//                                tint = Color.Gray
+//                            )
+//                            Spacer(modifier = Modifier.height(8.dp))
+//                            Text(
+//                                // !!!TAP TO UPLOAD IMAGE??!!!
+//                                text = "Event profile picture",
+//                                fontSize = 14.sp,
+//                                color = Color.Gray
+//                            )
+//                        }
+//                    }
                 }
             }
 
@@ -643,8 +694,7 @@ fun EventFormScreen(
                                     rockZonePrice = rockZonePrice.toDoubleOrNull() ?: 0.0,
                                     normalZonePrice = normalZonePrice.toDoubleOrNull() ?: 0.0,
                                     description = eventDescription,
-                                    imagePath = initialEventData?.imagePath // Preserve imagePath when editing
-                                )
+                                    imagePath = null)
                                 onSubmitClick(formData)
                             }
                         }
@@ -701,14 +751,14 @@ private fun FormFieldLabel(text: String, isRequired: Boolean = false) {
 fun CreateEventScreen(
     onBackClick: () -> Unit = {},
     onCreateClick: (EventFormData) -> Unit = {},
-    onImagePickClick: () -> Unit = {}
+    onImageSelected: ((android.net.Uri) -> Unit)? = null
 ) {
     EventFormScreen(
         isEditMode = false,           // CREATE MODE
         initialEventData = null,      // No initial data - empty form
         onBackClick = onBackClick,
         onSubmitClick = onCreateClick,
-        onImagePickClick = onImagePickClick
+        onImageSelected = onImageSelected
     )
 }
 
@@ -717,7 +767,7 @@ fun EditEventScreen(
     eventId: String,
     onBackClick: () -> Unit = {},
     onSaveClick: (EventFormData) -> Unit = {},
-    onImagePickClick: () -> Unit = {}
+    onImageSelected: ((android.net.Uri) -> Unit)? = null
 ) {
     // TODO: Load event data from ViewModel using eventId
     // For now, using sample data
@@ -733,7 +783,8 @@ fun EditEventScreen(
         rockZonePrice = 60.00,
         normalZonePrice = 35.00,
         description = "Music fiesta 6.0 is a large-scale campus concert and carnival proudly organized by Music Society of Tunku Abdul Rahman University of Management and Technology (TARUMT).",
-        imagePath = "musicfiesta" // Sample drawable name for preview
+        imagePath = null
+//        imagePath = "musicfiesta" // Sample drawable name for preview
     )
 
     EventFormScreen(
@@ -741,7 +792,7 @@ fun EditEventScreen(
         initialEventData = existingEventData,   // Pre-filled with existing data
         onBackClick = onBackClick,
         onSubmitClick = onSaveClick,
-        onImagePickClick = onImagePickClick
+        onImageSelected = onImageSelected
     )
 }
 

@@ -1,6 +1,7 @@
 package com.example.sera_application.data.repository
 
 import com.example.sera_application.data.local.dao.EventDao
+import com.example.sera_application.data.local.entity.EventEntity
 import com.example.sera_application.data.mapper.EventMapper
 import com.example.sera_application.data.remote.datasource.EventRemoteDataSource
 import com.example.sera_application.data.remote.datasource.UserRemoteDataSource
@@ -239,4 +240,33 @@ class EventRepositoryImpl @Inject constructor(
             false
         }
     }
+
+    override suspend fun syncEventsFromFirebase(): List<Event> {
+        val snapshot = remoteDataSource.getEventListFromFirebase()
+
+        val entities = snapshot.map { event ->
+            mapper.toEntity(event)
+        }
+
+        eventDao.clearAndInsertEvents(entities)
+
+        return snapshot
+    }
+
+    override suspend fun getPublicEvents(): List<Event> {
+        return try {
+            val events = remoteDataSource.getPublicEvents()
+
+            // cache locally (optional)
+            if (events.isNotEmpty()) {
+                eventDao.insertEvents(events.map { mapper.toEntity(it) })
+            }
+
+            preloadOrganizerNamesForEvents(events)
+            events
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
 }

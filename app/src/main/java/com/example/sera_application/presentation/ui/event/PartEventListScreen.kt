@@ -76,7 +76,6 @@ import com.example.sera_application.domain.model.enums.EventCategory
 import com.example.sera_application.presentation.viewmodel.event.EventListViewModel
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 
 // UI-specific model for displaying events
 data class EventDisplayModel(
@@ -137,6 +136,7 @@ enum class EventCategoryUI(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventListScreen(
+    modifier: Modifier = Modifier,
     onEventClick: (String) -> Unit = {}, // Pass event ID
     onProfileClick: () -> Unit = {},
     viewModel: EventListViewModel = hiltViewModel()
@@ -149,12 +149,6 @@ fun EventListScreen(
     // Load events on first composition
     LaunchedEffect(Unit) {
         viewModel.loadEvents()
-    }
-    
-    // Update ViewModel when search or category changes
-    LaunchedEffect(searchQuery, selectedCategory) {
-        // For now, filtering is done locally in UI
-        // Future: Can move to ViewModel if needed
     }
 
     val events = uiState.events.map { EventDisplayModel.fromDomain(it) }
@@ -278,7 +272,7 @@ fun EventListScreen(
         }
     ) { padding ->
         LazyColumn(
-            modifier = Modifier
+            modifier = modifier
                 .fillMaxSize()
                 .background(Color.White)
                 .padding(padding)
@@ -287,13 +281,15 @@ fun EventListScreen(
             // Event Banner
             item {
                 Spacer(modifier = Modifier.height(16.dp))
-//                EventBanner( event = events.firstOrNull()) // show first event
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     items(events.take(3)) { event ->
-                        EventBanner(event = event)
+                        EventBanner(
+                            event = event,
+                            onClick = { onEventClick(event.id) }
+                        )
                     }
                 }
                 Spacer(modifier = Modifier.height(20.dp))
@@ -369,20 +365,33 @@ fun EventListScreen(
 
 @Composable
 private fun EventBanner(
-    event: EventDisplayModel?
+    event: EventDisplayModel?,
+    onClick: () -> Unit
 ) {
     if (event == null) return
 
     Card(
         modifier = Modifier
             .width(280.dp)
-            .height(180.dp),
+            .height(180.dp)
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        val imageRes = event.bannerUrl?.let { drawableFromName(it) }
+        val context = LocalContext.current
+        val imageRes = remember(event.bannerUrl) {
+            if (event.bannerUrl != null && event.bannerUrl.isNotBlank()) {
+                context.resources.getIdentifier(
+                    event.bannerUrl,
+                    "drawable",
+                    context.packageName
+                )
+            } else {
+                0
+            }
+        }
 
-        if (imageRes != null) {
+        if (imageRes != 0) {
             Image(
                 painter = painterResource(id = imageRes),
                 contentDescription = event.name,
@@ -415,61 +424,6 @@ private fun EventBanner(
         }
     }
 }
-//@Composable
-//private fun EventBanner(
-//    event: EventDisplayModel?
-//){
-//    if (event != null){
-//        Card (
-//            modifier = Modifier.width(280.dp).height(180.dp),
-//            shape = RoundedCornerShape(16.dp),
-//            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-//        ) {
-//            val imageRes = drawableFromName(event.bannerUrl!!)
-//
-//            if (imageRes != null) {
-//                Image(
-//                    painter = painterResource(id = imageRes),
-//                    contentDescription = event.name,
-//                    modifier = Modifier.fillMaxSize(),
-//                    contentScale = ContentScale.Crop
-//                )
-//            } else {
-//                Box(
-//                    modifier = Modifier.fillMaxSize().background(
-//                        brush = Brush.verticalGradient( // 渐变色
-//                            colors = listOf(Color(0xFF1A237E), Color(0xFF0D47A1))
-//                        )
-//                    ),
-//                    contentAlignment = Alignment.Center
-//                ){
-//                    // TODO: Load actual image to banner
-//                    // TODO: If no image uploaded by organizer
-//                    if (event.bannerUrl == null) {
-//                        Text(
-//                            text = event.name,
-//                            color = Color.White,
-//                            fontSize = 24.sp,
-//                            fontWeight = FontWeight.Bold,
-//                            textAlign = TextAlign.Center,
-//                            modifier = Modifier.padding(16.dp)
-//                        )
-//                    } else {
-//                        val imageRes = drawableFromName(event.bannerUrl!!)
-//                        if (imageRes != null) {
-//                            Image(
-//                                painter = painterResource(id = imageRes),
-//                                contentDescription = event.name,
-//                                modifier = Modifier.fillMaxSize(),
-//                                contentScale = ContentScale.Crop
-//                            )
-//                        }
-//                    }
-//                }
-//            }
-//        }
-//    }
-//}
 
 @Composable
 private fun CategoryChip(
@@ -530,9 +484,28 @@ private fun EventCard(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                // TODO: Load actual image from bannerUrl
-                // if no image uploaded by organizer
-                if (event.bannerUrl == null) {
+                // Load actual image from bannerUrl
+                val context = LocalContext.current
+                val imageRes = remember(event.bannerUrl) {
+                    if (event.bannerUrl != null && event.bannerUrl.isNotBlank()) {
+                        context.resources.getIdentifier(
+                            event.bannerUrl,
+                            "drawable",
+                            context.packageName
+                        )
+                    } else {
+                        0
+                    }
+                }
+
+                if (imageRes != 0) {
+                    Image(
+                        painter = painterResource(id = imageRes),
+                        contentDescription = event.name,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
                     Text(
                         text = event.name,
                         color = Color.White,
@@ -541,16 +514,6 @@ private fun EventCard(
                         textAlign = TextAlign.Center,
                         modifier = Modifier.padding(8.dp)
                     )
-                } else {
-                    val imageRes = drawableFromName(event.bannerUrl!!)
-                    if (imageRes != null) {
-                        Image(
-                            painter = painterResource(id = imageRes),
-                            contentDescription = event.name,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
-                    }
                 }
             }
 

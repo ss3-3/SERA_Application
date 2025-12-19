@@ -41,90 +41,90 @@ sealed class Screen(val route: String) {
 }
 
 // EventNavGraph.kt
-@Composable
-fun EventNavGraph(
-    navController: NavHostController,
-    startDestination: String = Screen.EventList.route
-) {
-    NavHost(navController = navController, startDestination = startDestination) {
-        // Participant screens
-        composable(Screen.EventList.route) {
-            EventListScreen(
-                onEventClick = { eventId ->
-                    navController.navigate(Screen.EventDetails.createRoute(eventId))
-                }
-            )
-        }
-
-        composable(
-            route = Screen.EventDetails.route,
-            arguments = listOf(navArgument("eventId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val eventId = backStackEntry.arguments?.getString("eventId") ?: return@composable
-            EventDetailsScreen(
-                eventId = eventId,
-                onBackClick = { navController.popBackStack() }
-            )
-        }
-
-        // Organizer screens
-        composable(Screen.OrganizerEventManagement.route) {
-            OrganizerEventManagementScreen(
-                organizerId = "organizer_1", // TODO: Get from auth
-                onAddEventClick = {
-                    navController.navigate(Screen.CreateEvent.route)
-                },
-                onEditEventClick = { eventId ->
-                    navController.navigate(Screen.EditEvent.createRoute(eventId))
-                }
-            )
-        }
-
-        composable(Screen.CreateEvent.route) {
-            CreateEventScreen(
-                onBackClick = { navController.popBackStack() },
-                onCreateClick = { formData ->
-                    // Handle success, navigate back
-                    navController.popBackStack()
-                }
-            )
-        }
-
-        composable(
-            route = Screen.EditEvent.route,
-            arguments = listOf(navArgument("eventId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val eventId = backStackEntry.arguments?.getString("eventId") ?: return@composable
-            EditEventScreen(
-                eventId = eventId,
-                onBackClick = { navController.popBackStack() },
-                onSaveClick = { formData ->
-                    navController.popBackStack()
-                }
-            )
-        }
-
-        // Admin screens
-        composable(Screen.AdminEventManagement.route) {
-            AdminEventManagementScreen(
-                onEventClick = { eventId ->
-                    navController.navigate(Screen.AdminEventApproval.createRoute(eventId))
-                }
-            )
-        }
-
-        composable(
-            route = Screen.AdminEventApproval.route,
-            arguments = listOf(navArgument("eventId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val eventId = backStackEntry.arguments?.getString("eventId") ?: return@composable
-            AdminEventApprovalScreen(
-                eventId = eventId,
-                onBackClick = { navController.popBackStack() },
-                onApproveClick = { navController.popBackStack() },
-                onRejectClick = { navController.popBackStack() },
-                onCancelClick = { navController.popBackStack() }
-            )
-        }
-    }
-}
+//@Composable
+//fun EventNavGraph(
+//    navController: NavHostController,
+//    startDestination: String = Screen.EventList.route
+//) {
+//    NavHost(navController = navController, startDestination = startDestination) {
+//        // Participant screens
+//        composable(Screen.EventList.route) {
+//            EventListScreen(
+//                onEventClick = { eventId ->
+//                    navController.navigate(Screen.EventDetails.createRoute(eventId))
+//                }
+//            )
+//        }
+//
+//        composable(
+//            route = Screen.EventDetails.route,
+//            arguments = listOf(navArgument("eventId") { type = NavType.StringType })
+//        ) { backStackEntry ->
+//            val eventId = backStackEntry.arguments?.getString("eventId") ?: return@composable
+//            EventDetailsScreen(
+//                eventId = eventId,
+//                onBackClick = { navController.popBackStack() }
+//            )
+//        }
+//
+//        // Organizer screens
+//        composable(Screen.OrganizerEventManagement.route) {
+//            OrganizerEventManagementScreen(
+//                organizerId = "organizer_1", // TODO: Get from auth
+//                onAddEventClick = {
+//                    navController.navigate(Screen.CreateEvent.route)
+//                },
+//                onEditEventClick = { eventId ->
+//                    navController.navigate(Screen.EditEvent.createRoute(eventId))
+//                }
+//            )
+//        }
+//
+//        composable(Screen.CreateEvent.route) {
+//            CreateEventScreen(
+//                onBackClick = { navController.popBackStack() },
+//                onCreateClick = { formData ->
+//                    // Handle success, navigate back
+//                    navController.popBackStack()
+//                }
+//            )
+//        }
+//
+//        composable(
+//            route = Screen.EditEvent.route,
+//            arguments = listOf(navArgument("eventId") { type = NavType.StringType })
+//        ) { backStackEntry ->
+//            val eventId = backStackEntry.arguments?.getString("eventId") ?: return@composable
+//            EditEventScreen(
+//                eventId = eventId,
+//                onBackClick = { navController.popBackStack() },
+//                onSaveClick = { formData ->
+//                    navController.popBackStack()
+//                }
+//            )
+//        }
+//
+//        // Admin screens
+//        composable(Screen.AdminEventManagement.route) {
+//            AdminEventManagementScreen(
+//                onEventClick = { eventId ->
+//                    navController.navigate(Screen.AdminEventApproval.createRoute(eventId))
+//                }
+//            )
+//        }
+//
+//        composable(
+//            route = Screen.AdminEventApproval.route,
+//            arguments = listOf(navArgument("eventId") { type = NavType.StringType })
+//        ) { backStackEntry ->
+//            val eventId = backStackEntry.arguments?.getString("eventId") ?: return@composable
+//            AdminEventApprovalScreen(
+//                eventId = eventId,
+//                onBackClick = { navController.popBackStack() },
+//                onApproveClick = { navController.popBackStack() },
+//                onRejectClick = { navController.popBackStack() },
+//                onCancelClick = { navController.popBackStack() }
+//            )
+//        }
+//    }
+//}

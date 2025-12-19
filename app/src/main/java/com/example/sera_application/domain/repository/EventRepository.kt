@@ -23,4 +23,8 @@ interface EventRepository {
     suspend fun rejectEvent(eventId: String): Boolean
 
     suspend fun closeEvent(eventId: String): Boolean
+
+    suspend fun syncEventsFromFirebase(): List<Event>
+
+    suspend fun getPublicEvents(): List<Event>
 }

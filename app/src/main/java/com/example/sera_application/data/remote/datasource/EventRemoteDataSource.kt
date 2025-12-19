@@ -17,4 +17,8 @@ interface EventRemoteDataSource {
     suspend fun getEventsByOrganizer(organizerId: String): List<Event>
     
     suspend fun updateEventStatus(eventId: String, status: String)
+
+    suspend fun getEventListFromFirebase(): List<Event>
+
+    suspend fun getPublicEvents(): List<Event>
 }

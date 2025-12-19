@@ -42,6 +42,12 @@ interface EventDao {
     @Query("DELETE FROM events")
     suspend fun clearAllEvents()
 
+    @Transaction
+    suspend fun clearAndInsertEvents(events: List<EventEntity>) {
+        clearAllEvents()
+        insertEvents(events)
+    }
+
     @Query("SELECT * FROM events WHERE eventName LIKE '%' || :query || '%' OR description LIKE '%' || :query || '%' ORDER BY createdAt DESC")
     suspend fun searchEvents(query: String): List<EventEntity>
 }
