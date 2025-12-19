@@ -2,6 +2,7 @@ package com.example.sera_application.domain.model
 
 import com.example.sera_application.domain.model.enums.EventCategory
 import com.example.sera_application.domain.model.enums.EventStatus
+import com.google.firebase.firestore.PropertyName
 
 data class Event(
     val eventId: String = "",
@@ -12,13 +13,11 @@ data class Event(
     val category: EventCategory,
     val status: EventStatus = EventStatus.PENDING,
 
-
     // Date & Time
     val date: String,              // Format: "DD/MM/YYYY"
     val startTime: String,         // Format: "HH:MM AM/PM"
     val endTime: String,           // Format: "HH:MM AM/PM"
     val duration: String,          // Format: "X hour(s)"
-
 
     // Location
     val location: String,          // Full: "Rimba, TARUMT (400 seats)"
