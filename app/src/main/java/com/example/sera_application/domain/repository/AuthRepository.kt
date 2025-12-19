@@ -26,4 +26,6 @@ interface AuthRepository {
     suspend fun updatePassword(currentPassword: String, newPassword: String): Boolean
 
     suspend fun sendPasswordResetEmail(email: String): Result<Boolean>
+
+    suspend fun deleteAccount(): Result<Boolean>
 }

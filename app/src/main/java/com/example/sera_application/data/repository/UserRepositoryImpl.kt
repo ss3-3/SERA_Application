@@ -65,6 +65,10 @@ class UserRepositoryImpl @Inject constructor(
 
     override suspend fun deleteUser(userId: String): Boolean {
         return try {
+            // 1. Delete from remote
+            remoteDataSource.deleteUser(userId)
+            
+            // 2. Delete from local
             val entity = userDao.getUserById(userId)
             entity?.let {
                 userDao.deleteUser(it)

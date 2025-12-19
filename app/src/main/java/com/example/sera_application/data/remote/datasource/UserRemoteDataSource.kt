@@ -9,4 +9,6 @@ interface UserRemoteDataSource {
     suspend fun updateUserProfile(user: User)
     
     suspend fun getAllUsers(): List<User>
+
+    suspend fun deleteUser(userId: String)
 }

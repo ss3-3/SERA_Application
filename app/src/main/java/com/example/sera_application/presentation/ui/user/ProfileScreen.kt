@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,6 +58,7 @@ fun ProfileScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val currentUser = uiState.currentUser
+    var showDeleteDialog by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     
     // Refresh user data when entering screen
     LaunchedEffect(Unit) {
@@ -78,7 +80,7 @@ fun ProfileScreen(
             onLogout = {
                 viewModel.logout { onLogoutSuccess() }
             },
-            onDeleteAccount = onDeleteAccount
+            onDeleteAccount = { showDeleteDialog = true }
         )
     } else {
         MenuItemsGroup(emptyList(), emptyList())
@@ -160,6 +162,34 @@ fun ProfileScreen(
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            if (showDeleteDialog) {
+                AlertDialog(
+                    onDismissRequest = { showDeleteDialog = false },
+                    title = { Text("Delete Account") },
+                    text = { Text("Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently removed.") },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                viewModel.deleteAccount(
+                                    onSuccess = {
+                                        showDeleteDialog = false
+                                        onDeleteAccount()
+                                    },
+                                    onError = { /* Error is handled by UI state */ }
+                                )
+                            }
+                        ) {
+                            Text("Delete", color = Color.Red)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDeleteDialog = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                )
             }
         } else {
              // Error or empty state
