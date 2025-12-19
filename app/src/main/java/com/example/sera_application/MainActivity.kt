@@ -53,8 +53,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Modifier
+import androidx.navigation.compose.rememberNavController
+import com.example.sera_application.presentation.navigation.MainNavGraph
+import com.example.sera_application.presentation.navigation.Screen
 import com.example.sera_application.presentation.ui.event.EventListScreen
 import com.example.sera_application.ui.theme.SERA_ApplicationTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -66,9 +70,18 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             SERA_ApplicationTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) {
-                    // Launch directly into participant event list for now
-                    EventListScreen()
+                val navController = rememberNavController()
+
+//                Scaffold(modifier = Modifier.fillMaxSize()) {
+//                    MainNavGraph(startDestination = Screen.OrganizerEventManagement.route)
+//                }
+                Scaffold(
+                    modifier = Modifier.fillMaxSize()
+                ) { innerPadding ->
+                    MainNavGraph(
+                        startDestination = Screen.AdminEventManagement.route,
+                        modifier = Modifier.padding(innerPadding)
+                    )
                 }
             }
         }

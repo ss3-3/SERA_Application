@@ -20,7 +20,7 @@ data class EventEntity(
     val date: String,
     val startTime: String,
     val endTime: String,
-    val duration: String, // how many day
+    val duration: Int, // how many day
 
     val location: String,
 

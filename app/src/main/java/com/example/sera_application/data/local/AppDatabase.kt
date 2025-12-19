@@ -2,6 +2,8 @@ package com.example.sera_application.data.local
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
+import com.example.sera_application.data.local.converter.EventCategoryConverter
 import com.example.sera_application.data.local.dao.EventDao
 import com.example.sera_application.data.local.dao.NotificationDao
 import com.example.sera_application.data.local.dao.PaymentDao
@@ -24,6 +26,7 @@ import com.example.sera_application.data.local.entity.UserEntity
     version = 5,
     exportSchema = false
 )
+@TypeConverters(EventCategoryConverter::class)
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun userDao(): UserDao

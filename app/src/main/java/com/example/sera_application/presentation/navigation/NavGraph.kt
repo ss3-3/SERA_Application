@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -20,11 +21,13 @@ import com.example.sera_application.presentation.viewmodel.event.EventFormViewMo
 @Composable
 fun MainNavGraph(
     navController: NavHostController = rememberNavController(),
-    startDestination: String = Screen.EventList.route
+    startDestination: String = Screen.EventList.route,
+    modifier: Modifier = Modifier
 ) {
     NavHost(
         navController = navController,
-        startDestination = startDestination
+        startDestination = startDestination,
+        modifier = modifier
     ) {
         // Event List Screen (Participant)
         composable(Screen.EventList.route) {
@@ -96,12 +99,12 @@ fun MainNavGraph(
                     // For now, using placeholder values
                     viewModel.submitEvent(
                         formData = formData,
-                        isEditMode = false,
-                        organizerId = "organizer_1", // TODO: Get from current user
-                        organizerName = "Organizer Name" // TODO: Get from current user
+                        isEditMode = false
                     )
                 },
-                onImagePickClick = { /* TODO: Handle image pick */ }
+                onImageSelected = { uri ->
+                    viewModel.onImageSelected(uri)
+                }
             )
         }
 
@@ -148,7 +151,9 @@ fun MainNavGraph(
                         isEditMode = true
                     )
                 },
-                onImagePickClick = { /* TODO: Handle image pick */ }
+                onImageSelected = { uri ->
+                    viewModel.onImageSelected(uri)
+                }
             )
         }
 

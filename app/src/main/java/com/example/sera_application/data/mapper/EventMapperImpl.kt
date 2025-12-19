@@ -5,15 +5,6 @@ import com.example.sera_application.domain.model.Event
 import com.example.sera_application.domain.model.enums.EventStatus
 import javax.inject.Inject
 
-/**
- * Implementation of EventMapper
- * Handles conversion between EventEntity and Event
- *
- * Key conversions:
- * - String ↔ EventStatus enum
- * - Int ↔ Double (prices)
- * - Int ↔ String (duration)
- */
 class EventMapperImpl @Inject constructor() : EventMapper {
 
     override fun toDomain(entity: EventEntity, organizerName: String): Event {
@@ -38,8 +29,8 @@ class EventMapperImpl @Inject constructor() : EventMapper {
             normalZoneSeats = entity.normalZoneSeats,
             totalSeats = entity.totalSeats,
             availableSeats = entity.availableSeats,
-            rockZonePrice = entity.rockZonePrice.toDouble(),
-            normalZonePrice = entity.normalZonePrice.toDouble(),
+            rockZonePrice = entity.rockZonePrice,
+            normalZonePrice = entity.normalZonePrice,
             imagePath = entity.imagePath,
             createdAt = entity.createdAt,
             updatedAt = entity.updatedAt
@@ -47,7 +38,6 @@ class EventMapperImpl @Inject constructor() : EventMapper {
     }
 
     override fun toEntity(domain: Event): EventEntity {
-        // Parse duration string to int (e.g., "2 day(s)" -> 2)
         val durationInt = domain.duration
             .replace(" day(s)", "")
             .replace(" days", "")
@@ -58,6 +48,7 @@ class EventMapperImpl @Inject constructor() : EventMapper {
             eventId = domain.eventId,
             eventName = domain.name,
             organizerId = domain.organizerId,
+            organizerName = domain.organizerName,
             description = domain.description,
             category = domain.category,
             status = domain.status.name,
@@ -72,8 +63,8 @@ class EventMapperImpl @Inject constructor() : EventMapper {
             normalZoneSeats = domain.normalZoneSeats,
             totalSeats = domain.totalSeats,
             availableSeats = domain.availableSeats,
-            rockZonePrice = domain.rockZonePrice.toInt(),
-            normalZonePrice = domain.normalZonePrice.toInt(),
+            rockZonePrice = domain.rockZonePrice,
+            normalZonePrice = domain.normalZonePrice,
             imagePath = domain.imagePath
         )
     }
