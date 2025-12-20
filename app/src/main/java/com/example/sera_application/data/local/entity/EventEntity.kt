@@ -10,17 +10,15 @@ data class EventEntity(
     val eventId: String,
     val eventName: String,
     val organizerId: String, // UserId => organizer role (from id get username)
-    val organizerName: String,
     val description: String,
     val category: EventCategory,
     val status: String, // Store as String, convert to/from EventStatus enum
 
     val createdAt: Long,
     val updatedAt: Long,
-    val date: String,
-    val startTime: String,
-    val endTime: String,
-    val duration: Int, // how many day
+    val date: Long,
+    val startTime: Long,
+    val endTime: Long,
 
     val location: String,
 

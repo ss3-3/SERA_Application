@@ -26,5 +26,7 @@ interface EventRepository {
 
     suspend fun syncEventsFromFirebase(): List<Event>
 
-    suspend fun getPublicEvents(): List<Event>
+//    suspend fun hasVenueTimeConflict(event: Event): Boolean
+
+    suspend fun getApprovedEvents(): List<Event>
 }

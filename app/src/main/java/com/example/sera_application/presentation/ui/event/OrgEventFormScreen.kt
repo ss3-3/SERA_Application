@@ -1,5 +1,6 @@
 package com.example.sera_application.presentation.ui.event
 
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -15,20 +16,28 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.layout.ContentScale
+import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import com.example.sera_application.presentation.viewmodel.event.EventFormViewModel
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 
 data class EventFormData(
     val name: String = "",
-    val date: String = "",
-    val duration: String = "",
-    val time: String = "",
+//    val date: Long? = null,
+//    val time: Long? = null,
+    val dateMillis: Long? = null,     // 📅 picked from DatePicker
+    val startTimeMillis: Long? = null, // ⏰ picked from TimePicker
+    val endTimeMillis: Long? = null,
     val location: String = "",
     val category: String = "",
     val rockZoneSeats: String = "",
@@ -36,7 +45,7 @@ data class EventFormData(
     val rockZonePrice: Double = 0.0,
     val normalZonePrice: Double = 0.0,
     val description: String = "",
-    val imagePath: String? = null // Local file path (e.g. /data/user/0/.../event_123.jpg)
+    val imagePath: String? = null // Can be drawable name or local file path
 )
 
 data class VenueCapacity(
@@ -49,59 +58,83 @@ data class VenueCapacity(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventFormScreen(
-    eventId: String? = null, // null for create mode
-    isEditMode: Boolean = false,              // TRUE = Edit mode, FALSE = Create mode
-    initialEventData: EventFormData? = null,  // Pre-filled data for Edit mode
+    eventId: String? = null,
+    isEditMode: Boolean = false,
+    initialEventData: EventFormData? = null,
     onBackClick: () -> Unit = {},
-    onSubmitClick: (EventFormData) -> Unit = {},  // Returns form data when submitted
-    onImageSelected: ((android.net.Uri) -> Unit)? = null
+    onSubmitClick: (EventFormData) -> Unit = {},
+    onImageSelected: ((Uri) -> Unit)? = null
 ) {
-    // Track selected image URI
-    var selectedImageUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
 
-    // Image picker launcher
     val imagePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
         uri?.let {
             selectedImageUri = it
-
             onImageSelected?.invoke(it)
         }
     }
 
-    // Initialize form fields
-    // If Edit mode: use initialEventData values, otherwise use empty strings
-    var eventName by remember { mutableStateOf(initialEventData?.name ?: "") }
-    var eventDate by remember { mutableStateOf(initialEventData?.date ?: "") }
-    var eventDuration by remember { mutableStateOf(initialEventData?.duration ?: "") }
-    var eventTime by remember { mutableStateOf(initialEventData?.time ?: "") }
-    var selectedLocation by remember { mutableStateOf(initialEventData?.location ?: "") }
-    var selectedCategory by remember { mutableStateOf(initialEventData?.category ?: "") }
-    var rockZoneSeats by remember { mutableStateOf(initialEventData?.rockZoneSeats ?: "") }
-    var normalZoneSeats by remember { mutableStateOf(initialEventData?.normalZoneSeats ?: "") }
-    // !!!ADD SEAT PRICE!!!
-    // Use String for UI state, convert Double to String for edit mode!!!
-    var rockZonePrice by remember {
-        mutableStateOf(
-            if (initialEventData?.rockZonePrice != null && initialEventData.rockZonePrice > 0.0)
-                String.format("%.2f", initialEventData.rockZonePrice)
-            else ""
-        )
-    }
-    var normalZonePrice by remember {
-        mutableStateOf(
-            if (initialEventData?.normalZonePrice != null && initialEventData.normalZonePrice > 0.0)
-                String.format("%.2f", initialEventData.normalZonePrice)
-            else ""
-        )
-    }
-    // !!!ADD SEAT PRICE!!!
-    var eventDescription by remember { mutableStateOf(initialEventData?.description ?: "") }
+    var eventName by remember { mutableStateOf("") }
+    var eventDateMillis by remember { mutableStateOf<Long?>(null) }
+    var eventDateText by remember { mutableStateOf("") }
+//    var eventDuration by remember { mutableStateOf("") }
+    var eventStartTime by remember { mutableStateOf("") }
+    var eventEndTime by remember { mutableStateOf("") }
+    var selectedLocation by remember { mutableStateOf("") }
+    var selectedCategory by remember { mutableStateOf("") }
+    var rockZoneSeats by remember { mutableStateOf("") }
+    var normalZoneSeats by remember { mutableStateOf("") }
+    var rockZonePrice by remember { mutableStateOf("") }
+    var normalZonePrice by remember { mutableStateOf("") }
+    var eventDescription by remember { mutableStateOf("") }
     var locationExpanded by remember { mutableStateOf(false) }
     var categoryExpanded by remember { mutableStateOf(false) }
 
-    // !!!LIST MAY NEED TO STORE IN VIEW MODEL, predefined venue capacity
+    // Dialog states
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showStartTimePicker by remember { mutableStateOf(false) }
+    var showEndTimePicker by remember { mutableStateOf(false) }
+
+    LaunchedEffect(initialEventData) {
+        initialEventData?.let { data ->
+            eventName = data.name
+
+            data.dateMillis?.let { millis ->
+                eventDateMillis = millis
+                eventDateText = SimpleDateFormat(
+                    "dd/MM/yyyy",
+                    Locale.getDefault()
+                ).format(millis)
+            }
+
+            data.startTimeMillis?.let { millis ->
+                eventStartTime = SimpleDateFormat(
+                    "hh:mm a",
+                    Locale.getDefault()
+                ).format(millis)
+            }
+
+            data.endTimeMillis?.let {
+                eventEndTime = SimpleDateFormat(
+                    "hh:mm a",
+                    Locale.getDefault()
+                ).format(it)
+            }
+
+            selectedLocation = data.location
+            selectedCategory = data.category
+            rockZoneSeats = data.rockZoneSeats
+            normalZoneSeats = data.normalZoneSeats
+            rockZonePrice =
+                if (data.rockZonePrice > 0) "%.2f".format(data.rockZonePrice) else ""
+            normalZonePrice =
+                if (data.normalZonePrice > 0) "%.2f".format(data.normalZonePrice) else ""
+            eventDescription = data.description
+        }
+    }
+
     val venueCapacities = listOf(
         VenueCapacity("DSA, TARUMT (300 seats)", 300, 50, 250),
         VenueCapacity("Rimba, TARUMT (400 seats)", 400, 80, 320),
@@ -111,17 +144,15 @@ fun EventFormScreen(
     )
 
     val locationOptions = venueCapacities.map { it.name }
-
     val categoryOptions = listOf("Academic", "Career", "Art", "Wellness", "Music", "Festival")
 
-    // Dynamic title and button text based on mode
     val screenTitle = if (isEditMode) "Edit Event" else "Create Event"
     val submitButtonText = if (isEditMode) "Save" else "Create"
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(screenTitle, fontSize = 18.sp) },  // Dynamic title
+                title = { Text(screenTitle, fontSize = 18.sp) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -135,6 +166,74 @@ fun EventFormScreen(
             )
         }
     ) { padding ->
+
+        // --- DIALOGS ---
+        if (showDatePicker) {
+            val datePickerState = rememberDatePickerState()
+            DatePickerDialog(
+                onDismissRequest = { showDatePicker = false },
+                confirmButton = {
+                    TextButton(onClick = {
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+                            eventDateMillis = millis
+                            eventDateText = sdf.format(millis)
+                        }
+                        showDatePicker = false
+                    }) {
+                        Text("OK")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDatePicker = false }) {
+                        Text("Cancel")
+                    }
+                }
+            ) {
+                DatePicker(state = datePickerState)
+            }
+        }
+
+        if (showStartTimePicker) {
+            val timePickerState = rememberTimePickerState()
+            AlertDialog(
+                onDismissRequest = { showStartTimePicker = false },
+                title = { Text("Select Start Time") },
+                text = { TimePicker(state = timePickerState, modifier = Modifier.fillMaxWidth()) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val cal = Calendar.getInstance()
+                        cal.set(Calendar.HOUR_OF_DAY, timePickerState.hour)
+                        cal.set(Calendar.MINUTE, timePickerState.minute)
+                        eventStartTime = SimpleDateFormat("hh:mm a", Locale.getDefault()).format(cal.time)
+                        showStartTimePicker = false
+                    }) {
+                        Text("OK")
+                    }
+                }
+            )
+        }
+
+        if (showEndTimePicker) {
+            val timePickerState = rememberTimePickerState()
+            AlertDialog(
+                onDismissRequest = { showEndTimePicker = false },
+                title = { Text("Select End Time") },
+                text = { TimePicker(state = timePickerState, modifier = Modifier.fillMaxWidth()) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val cal = Calendar.getInstance()
+                        cal.set(Calendar.HOUR_OF_DAY, timePickerState.hour)
+                        cal.set(Calendar.MINUTE, timePickerState.minute)
+                        eventEndTime = SimpleDateFormat("hh:mm a", Locale.getDefault()).format(cal.time)
+                        showEndTimePicker = false
+                    }) {
+                        Text("OK")
+                    }
+                }
+            )
+        }
+
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -145,112 +244,62 @@ fun EventFormScreen(
             item { Spacer(modifier = Modifier.height(20.dp)) }
 
             // Event Profile Picture
-            // In Edit mode: shows existing image, In Create mode: shows placeholder
             item {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(if (isEditMode) 140.dp else 160.dp)
+                        .height(160.dp)
                         .border(2.dp, Color(0xFFE0E0E0), RoundedCornerShape(12.dp))
-                        .clickable{
-                            imagePicker.launch("image/*")
-                        },
+                        .clickable { imagePicker.launch("image/*") },
                     contentAlignment = Alignment.Center
                 ) {
-                    // Show newly selected image first, then existing image, then placeholder
-                    when {
-                        selectedImageUri != null -> {
-                            AsyncImage(
-                                model = selectedImageUri,
-                                contentDescription = "Selected Event Image",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
+                    val imagePath = initialEventData?.imagePath
+                    val context = LocalContext.current
+
+                    val imageModel: Any? = remember(imagePath, selectedImageUri) {
+                        if (selectedImageUri != null) {
+                            selectedImageUri
+                        } else if (!imagePath.isNullOrBlank()) {
+                            val drawableId = context.resources.getIdentifier(
+                                imagePath,
+                                "drawable",
+                                context.packageName
                             )
-                        }
-                        !initialEventData?.imagePath.isNullOrBlank() -> {
-                            AsyncImage(
-                                model = File(initialEventData?.imagePath!!),
-                                contentDescription = "Event Image",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
-                            )
-                        }
-                        else -> {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(
-                                    imageVector = Icons.Default.Image,
-                                    contentDescription = "Upload Image",
-                                    modifier = Modifier.size(48.dp),
-                                    tint = Color.Gray
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = "Tap to upload image",
-                                    fontSize = 14.sp,
-                                    color = Color.Gray
-                                )
+                            if (drawableId != 0) {
+                                drawableId // It's a drawable resource ID
+                            } else if (imagePath.startsWith("/")) {
+                                File(imagePath) // It's a local file path
+                            } else {
+                                imagePath // Assume it's a URL
                             }
+                        } else {
+                            null
                         }
                     }
-//                    // !!!initialEventData != null -> eventName.isNotEmpty()!!!
-//                    if (isEditMode && initialEventData != null) {
-//                        // EDIT MODE: Show existing event image
-//                        val context = LocalContext.current
-//                        val imageRes = remember(initialEventData.imagePath) {
-//                            if (initialEventData.imagePath != null && initialEventData.imagePath.isNotBlank()) {
-//                                context.resources.getIdentifier(
-//                                    initialEventData.imagePath,
-//                                    "drawable",
-//                                    context.packageName
-//                                )
-//                            } else {
-//                                0
-//                            }
-//                        }
-//
-//                        if (imageRes != 0) {
-//                            Image(
-//                                painter = painterResource(id = imageRes),
-//                                contentDescription = eventName,
-//                                modifier = Modifier.fillMaxSize(),
-//                                contentScale = ContentScale.Crop
-//                            )
-//                        } else {
-//                            Box(
-//                                modifier = Modifier
-//                                    .fillMaxSize()
-//                                    .background(Color(0xFF1A1A2E), RoundedCornerShape(12.dp)),
-//                                contentAlignment = Alignment.Center
-//                            ) {
-//                                Text(
-//                                    text = eventName,
-//                                    fontSize = 16.sp,
-//                                    fontWeight = FontWeight.Bold,
-//                                    color = Color.White,
-//                                    textAlign = TextAlign.Center
-//                                )
-//                            }
-//                        }
-//                    } else {
-//                        // CREATE MODE: Show upload placeholder
-//                        Column(
-//                            horizontalAlignment = Alignment.CenterHorizontally
-//                        ) {
-//                            Icon(
-//                                imageVector = Icons.Default.Image,
-//                                contentDescription = "Upload Image",
-//                                modifier = Modifier.size(48.dp),
-//                                tint = Color.Gray
-//                            )
-//                            Spacer(modifier = Modifier.height(8.dp))
-//                            Text(
-//                                // !!!TAP TO UPLOAD IMAGE??!!!
-//                                text = "Event profile picture",
-//                                fontSize = 14.sp,
-//                                color = Color.Gray
-//                            )
-//                        }
-//                    }
+
+                    if (imageModel != null) {
+                        AsyncImage(
+                            model = imageModel,
+                            contentDescription = "Event Image",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = Icons.Default.Image,
+                                contentDescription = "Upload Image",
+                                modifier = Modifier.size(48.dp),
+                                tint = Color.Gray
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Tap to upload image",
+                                fontSize = 14.sp,
+                                color = Color.Gray
+                            )
+                        }
+                    }
                 }
             }
 
@@ -262,10 +311,7 @@ fun EventFormScreen(
                 OutlinedTextField(
                     value = eventName,
                     onValueChange = { eventName = it },
-                    placeholder = {
-                        // Only show placeholder in Create mode
-                        if (!isEditMode) Text("Enter event name", fontSize = 14.sp, color = Color.Gray)
-                    },
+                    placeholder = { Text("Enter event name", fontSize = 14.sp, color = Color.Gray) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(8.dp),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -287,54 +333,83 @@ fun EventFormScreen(
                     Column(modifier = Modifier.weight(1f)) {
                         FormFieldLabel("Date", isRequired = true)
                         OutlinedTextField(
-                            value = eventDate,
-                            onValueChange = { eventDate = it },
-                            placeholder = { if (!isEditMode) Text("Enter date", fontSize = 14.sp, color = Color.Gray) },
-                            modifier = Modifier.fillMaxWidth(),
+                            value = eventDateText,
+                            onValueChange = {},
+                            readOnly = true,
+                            placeholder = { Text("Select date", fontSize = 14.sp, color = Color.Gray) },
+                            modifier = Modifier.fillMaxWidth().clickable { showDatePicker = true },
                             shape = RoundedCornerShape(8.dp),
                             colors = OutlinedTextFieldDefaults.colors(
                                 unfocusedBorderColor = Color(0xFFE0E0E0),
                                 focusedBorderColor = Color(0xFF2196F3)
                             ),
+                            trailingIcon = { Icon(Icons.Default.CalendarToday, "Select Date") },
                             singleLine = true
                         )
                     }
 
-                    Column(modifier = Modifier.weight(1f)) {
-                        FormFieldLabel("Duration", isRequired = true)
-                        OutlinedTextField(
-                            value = eventDuration,
-                            onValueChange = { eventDuration = it },
-                            placeholder = { if (!isEditMode) Text("Enter duration", fontSize = 14.sp, color = Color.Gray) },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(8.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                unfocusedBorderColor = Color(0xFFE0E0E0),
-                                focusedBorderColor = Color(0xFF2196F3)
-                            ),
-                            singleLine = true
-                        )
-                    }
+//                    Column(modifier = Modifier.weight(1f)) {
+//                        FormFieldLabel("Duration", isRequired = true)
+//                        OutlinedTextField(
+//                            value = eventDuration,
+//                            onValueChange = { eventDuration = it },
+//                            placeholder = { Text("Enter duration", fontSize = 14.sp, color = Color.Gray) },
+//                            modifier = Modifier.fillMaxWidth(),
+//                            shape = RoundedCornerShape(8.dp),
+//                            colors = OutlinedTextFieldDefaults.colors(
+//                                unfocusedBorderColor = Color(0xFFE0E0E0),
+//                                focusedBorderColor = Color(0xFF2196F3)
+//                            ),
+//                            singleLine = true
+//                        )
+//                    }
                 }
             }
 
             item { Spacer(modifier = Modifier.height(16.dp)) }
 
-            // Time Field
+            // Time Row
             item {
-                FormFieldLabel("Time", isRequired = true)
-                OutlinedTextField(
-                    value = eventTime,
-                    onValueChange = { eventTime = it },
-                    placeholder = { if (!isEditMode) Text("Enter time", fontSize = 14.sp, color = Color.Gray) },
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedBorderColor = Color(0xFFE0E0E0),
-                        focusedBorderColor = Color(0xFF2196F3)
-                    ),
-                    singleLine = true
-                )
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        FormFieldLabel("Start Time", isRequired = true)
+                        OutlinedTextField(
+                            value = eventStartTime,
+                            onValueChange = {},
+                            readOnly = true,
+                            placeholder = { Text("Select time", fontSize = 14.sp, color = Color.Gray) },
+                            modifier = Modifier.fillMaxWidth().clickable { showStartTimePicker = true },
+                            shape = RoundedCornerShape(8.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                unfocusedBorderColor = Color(0xFFE0E0E0),
+                                focusedBorderColor = Color(0xFF2196F3)
+                            ),
+                            trailingIcon = { Icon(Icons.Default.AccessTime, "Select Time") },
+                            singleLine = true
+                        )
+                    }
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        FormFieldLabel("End Time", isRequired = true)
+                        OutlinedTextField(
+                            value = eventEndTime,
+                            onValueChange = {},
+                            readOnly = true,
+                            placeholder = { Text("Select time", fontSize = 14.sp, color = Color.Gray) },
+                            modifier = Modifier.fillMaxWidth().clickable { showEndTimePicker = true },
+                            shape = RoundedCornerShape(8.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                unfocusedBorderColor = Color(0xFFE0E0E0),
+                                focusedBorderColor = Color(0xFF2196F3)
+                            ),
+                            trailingIcon = { Icon(Icons.Default.AccessTime, "Select Time") },
+                            singleLine = true
+                        )
+                    }
+                }
             }
 
             item { Spacer(modifier = Modifier.height(16.dp)) }
@@ -350,16 +425,9 @@ fun EventFormScreen(
                         value = selectedCategory,
                         onValueChange = {},
                         readOnly = true,
-                        placeholder = { if (!isEditMode) Text("Select a category", fontSize = 14.sp, color = Color.Gray) },
-                        trailingIcon = {
-                            Icon(
-                                imageVector = if (categoryExpanded) Icons.Default.ArrowDropUp else Icons.Default.ArrowDropDown,
-                                contentDescription = "Dropdown"
-                            )
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor(),
+                        placeholder = { Text("Select a category", fontSize = 14.sp, color = Color.Gray) },
+                        trailingIcon = { Icon(Icons.Default.ArrowDropDown, "Dropdown") },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(),
                         shape = RoundedCornerShape(8.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             unfocusedBorderColor = Color(0xFFE0E0E0),
@@ -397,16 +465,9 @@ fun EventFormScreen(
                         value = selectedLocation,
                         onValueChange = {},
                         readOnly = true,
-                        placeholder = { if (!isEditMode) Text("Select a location", fontSize = 14.sp, color = Color.Gray) },
-                        trailingIcon = {
-                            Icon(
-                                imageVector = if (locationExpanded) Icons.Default.ArrowDropUp else Icons.Default.ArrowDropDown,
-                                contentDescription = "Dropdown"
-                            )
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor(),
+                        placeholder = { Text("Select a location", fontSize = 14.sp, color = Color.Gray) },
+                        trailingIcon = { Icon(Icons.Default.ArrowDropDown, "Dropdown") },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(),
                         shape = RoundedCornerShape(8.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             unfocusedBorderColor = Color(0xFFE0E0E0),
@@ -425,7 +486,6 @@ fun EventFormScreen(
                                     selectedLocation = location
                                     locationExpanded = false
 
-                                    // Autofill rock and normal zone seats
                                     val selectedVenue = venueCapacities.find { it.name == location }
                                     if (selectedVenue != null) {
                                         rockZoneSeats = selectedVenue.rockZoneSeats.toString()
@@ -440,7 +500,7 @@ fun EventFormScreen(
 
             item { Spacer(modifier = Modifier.height(16.dp)) }
 
-            // Rock Zone and Normal Zone Seats
+            // Seats
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -451,7 +511,7 @@ fun EventFormScreen(
                         OutlinedTextField(
                             value = rockZoneSeats,
                             onValueChange = { rockZoneSeats = it },
-                            placeholder = { if (!isEditMode) Text("Seats quantity", fontSize = 14.sp, color = Color.Gray) },
+                            placeholder = { Text("Seats quantity", fontSize = 14.sp, color = Color.Gray) },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(8.dp),
                             enabled = false,
@@ -461,7 +521,7 @@ fun EventFormScreen(
                                 disabledContainerColor = Color(0xFFF5F5F5)
                             ),
                             singleLine = true,
-                            readOnly = true // autofill - cannot fill in
+                            readOnly = true
                         )
                     }
 
@@ -470,7 +530,7 @@ fun EventFormScreen(
                         OutlinedTextField(
                             value = normalZoneSeats,
                             onValueChange = { normalZoneSeats = it },
-                            placeholder = { if (!isEditMode) Text("Seats quantity", fontSize = 14.sp, color = Color.Gray) },
+                            placeholder = { Text("Seats quantity", fontSize = 14.sp, color = Color.Gray) },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(8.dp),
                             enabled = false,
@@ -488,7 +548,7 @@ fun EventFormScreen(
 
             item { Spacer(modifier = Modifier.height(16.dp)) }
 
-            // Rock Zone and Normal Zone Price
+            // Price
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -498,34 +558,18 @@ fun EventFormScreen(
                         FormFieldLabel("Rock zone price", isRequired = true)
                         OutlinedTextField(
                             value = rockZonePrice,
-
                             onValueChange = { input ->
-//                                val cleaned = input.replace("[^0-9.]".toRegex(), "")
-//
-//                                // Match numbers with optional decimal part (max 2 decimals)
-//                                if (cleaned.matches(Regex("^\\d+(\\.\\d{0,2})?$"))) {
-//                                    rockZonePrice = cleaned
-//                                }
                                 if (input.isEmpty()) {
                                     rockZonePrice = ""
                                 } else {
-                                    // !!!Remove non-numeric characters except decimal point!!!
                                     val cleaned = input.filter { it.isDigit() || it == '.' }
-
-                                    // !!!Validate format: digits with optional decimal (max 2 decimals)!!!
-                                    // !!!Allow partial inputs like "5." for better UX!!!
                                     if (cleaned.matches(Regex("^\\d+\\.?\\d{0,2}$"))) {
                                         rockZonePrice = cleaned
                                     }
                                 }
                             },
-                            placeholder = {
-                                if (!isEditMode)
-                                    Text("0.00", fontSize = 14.sp, color = Color.Gray)
-                            },
-                            leadingIcon = {
-                                Text("RM", fontSize = 14.sp, color = Color.Black)
-                            },
+                            placeholder = { Text("0.00", fontSize = 14.sp, color = Color.Gray) },
+                            leadingIcon = { Text("RM", fontSize = 14.sp, color = Color.Black) },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(8.dp),
                             colors = OutlinedTextFieldDefaults.colors(
@@ -541,32 +585,17 @@ fun EventFormScreen(
                         OutlinedTextField(
                             value = normalZonePrice,
                             onValueChange = { input ->
-//                                val cleaned = input.replace("[^0-9.]".toRegex(), "")
-//
-//                                // Match numbers with optional decimal part (max 2 decimals)
-//                                if (cleaned.matches(Regex("^\\d+(\\.\\d{0,2})?$"))) {
-//                                    normalZonePrice = cleaned
-//                                }
                                 if (input.isEmpty()) {
                                     normalZonePrice = ""
                                 } else {
-                                    // !!!Remove non-numeric characters except decimal point!!!
                                     val cleaned = input.filter { it.isDigit() || it == '.' }
-
-                                    // !!!Validate format: digits with optional decimal (max 2 decimals)!!!
-                                    // !!!Allow partial inputs like "5." for better UX!!!
                                     if (cleaned.matches(Regex("^\\d+\\.?\\d{0,2}$"))) {
                                         normalZonePrice = cleaned
                                     }
                                 }
                             },
-                            placeholder = {
-                                if (!isEditMode)
-                                    Text("0.00", fontSize = 14.sp, color = Color.Gray)
-                            },
-                            leadingIcon = {
-                                Text("RM", fontSize = 14.sp, color = Color.Black)
-                            },
+                            placeholder = { Text("0.00", fontSize = 14.sp, color = Color.Gray) },
+                            leadingIcon = { Text("RM", fontSize = 14.sp, color = Color.Black) },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(8.dp),
                             colors = OutlinedTextFieldDefaults.colors(
@@ -587,10 +616,8 @@ fun EventFormScreen(
                 OutlinedTextField(
                     value = eventDescription,
                     onValueChange = { eventDescription = it },
-                    placeholder = { if (!isEditMode) Text("Enter description", fontSize = 14.sp, color = Color.Gray) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(120.dp),
+                    placeholder = { Text("Enter description", fontSize = 14.sp, color = Color.Gray) },
+                    modifier = Modifier.fillMaxWidth().height(120.dp),
                     shape = RoundedCornerShape(8.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         unfocusedBorderColor = Color(0xFFE0E0E0),
@@ -602,91 +629,49 @@ fun EventFormScreen(
 
             item { Spacer(modifier = Modifier.height(24.dp)) }
 
-            // Submit Button (Create or Save based on mode)
+            // Submit Button
             item {
                 var showError by remember { mutableStateOf(false) }
                 var errorMessage by remember { mutableStateOf("") }
 
-                // !!!Show error message if validation fails!!!
                 if (showError) {
                     Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 12.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = Color(0xFFFFEBEE)
-                        ),
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Row(
                             modifier = Modifier.padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Warning,
-                                contentDescription = "Warning",
-                                tint = Color(0xFFD32F2F),
-                                modifier = Modifier.size(20.dp)
-                            )
+                            Icon(Icons.Default.Warning, "Warning", tint = Color(0xFFD32F2F), modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = errorMessage,
-                                fontSize = 13.sp,
-                                color = Color(0xFFD32F2F)
-                            )
+                            Text(errorMessage, fontSize = 13.sp, color = Color(0xFFD32F2F))
                         }
                     }
                 }
 
-                // Validation
                 Button(
                     onClick = {
-                        // Validate all required fields before submission!!!
                         when {
-                            eventName.isBlank() -> {
+                            eventName.isBlank() -> { showError = true; errorMessage = "Please enter event name" }
+                            eventDateMillis == null -> {
                                 showError = true
-                                errorMessage = "Please enter event name"
-                            }
-                            eventDate.isBlank() -> {
-                                showError = true
-                                errorMessage = "Please enter event date"
-                            }
-                            eventDuration.isBlank() -> {
-                                showError = true
-                                errorMessage = "Please enter event duration"
-                            }
-                            eventTime.isBlank() -> {
-                                showError = true
-                                errorMessage = "Please enter event time"
-                            }
-                            selectedCategory.isBlank() -> {
-                                showError = true
-                                errorMessage = "Please select a category"
-                            }
-                            selectedLocation.isBlank() -> {
-                                showError = true
-                                errorMessage = "Please select a location"
-                            }
-                            rockZonePrice.isBlank() || rockZonePrice.toDoubleOrNull() == null -> {
-                                showError = true
-                                errorMessage = "Please enter valid rock zone price"
-                            }
-                            normalZonePrice.isBlank() || normalZonePrice.toDoubleOrNull() == null -> {
-                                showError = true
-                                errorMessage = "Please enter valid normal zone price"
-                            }
-                            eventDescription.isBlank() -> {
-                                showError = true
-                                errorMessage = "Please enter event description"
-                            }
+                                errorMessage = "Please select event date"
+                            }//                            eventDuration.isBlank() -> { showError = true; errorMessage = "Please enter event duration" }
+                            eventStartTime.isBlank() || eventEndTime.isBlank() -> { showError = true; errorMessage = "Please select a start and end time" }
+                            selectedCategory.isBlank() -> { showError = true; errorMessage = "Please select a category" }
+                            selectedLocation.isBlank() -> { showError = true; errorMessage = "Please select a location" }
+                            rockZonePrice.isBlank() || rockZonePrice.toDoubleOrNull() == null -> { showError = true; errorMessage = "Please enter valid rock zone price" }
+                            normalZonePrice.isBlank() || normalZonePrice.toDoubleOrNull() == null -> { showError = true; errorMessage = "Please enter valid normal zone price" }
+                            eventDescription.isBlank() -> { showError = true; errorMessage = "Please enter event description" }
                             else -> {
-                                // !!!All validations passed, submit the form!!!
                                 showError = false
                                 val formData = EventFormData(
                                     name = eventName,
-                                    date = eventDate,
-                                    duration = eventDuration,
-                                    time = eventTime,
+                                    dateMillis = eventDateMillis,
+                                    startTimeMillis = parseTime(eventDateMillis, eventStartTime),
+                                    endTimeMillis = parseTime(eventDateMillis, eventEndTime),
                                     location = selectedLocation,
                                     category = selectedCategory,
                                     rockZoneSeats = rockZoneSeats,
@@ -694,25 +679,17 @@ fun EventFormScreen(
                                     rockZonePrice = rockZonePrice.toDoubleOrNull() ?: 0.0,
                                     normalZonePrice = normalZonePrice.toDoubleOrNull() ?: 0.0,
                                     description = eventDescription,
-                                    imagePath = null)
+                                    imagePath = initialEventData?.imagePath
+                                )
                                 onSubmitClick(formData)
                             }
                         }
                     },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF2196F3)
-                    ),
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3)),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text(
-                        text = submitButtonText,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
+                    Text(submitButtonText, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
                 }
             }
 
@@ -721,25 +698,39 @@ fun EventFormScreen(
     }
 }
 
+private fun parseTime(dateMillis: Long?, timeStr: String): Long? {
+    if (dateMillis == null || timeStr.isBlank()) return null
 
-// Helper composable for consistent field labels
+    val dateCal = Calendar.getInstance().apply {
+        timeInMillis = dateMillis
+    }
+
+    val parsedTime = SimpleDateFormat(
+        "hh:mm a",
+        Locale.getDefault()
+    ).parse(timeStr) ?: return null
+
+    val timeCal = Calendar.getInstance().apply {
+        time = parsedTime
+    }
+
+    return Calendar.getInstance().apply {
+        set(Calendar.YEAR, dateCal.get(Calendar.YEAR))
+        set(Calendar.MONTH, dateCal.get(Calendar.MONTH))
+        set(Calendar.DAY_OF_MONTH, dateCal.get(Calendar.DAY_OF_MONTH))
+        set(Calendar.HOUR_OF_DAY, timeCal.get(Calendar.HOUR_OF_DAY))
+        set(Calendar.MINUTE, timeCal.get(Calendar.MINUTE))
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+}
+
 @Composable
 private fun FormFieldLabel(text: String, isRequired: Boolean = false) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            text = text,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium,
-            color = Color.Black
-        )
-        // Show red asterisk (*) for compulsory field
+        Text(text, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color.Black)
         if (isRequired) {
-            Text(
-                text = " *",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Red
-            )
+            Text(" *", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.Red)
         }
     }
     Spacer(modifier = Modifier.height(8.dp))
@@ -751,11 +742,11 @@ private fun FormFieldLabel(text: String, isRequired: Boolean = false) {
 fun CreateEventScreen(
     onBackClick: () -> Unit = {},
     onCreateClick: (EventFormData) -> Unit = {},
-    onImageSelected: ((android.net.Uri) -> Unit)? = null
+    onImageSelected: ((Uri) -> Unit)? = null
 ) {
     EventFormScreen(
-        isEditMode = false,           // CREATE MODE
-        initialEventData = null,      // No initial data - empty form
+        isEditMode = false,
+        initialEventData = null,
         onBackClick = onBackClick,
         onSubmitClick = onCreateClick,
         onImageSelected = onImageSelected
@@ -765,35 +756,52 @@ fun CreateEventScreen(
 @Composable
 fun EditEventScreen(
     eventId: String,
-    onBackClick: () -> Unit = {},
-    onSaveClick: (EventFormData) -> Unit = {},
-    onImageSelected: ((android.net.Uri) -> Unit)? = null
+    viewModel: EventFormViewModel = hiltViewModel(),
+    onBackClick: () -> Unit = {}
 ) {
-    // TODO: Load event data from ViewModel using eventId
-    // For now, using sample data
-    val existingEventData = EventFormData(
-        name = "MUSIC FIESTA 6.0",
-        date = "12/01/2026",
-        duration = "3 hour",
-        time = "19.00 PM",
-        location = "Rimba, TARUMT (400 seats)",
-        category = "Music",
-        rockZoneSeats = "80",
-        normalZoneSeats = "320",
-        rockZonePrice = 60.00,
-        normalZonePrice = 35.00,
-        description = "Music fiesta 6.0 is a large-scale campus concert and carnival proudly organized by Music Society of Tunku Abdul Rahman University of Management and Technology (TARUMT).",
-        imagePath = null
-//        imagePath = "musicfiesta" // Sample drawable name for preview
-    )
+    val uiState by viewModel.uiState.collectAsState()
 
-    EventFormScreen(
-        isEditMode = true,                      // EDIT MODE
-        initialEventData = existingEventData,   // Pre-filled with existing data
-        onBackClick = onBackClick,
-        onSubmitClick = onSaveClick,
-        onImageSelected = onImageSelected
-    )
+    LaunchedEffect(eventId) {
+        viewModel.loadEvent(eventId)
+    }
+
+    // Automatically navigate back on success
+    LaunchedEffect(uiState.isSuccess) {
+        if (uiState.isSuccess) {
+            viewModel.resetSuccessState() // Reset the flag to prevent re-navigation
+            onBackClick()
+        }
+    }
+
+    when {
+        uiState.isLoading -> {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        }
+        uiState.errorMessage != null -> {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(uiState.errorMessage!!)
+            }
+        }
+        else -> {
+            val formData = viewModel.getEventFormData()
+            EventFormScreen(
+                isEditMode = true,
+                initialEventData = formData,
+                onBackClick = onBackClick,
+                onSubmitClick = { submittedForm ->
+                    viewModel.submitEvent(
+                        formData = submittedForm,
+                        isEditMode = true
+                    )
+                },
+                onImageSelected = { uri ->
+                    viewModel.onImageSelected(uri)
+                }
+            )
+        }
+    }
 }
 
 // ==================== PREVIEWS ====================

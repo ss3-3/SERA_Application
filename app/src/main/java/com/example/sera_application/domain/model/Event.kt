@@ -2,6 +2,9 @@ package com.example.sera_application.domain.model
 
 import com.example.sera_application.domain.model.enums.EventCategory
 import com.example.sera_application.domain.model.enums.EventStatus
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 data class Event(
     val eventId: String = "",
@@ -13,10 +16,9 @@ data class Event(
     val status: EventStatus = EventStatus.PENDING,
 
     // Date & Time
-    val date: String,              // Format: "DD/MM/YYYY"
-    val startTime: String,         // Format: "HH:MM AM/PM"
-    val endTime: String,           // Format: "HH:MM AM/PM"
-    val duration: String,          // Format: "X hour(s)"
+    val date: Long,              // Format: "DD/MM/YYYY"
+    val startTime: Long,         // Format: "HH:MM AM/PM"
+    val endTime: Long,           // Format: "HH:MM AM/PM"
 
     // Location
     val location: String,          // Full: "Rimba, TARUMT (400 seats)"
@@ -55,5 +57,8 @@ data class Event(
      * Helper property to get full time range
      */
     val timeRange: String
-        get() = "$startTime - $endTime"
+        get() {
+            val format = SimpleDateFormat("hh:mm a", Locale.getDefault())
+            return "${format.format(Date(startTime))} - ${format.format(Date(endTime))}"
+        }
 }

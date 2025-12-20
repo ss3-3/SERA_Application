@@ -22,7 +22,7 @@ import com.example.sera_application.data.local.entity.UserEntity
         PaymentEntity::class,
 //        NotificationEntity::class
     ],
-    version = 5,
+    version = 7, // Incremented version to migrate schema
     exportSchema = false
 )
 @TypeConverters(EventCategoryConverter::class)

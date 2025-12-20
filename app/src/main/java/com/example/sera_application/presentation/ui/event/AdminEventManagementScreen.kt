@@ -2,7 +2,6 @@ package com.example.sera_application.presentation.ui.event
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -30,13 +29,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import com.example.sera_application.domain.model.enums.EventStatus
 import com.example.sera_application.presentation.viewmodel.event.AdminEventManagementViewModel
+import com.example.sera_application.utils.DateTimeFormatterUtil
 
 // UI model for admin event list
 data class AdminEventModel(
     val id: String,
     val name: String,
-    val date: String,
-    val time: String,
+    val date: Long,
+    val startTime: Long,
+    val endTime: Long,
     val status: EventStatus,
     val bannerUrl: String? = null
 )
@@ -48,10 +49,9 @@ data class AdminEventDetails(
     val description: String,
     val rockZoneSeats: String,
     val normalZoneSeats: String,
-    val date: String,
-    val duration: String,
-    val startTime: String,
-    val endTime: String,
+    val date: Long,
+    val startTime: Long,
+    val endTime: Long,
     val venue: String,
     val organizer: String,
     val bannerUrl: String? = null
@@ -421,7 +421,13 @@ private fun AdminEventCard(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "${event.date}, ${event.time}",
+                        text = "${
+                            DateTimeFormatterUtil.formatDate(event.date)
+                        }, ${
+                            DateTimeFormatterUtil.formatTime(event.startTime)
+                        } - ${
+                            DateTimeFormatterUtil.formatTime(event.endTime)
+                        }",
                         fontSize = 13.sp,
                         color = Color.Gray
                     )

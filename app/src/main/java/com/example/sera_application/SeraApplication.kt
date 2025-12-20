@@ -2,7 +2,7 @@ package com.example.sera_application
 
 import android.app.Application
 import android.util.Log
-import com.example.sera_application.utils.FirebaseEventInitializer
+import com.example.sera_application.data.util.FirebaseEventInitializer
 import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope

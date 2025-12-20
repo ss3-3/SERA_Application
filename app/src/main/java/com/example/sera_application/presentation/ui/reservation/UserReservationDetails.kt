@@ -26,6 +26,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.sera_application.utils.DateTimeFormatterUtil
+import com.example.sera_application.utils.DateTimeFormatterUtil.formatTimeRange
 
 data class UserReservationDetailUiModel(
     val reservationId: String,
@@ -74,8 +76,15 @@ fun UserReservationDetailScreen(
                 reservationId = reservationVal.reservationId,
                 eventName = eventVal?.name ?: "Unknown Event",
                 venue = eventVal?.location ?: "Unknown Venue",
-                eventDate = eventVal?.date ?: "",
-                eventTime = eventVal?.startTime ?: "",
+                 eventDate = eventVal?.let {
+                     DateTimeFormatterUtil.formatDate(it.date)
+                 } ?: "",
+                 eventTime = if (eventVal != null) {
+                     DateTimeFormatterUtil.formatTimeRange(
+                         eventVal.startTime,
+                         eventVal.endTime
+                     )
+                 } else "",
                 seatNumbers = "${reservationVal.seats} Seats",
                 status = reservationVal.status,
                 transactionDate = java.text.SimpleDateFormat("dd MMM yyyy").format(java.util.Date(reservationVal.createdAt)),

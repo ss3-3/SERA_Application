@@ -30,9 +30,7 @@ class FirebaseEventDataSource(
 
     override suspend fun updateEvent(event: Event) {
         val eventMap = eventToFirestoreMap(event)
-        eventsRef.document(event.eventId)
-            .set(eventMap)
-            .await()
+        eventsRef.document(event.eventId).set(eventMap).await()
     }
 
     override suspend fun deleteEvent(eventId: String) {
@@ -41,106 +39,82 @@ class FirebaseEventDataSource(
 
     override suspend fun getEventList(): List<Event> {
         val snapshot = eventsRef.get().await()
-        return snapshot.documents.mapNotNull { documentSnapshot ->
-            documentSnapshot.toEvent()
-        }
+        return snapshot.documents.mapNotNull { it.toEvent() }
     }
 
-    override suspend fun getEventById(eventId: String): Event? {
-        val document = eventsRef.document(eventId).get().await()
-        return if (document.exists()) {
-            document.toEvent()
-        } else {
-            null
-        }
-    }
-
-    override suspend fun getEventsByOrganizer(organizerId: String): List<Event> {
-        val snapshot = eventsRef
-            .whereEqualTo("organizerId", organizerId)
-            .get()
-            .await()
-        return snapshot.documents.mapNotNull { documentSnapshot ->
-            documentSnapshot.toEvent()
-        }
-    }
-
-    override suspend fun updateEventStatus(eventId: String, status: String) {
-        eventsRef.document(eventId)
-            .update("status", status)
-            .await()
-    }
-
+    // This function is required by the interface.
     override suspend fun getEventListFromFirebase(): List<Event> {
         val snapshot = eventsRef.get().await()
         return snapshot.documents.mapNotNull { it.toEvent() }
     }
 
+    override suspend fun getEventById(eventId: String): Event? {
+        val document = eventsRef.document(eventId).get().await()
+        return if (document.exists()) document.toEvent() else null
+    }
+
+    override suspend fun getEventsByOrganizer(organizerId: String): List<Event> {
+        val snapshot = eventsRef.whereEqualTo("organizerId", organizerId).get().await()
+        return snapshot.documents.mapNotNull { it.toEvent() }
+    }
+
+    override suspend fun updateEventStatus(eventId: String, status: String) {
+        eventsRef.document(eventId).update("status", status).await()
+    }
+
     override suspend fun getPublicEvents(): List<Event> {
-        return firestore.collection("events")
+        val snapshot = firestore.collection("events")
             .whereEqualTo("status", EventStatus.APPROVED.name)
             .limit(10)
             .get()
             .await()
-            .toObjects(Event::class.java)
+        return snapshot.documents.mapNotNull { it.toEvent() }
     }
 
     private fun eventToFirestoreMap(event: Event): Map<String, Any?> {
-        val map = mutableMapOf<String, Any?>()
-        map["eventId"] = event.eventId
-        map["eventName"] = event.name
-        map["organizerId"] = event.organizerId
-        map["organizerName"] = event.organizerName
-        map["description"] = event.description
-        map["category"] = event.category.name
-        map["status"] = event.status.name
-        map["date"] = event.date
-        map["startTime"] = event.startTime
-        map["endTime"] = event.endTime
-        map["duration"] = event.duration
-        map["location"] = event.location
-        map["rockZoneSeats"] = event.rockZoneSeats
-        map["normalZoneSeats"] = event.normalZoneSeats
-        map["totalSeats"] = event.totalSeats
-        map["availableSeats"] = event.availableSeats
-        map["rockZonePrice"] = event.rockZonePrice
-        map["normalZonePrice"] = event.normalZonePrice
-        map["imagePath"] = event.imagePath ?: ""
-        map["createdAt"] = Timestamp.now()
-        map["updatedAt"] = Timestamp.now()
-        return map
+        return mapOf(
+            "eventId" to event.eventId,
+            "eventName" to event.name,
+            "organizerId" to event.organizerId,
+            "organizerName" to event.organizerName,
+            "description" to event.description,
+            "category" to event.category.name,
+            "status" to event.status.name,
+            "date" to Timestamp(event.date / 1000, ((event.date % 1000) * 1_000_000).toInt()),
+            "startTime" to Timestamp(event.startTime / 1000, ((event.startTime % 1000) * 1_000_000).toInt()),
+            "endTime" to Timestamp(event.endTime / 1000, ((event.endTime % 1000) * 1_000_000).toInt()),
+            "location" to event.location,
+            "rockZoneSeats" to event.rockZoneSeats,
+            "normalZoneSeats" to event.normalZoneSeats,
+            "totalSeats" to event.totalSeats,
+            "availableSeats" to event.availableSeats,
+            "rockZonePrice" to event.rockZonePrice,
+            "normalZonePrice" to event.normalZonePrice,
+            "imagePath" to event.imagePath,
+            "createdAt" to Timestamp(event.createdAt / 1000, ((event.createdAt % 1000) * 1_000_000).toInt()),
+            "updatedAt" to Timestamp(event.updatedAt / 1000, ((event.updatedAt % 1000) * 1_000_000).toInt())
+        )
     }
 
     private fun DocumentSnapshot.toEvent(): Event? {
         return try {
             val data = this.data ?: return null
 
-            fun timestampToLong(timestamp: Any?): Long {
-                return when (timestamp) {
-                    is Timestamp -> timestamp.seconds * 1000 + timestamp.nanoseconds / 1_000_000
-                    is Long -> timestamp
-                    else -> System.currentTimeMillis()
-                }
+            fun timestampToLong(field: String): Long {
+                return (data[field] as? Timestamp)?.toDate()?.time ?: 0L
             }
-
-            val categoryStr = data["category"]?.toString() ?: return null
-            val category = EventCategory.valueOf(categoryStr)
-
-            val statusStr = data["status"]?.toString() ?: "PENDING"
-            val status = EventStatus.valueOf(statusStr)
 
             Event(
                 eventId = this.id,
-                name = data["eventName"]?.toString() ?: return null,
+                name = data["eventName"]?.toString() ?: "",
                 organizerId = data["organizerId"]?.toString() ?: "",
                 organizerName = data["organizerName"]?.toString() ?: "",
                 description = data["description"]?.toString() ?: "",
-                category = category,
-                status = status,
-                date = data["date"]?.toString() ?: "",
-                startTime = data["startTime"]?.toString() ?: "",
-                endTime = data["endTime"]?.toString() ?: "",
-                duration = data["duration"]?.toString() ?: "",
+                category = EventCategory.valueOf(data["category"]?.toString() ?: ""),
+                status = EventStatus.valueOf(data["status"]?.toString() ?: "PENDING"),
+                date = timestampToLong("date"),
+                startTime = timestampToLong("startTime"),
+                endTime = timestampToLong("endTime"),
                 location = data["location"]?.toString() ?: "",
                 rockZoneSeats = (data["rockZoneSeats"] as? Number)?.toInt() ?: 0,
                 normalZoneSeats = (data["normalZoneSeats"] as? Number)?.toInt() ?: 0,
@@ -149,11 +123,11 @@ class FirebaseEventDataSource(
                 rockZonePrice = (data["rockZonePrice"] as? Number)?.toDouble() ?: 0.0,
                 normalZonePrice = (data["normalZonePrice"] as? Number)?.toDouble() ?: 0.0,
                 imagePath = data["imagePath"]?.toString(),
-                createdAt = timestampToLong(data["createdAt"]),
-                updatedAt = timestampToLong(data["updatedAt"])
+                createdAt = timestampToLong("createdAt"),
+                updatedAt = timestampToLong("updatedAt")
             )
         } catch (e: Exception) {
-            Log.e("FirebaseEventDataSource", "Error converting document ${this.id}", e)
+            Log.e("FirebaseEventDataSource", "Error converting document ${this.id} to Event", e)
             null
         }
     }

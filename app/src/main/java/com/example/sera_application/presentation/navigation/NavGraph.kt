@@ -9,9 +9,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -21,26 +18,21 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.example.sera_application.domain.model.enums.ReservationStatus
 import com.example.sera_application.domain.model.enums.UserRole
 import com.example.sera_application.presentation.ui.auth.LoginScreen
 import com.example.sera_application.presentation.ui.auth.SignUpScreen
-//import com.example.sera_application.presentation.ui.event.AdminEventApprovalScreen
-//import com.example.sera_application.presentation.ui.event.AdminEventManagementScreen
 import com.example.sera_application.presentation.ui.event.EventDetailsScreen
 import com.example.sera_application.presentation.ui.event.OrganizerEventManagementScreen
 import com.example.sera_application.presentation.ui.reservation.CreateReservationScreen
 import com.example.sera_application.presentation.ui.reservation.MyReservationScreen
 import com.example.sera_application.presentation.ui.reservation.ReservationDetailScreen
-import com.example.sera_application.presentation.ui.reservation.ReservationDetailUiModel
 import com.example.sera_application.presentation.ui.reservation.ReservationManagementScreen
-import com.example.sera_application.presentation.ui.reservation.TicketZone
 import com.example.sera_application.presentation.ui.reservation.UserReservationDetailScreen
-import com.example.sera_application.presentation.ui.reservation.UserReservationDetailUiModel
 import com.example.sera_application.presentation.ui.user.ChangePasswordScreen
 import com.example.sera_application.presentation.ui.user.EditUsernameScreen
 import com.example.sera_application.presentation.ui.user.ProfileScreen
 import com.example.sera_application.presentation.ui.event.*
+import com.example.sera_application.presentation.viewmodel.UserViewModel
 import com.example.sera_application.presentation.viewmodel.event.EventFormViewModel
 
 fun NavHostController.navigateToReservationDetails(reservationId: String) {
@@ -52,9 +44,6 @@ fun MainNavGraph(
     navController: NavHostController = rememberNavController(),
     startDestination: String = Screen.Login.route
 ) {
-    // Shared state for selected user role - replacing global state from navScreen.kt
-    var selectedUserRole by remember { mutableStateOf(UserRole.PARTICIPANT) }
-
     NavHost(
         navController = navController,
         startDestination = startDestination
@@ -63,11 +52,15 @@ fun MainNavGraph(
         composable(Screen.Login.route) {
             LoginScreen(
                 onLoginSuccess = { user ->
-                    // Set user role based on authenticated user from Firebase
-                    selectedUserRole = user.role
+                    // Determine the home screen based on the user's role
+                    val homeScreen = when (user.role) {
+                        UserRole.ORGANIZER -> Screen.OrganizerEventManagement.route
+                        UserRole.ADMIN -> Screen.AdminEventManagement.route
+                        else -> Screen.EventList.route // Default for PARTICIPANT
+                    }
 
-                    // Navigate to Profile
-                    navController.navigate(Screen.Profile.route) {
+                    // Navigate to the correct home screen and clear the back stack
+                    navController.navigate(homeScreen) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
                 },
@@ -131,8 +124,10 @@ fun MainNavGraph(
                     navController.navigate(Screen.EditEvent.createRoute(eventId))
                 },
                 onDeleteEventClick = { /* Handle delete */ },
-                onHomeClick = {
-                    navController.navigate(Screen.OrganizerHome.route)
+                onHomeClick = { // Corrected navigation
+                    navController.navigate(Screen.OrganizerEventManagement.route) {
+                        launchSingleTop = true
+                    }
                 },
                 onProfileClick = {
                     navController.navigate(Screen.Profile.route)
@@ -227,8 +222,10 @@ fun MainNavGraph(
                     navController.navigate(Screen.AdminEventApproval.createRoute(eventId))
                 },
                 onDeleteEventClick = { /* Handle delete */ },
-                onHomeClick = {
-                    navController.navigate(Screen.AdminDashboard.route)
+                onHomeClick = { // Corrected navigation
+                    navController.navigate(Screen.AdminEventManagement.route) {
+                        launchSingleTop = true
+                    }
                 },
                 onReservationClick = { /* TODO: Navigate to reservations */ },
                 onProfileClick = {
@@ -334,7 +331,7 @@ fun MainNavGraph(
 
         // Edit Username Screen
         composable(Screen.EditUsername.route) {
-            val viewModel: com.example.sera_application.presentation.viewmodel.UserViewModel = hiltViewModel()
+            val viewModel: UserViewModel = hiltViewModel()
             val uiState by viewModel.uiState.collectAsState()
             val currentUser = uiState.currentUser
 
@@ -375,7 +372,7 @@ fun MainNavGraph(
 
         // Change Password Screen
         composable(Screen.ChangePassword.route) {
-            val viewModel: com.example.sera_application.presentation.viewmodel.UserViewModel = hiltViewModel()
+            val viewModel: UserViewModel = hiltViewModel()
 
             ChangePasswordScreen(
                 onBack = {
@@ -401,6 +398,17 @@ fun MainNavGraph(
 
         // Profile Screen
         composable(Screen.Profile.route) {
+            val userViewModel: UserViewModel = hiltViewModel()
+            val userState by userViewModel.uiState.collectAsState()
+            val currentUser = userState.currentUser
+
+            // Load user to determine their role for navigation
+            LaunchedEffect(Unit) {
+                if (currentUser == null) {
+                    userViewModel.loadCurrentUser()
+                }
+            }
+
             ProfileScreen(
                 onBack = {
                     navController.popBackStack()
@@ -432,8 +440,14 @@ fun MainNavGraph(
                 },
                 onDeleteAccount = { },
                 onHomeClick = {
-                    navController.navigate(Screen.EventList.route) {
-                        popUpTo(Screen.EventList.route) { inclusive = true }
+                    val homeScreen = when (currentUser?.role) {
+                        UserRole.ORGANIZER -> Screen.OrganizerEventManagement.route
+                        UserRole.ADMIN -> Screen.AdminEventManagement.route
+                        else -> Screen.EventList.route
+                    }
+                    navController.navigate(homeScreen) {
+                        popUpTo(navController.graph.startDestinationId)
+                        launchSingleTop = true
                     }
                 },
                 onAddEventClick = { },

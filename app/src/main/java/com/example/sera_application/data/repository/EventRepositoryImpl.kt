@@ -8,6 +8,8 @@ import com.example.sera_application.data.remote.datasource.UserRemoteDataSource
 import com.example.sera_application.domain.model.Event
 import com.example.sera_application.domain.model.enums.EventStatus
 import com.example.sera_application.domain.repository.EventRepository
+import java.text.SimpleDateFormat
+import java.util.Locale
 import javax.inject.Inject
 
 /**
@@ -77,9 +79,33 @@ class EventRepositoryImpl @Inject constructor(
 
     override suspend fun createEvent(event: Event): Boolean {
         return try {
+
+            // ---------- STEP 4B: CHECK DUPLICATE VENUE + TIME ----------
+            val existingEvents = eventDao.getEventsAtSameVenueAndDate(
+                location = event.location,
+                date = event.date
+            )
+
+            val newStart = event.startTime
+            val newEnd = event.endTime
+
+            val clash = existingEvents.any { existing ->
+                val existStart = existing.startTime
+                val existEnd = existing.endTime
+
+                // time overlap rule
+                newStart < existEnd && newEnd > existStart
+            }
+
+            if (clash) {
+                throw IllegalStateException(
+                    "Another event already exists at this venue and time"
+                )
+            }
+            // ----------------------------------------------------------
+
             val eventId = remoteDataSource.createEvent(event)
 
-            // Cache locally if event was created successfully
             val createdEvent = remoteDataSource.getEventById(eventId)
             createdEvent?.let {
                 eventDao.insertEvent(mapper.toEntity(it))
@@ -253,20 +279,35 @@ class EventRepositoryImpl @Inject constructor(
         return snapshot
     }
 
-    override suspend fun getPublicEvents(): List<Event> {
-        return try {
-            val events = remoteDataSource.getPublicEvents()
+//    private fun isTimeOverlap(
+//        start1: Long,
+//        end1: Long,
+//        start2: Long,
+//        end2: Long
+//    ): Boolean {
+//        return start1 < end2 && start2 < end1
+//    }
+//
+//    override suspend fun hasVenueTimeConflict(event: Event): Boolean {
+//        val localEvents = eventDao.getEventsAtSameVenueAndDate(
+//            location = event.location,
+//            date = event.date
+//        )
+//
+//        return localEvents.any { existing ->
+//            isTimeOverlap(
+//                event.startTime,
+//                event.endTime,
+//                existing.startTime,
+//                existing.endTime
+//            )
+//        }
+//    }
 
-            // cache locally (optional)
-            if (events.isNotEmpty()) {
-                eventDao.insertEvents(events.map { mapper.toEntity(it) })
-            }
-
-            preloadOrganizerNamesForEvents(events)
-            events
-        } catch (e: Exception) {
-            emptyList()
-        }
+    override suspend fun getApprovedEvents(): List<Event> {
+        return eventDao
+            .getEventsByStatus("APPROVED")
+            .map(mapper::toDomain)
     }
 
 }

@@ -23,7 +23,6 @@ class EventMapperImpl @Inject constructor() : EventMapper {
             date = entity.date,
             startTime = entity.startTime,
             endTime = entity.endTime,
-            duration = "${entity.duration} day(s)",
             location = entity.location,
             rockZoneSeats = entity.rockZoneSeats,
             normalZoneSeats = entity.normalZoneSeats,
@@ -38,17 +37,11 @@ class EventMapperImpl @Inject constructor() : EventMapper {
     }
 
     override fun toEntity(domain: Event): EventEntity {
-        val durationInt = domain.duration
-            .replace(" day(s)", "")
-            .replace(" days", "")
-            .replace(" day", "")
-            .toIntOrNull() ?: 1
 
         return EventEntity(
             eventId = domain.eventId,
             eventName = domain.name,
             organizerId = domain.organizerId,
-            organizerName = domain.organizerName,
             description = domain.description,
             category = domain.category,
             status = domain.status.name,
@@ -57,7 +50,6 @@ class EventMapperImpl @Inject constructor() : EventMapper {
             date = domain.date,
             startTime = domain.startTime,
             endTime = domain.endTime,
-            duration = durationInt,
             location = domain.location,
             rockZoneSeats = domain.rockZoneSeats,
             normalZoneSeats = domain.normalZoneSeats,

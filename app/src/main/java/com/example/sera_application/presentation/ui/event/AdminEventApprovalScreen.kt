@@ -6,6 +6,7 @@ import com.example.sera_application.domain.usecase.event.ApproveEventUseCase
 import com.example.sera_application.domain.usecase.event.GetEventByIdUseCase
 import com.example.sera_application.domain.usecase.event.RejectEventUseCase
 import com.example.sera_application.presentation.ui.event.AdminEventDetails
+import com.example.sera_application.utils.DateTimeFormatterUtil
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -55,7 +56,6 @@ class AdminEventApprovalViewModel @Inject constructor(
                         rockZoneSeats = event.rockZoneSeats.toString(),
                         normalZoneSeats = event.normalZoneSeats.toString(),
                         date = event.date,
-                        duration = event.duration,
                         startTime = event.startTime,
                         endTime = event.endTime,
                         venue = event.location,

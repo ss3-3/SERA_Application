@@ -14,7 +14,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -23,7 +22,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
+import com.example.sera_application.utils.DateTimeFormatterUtil
+import com.example.sera_application.utils.DateTimeFormatterUtil.formatTimeRange
 
 data class ReservationDetailUiModel(
     val reservationId: String,
@@ -74,9 +74,16 @@ fun ReservationDetailScreen(
                 participantEmail = participantVal?.email ?: "Unknown",
                 eventName = eventVal?.name ?: "Unknown Event",
                 venue = eventVal?.location ?: "Unknown Venue",
-                eventDate = eventVal?.date ?: "",
-                eventTime = eventVal?.startTime ?: "",
-                seatNumbers = "${reservationVal.seats} Seats", // Placeholder
+                 eventDate = eventVal?.let {
+                     DateTimeFormatterUtil.formatDate(it.date)
+                 } ?: "",
+                 eventTime = if (eventVal != null) {
+                     DateTimeFormatterUtil.formatTimeRange(
+                         eventVal.startTime,
+                         eventVal.endTime
+                     )
+                 } else "",
+                 seatNumbers = "${reservationVal.seats} Seats", // Placeholder
                 status = reservationVal.status,
                 paymentMethod = "Online Banking", // Placeholder
                 paymentAccount = "****-****-****-1234",

@@ -8,10 +8,6 @@ class CreateEventUseCase @Inject constructor(
     private val eventRepository: EventRepository
 ) {
     suspend operator fun invoke(event: Event): Boolean {
-        return try {
-            eventRepository.createEvent(event)
-        } catch (e: Exception) {
-            false
-        }
+        return eventRepository.createEvent(event)
     }
 }

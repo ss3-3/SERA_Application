@@ -86,10 +86,9 @@ fun OrganizerEventManagementScreen(
 
     val uiState by viewModel.uiState.collectAsState()
 
-    // Initialize ViewModel with organizer ID
+    // Load all data when the screen is first composed
     LaunchedEffect(Unit) {
-        viewModel.loadBannerEvents()
-        viewModel.loadMyEvents()
+        viewModel.loadAllOrganizerData()
     }
 
     // Update ViewModel search query
@@ -240,19 +239,21 @@ fun OrganizerEventManagementScreen(
                 .padding(padding)
         ) {
             // Event Banner Section
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                ) {
-                    items(uiState.bannerEvents.take(3)) { event ->
-                        OrganizerEventBanner(event = event)
+            if (uiState.bannerEvents.isNotEmpty()) {
+                item {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                    ) {
+                        items(uiState.bannerEvents.take(3)) { event ->
+                            OrganizerEventBanner(event = event)
+                        }
                     }
+                    Spacer(modifier = Modifier.height(20.dp))
                 }
-                Spacer(modifier = Modifier.height(20.dp))
             }
 
             // My Event Section Header
@@ -266,13 +267,24 @@ fun OrganizerEventManagementScreen(
             }
 
             // Event List
-            items(filteredEvents) { event ->
-                OrganizerEventCard(
-                    event = event,
-                    onEditClick = { onEditEventClick(event.id) },
-                    onDeleteClick = { handleDelete(event.id) },
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
+            if (filteredEvents.isEmpty() && !uiState.isLoading) {
+                item {
+                    Text(
+                        text = "You haven\'t created any events yet.",
+                        modifier = Modifier.padding(16.dp),
+                        color = Color.Gray,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            } else {
+                items(filteredEvents) { event ->
+                    OrganizerEventCard(
+                        event = event,
+                        onEditClick = { onEditEventClick(event.id) },
+                        onDeleteClick = { handleDelete(event.id) },
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                }
             }
 
             // Error message display
@@ -373,38 +385,6 @@ private fun OrganizerEventBanner(
                 }
             }
         }
-
-//        Box(
-//            modifier = Modifier
-//                .fillMaxSize()
-//                .background(
-//                    brush = Brush.verticalGradient(
-//                        colors = listOf(Color(0xFF1A237E), Color(0xFF0D47A1))
-//                    )
-//                ),
-//            contentAlignment = Alignment.Center
-//        ) {
-//            // TODO: Load actual image from bannerUrl
-//            if (event.bannerUrl == null) {
-//                Text(
-//                    text = event.name,
-//                    color = Color.White,
-//                    fontSize = 24.sp,
-//                    fontWeight = FontWeight.Bold,
-//                    textAlign = TextAlign.Center,
-//                    modifier = Modifier.padding(16.dp)
-//                )
-//            } else {
-//                // TODO: Use AsyncImage from Coil library
-//                // AsyncImage(
-//                //     model = event.bannerUrl,
-//                //     contentDescription = event.name,
-//                //     modifier = Modifier.fillMaxSize(),
-//                //     contentScale = ContentScale.Crop
-//                // )
-//
-//            }
-//        }
     }
 }
 
@@ -594,16 +574,14 @@ private fun OrganizerEventCard(
 }
 
 
-//// ==================== PREVIEW ====================
-//
-//@Preview(showBackground = true, showSystemUi = true)
-//@Composable
-//private fun OrganizerEventManagementScreenPreview() {
-//    OrganizerEventManagementScreen(
-//        onAddEventClick = {},
-//        onEditEventClick = {},
-//        onDeleteEventClick = {},
-//        onHomeClick = {},
-//        onProfileClick = {}
-//    )
-//}
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+private fun OrganizerEventManagementScreenPreview() {
+    OrganizerEventManagementScreen(
+        onAddEventClick = {},
+        onEditEventClick = {},
+        onDeleteEventClick = {},
+        onHomeClick = {},
+        onProfileClick = {}
+    )
+}

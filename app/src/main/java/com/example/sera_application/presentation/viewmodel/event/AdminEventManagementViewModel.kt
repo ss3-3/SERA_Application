@@ -6,6 +6,7 @@ import com.example.sera_application.domain.model.enums.EventStatus
 import com.example.sera_application.domain.usecase.event.DeleteEventUseCase
 import com.example.sera_application.domain.usecase.event.GetEventListUseCase
 import com.example.sera_application.presentation.ui.event.AdminEventModel
+import com.example.sera_application.utils.DateTimeFormatterUtil
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -56,7 +57,8 @@ class AdminEventManagementViewModel @Inject constructor(
                         id = event.eventId,
                         name = event.name,
                         date = event.date,
-                        time = event.timeRange,
+                        startTime = event.startTime,
+                        endTime = event.endTime,
                         status = event.status,
                         bannerUrl = event.imagePath
                     )
@@ -153,6 +155,11 @@ class AdminEventManagementViewModel @Inject constructor(
         loadAllEvents()
     }
 }
+
+
+
+
+
 
 
 

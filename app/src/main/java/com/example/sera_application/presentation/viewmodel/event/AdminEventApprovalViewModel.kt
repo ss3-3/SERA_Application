@@ -24,6 +24,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import com.example.sera_application.presentation.viewmodel.event.AdminEventApprovalViewModel
+import com.example.sera_application.utils.DateTimeFormatterUtil
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -342,28 +343,28 @@ fun AdminEventApprovalScreen(
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = event.date,
+                                        text = DateTimeFormatterUtil.formatDate(event.date),
                                         fontSize = 16.sp,
                                         color = Color.Black,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
 
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "Event duration",
-                                        fontSize = 13.sp,
-                                        color = Color.Gray,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = event.duration,
-                                        fontSize = 16.sp,
-                                        color = Color.Black,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
+//                                Column(modifier = Modifier.weight(1f)) {
+//                                    Text(
+//                                        text = "Event duration",
+//                                        fontSize = 13.sp,
+//                                        color = Color.Gray,
+//                                        fontWeight = FontWeight.Medium
+//                                    )
+//                                    Spacer(modifier = Modifier.height(4.dp))
+//                                    Text(
+//                                        text = event.duration,
+//                                        fontSize = 16.sp,
+//                                        color = Color.Black,
+//                                        fontWeight = FontWeight.Bold
+//                                    )
+//                                }
                             }
 
                             Spacer(modifier = Modifier.height(20.dp))
@@ -386,7 +387,7 @@ fun AdminEventApprovalScreen(
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = event.startTime,
+                                        text = DateTimeFormatterUtil.formatTime(event.startTime),
                                         fontSize = 16.sp,
                                         color = Color.Black,
                                         fontWeight = FontWeight.Bold
@@ -402,7 +403,7 @@ fun AdminEventApprovalScreen(
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = event.endTime,
+                                        text = DateTimeFormatterUtil.formatTime(event.endTime),
                                         fontSize = 16.sp,
                                         color = Color.Black,
                                         fontWeight = FontWeight.Bold

@@ -76,6 +76,7 @@ import com.example.sera_application.domain.model.enums.EventCategory
 import com.example.sera_application.presentation.viewmodel.event.EventListViewModel
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.runtime.collectAsState
+import com.example.sera_application.utils.DateTimeFormatterUtil
 
 // UI-specific model for displaying events
 data class EventDisplayModel(
@@ -99,7 +100,7 @@ data class EventDisplayModel(
                 id = event.eventId,
                 name = event.name,
                 organizer = event.organizerName,
-                date = event.date,
+                date = DateTimeFormatterUtil.formatDate(event.date),
                 time = event.timeRange,
                 venue = event.location,
                 priceRange = event.priceRange,

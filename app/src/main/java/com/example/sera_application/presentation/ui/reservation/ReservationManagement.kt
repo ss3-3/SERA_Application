@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.sera_application.utils.DateTimeFormatterUtil
 
 data class ReservationManagementUiModel(
     val reservationId: String,
@@ -62,7 +63,9 @@ fun ReservationManagementScreen(
                 reservationId = details.reservation.reservationId,
                 eventName = details.event?.name ?: "Unknown Event",
                 eventId = details.reservation.eventId,
-                dateTime = details.event?.date ?: "Unknown Date", // Or format createdAt
+                dateTime = details.event?.date
+                    ?.let { DateTimeFormatterUtil.formatDate(it) }
+                    ?: "Unknown Date",
                 status = details.reservation.status
             )
         }

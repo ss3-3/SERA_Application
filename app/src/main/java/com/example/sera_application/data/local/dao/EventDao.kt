@@ -50,4 +50,14 @@ interface EventDao {
 
     @Query("SELECT * FROM events WHERE eventName LIKE '%' || :query || '%' OR description LIKE '%' || :query || '%' ORDER BY createdAt DESC")
     suspend fun searchEvents(query: String): List<EventEntity>
+
+    @Query("""
+    SELECT * FROM events
+    WHERE location = :location
+    AND date = :date
+""")
+    suspend fun getEventsAtSameVenueAndDate(
+        location: String,
+        date: Long
+    ): List<EventEntity>
 }

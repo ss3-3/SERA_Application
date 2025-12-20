@@ -29,6 +29,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.sera_application.utils.DateTimeFormatterUtil
 
 enum class ReservationTab(val label: String) {
     UPCOMING("Upcoming"),
@@ -84,7 +85,9 @@ fun MyReservationScreen(
                 eventId = details.reservation.eventId,
                 eventName = details.event?.name ?: "Unknown Event",
                 organizerName = details.event?.organizerId ?: "Unknown Organizer", // Ideal: Fetch organizer name too
-                date = details.event?.date ?: "Unknown Date",
+                date = details.event?.date
+                    ?.let { DateTimeFormatterUtil.formatDate(it) }
+                    ?: "Unknown Date",
                 // Logic to determine tab based on status or date
                 tab = when (details.reservation.status) {
                      com.example.sera_application.domain.model.enums.ReservationStatus.CONFIRMED, 
