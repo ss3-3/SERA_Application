@@ -90,8 +90,8 @@ fun MyReservationScreen(
                     ?: "Unknown Date",
                 // Logic to determine tab based on status or date
                 tab = when (details.reservation.status) {
-                     com.example.sera_application.domain.model.enums.ReservationStatus.CONFIRMED, 
-                     com.example.sera_application.domain.model.enums.ReservationStatus.PENDING -> ReservationTab.UPCOMING // Simplification
+                     com.example.sera_application.domain.model.enums.ReservationStatus.CONFIRMED -> ReservationTab.UPCOMING
+                    com.example.sera_application.domain.model.enums.ReservationStatus.PENDING -> ReservationTab.UPCOMING
                      com.example.sera_application.domain.model.enums.ReservationStatus.COMPLETED -> ReservationTab.COMPLETED
                      com.example.sera_application.domain.model.enums.ReservationStatus.CANCELLED -> ReservationTab.CANCELLED
                      else -> ReservationTab.UPCOMING

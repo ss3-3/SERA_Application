@@ -18,18 +18,14 @@ class ReservationRepositoryImpl @Inject constructor(
     private val mapper: ReservationMapper
 ) : ReservationRepository {
 
-    override suspend fun createReservation(reservation: EventReservation): Boolean {
-        return try {
-            val reservationId = remoteDataSource.createReservation(reservation)
-            
-            // Cache locally
-            val createdReservation = reservation.copy(reservationId = reservationId)
-            reservationDao.insertReservation(mapper.toEntity(createdReservation))
-            
-            reservationId.isNotEmpty()
-        } catch (e: Exception) {
-            false
-        }
+    override suspend fun createReservation(reservation: EventReservation): String? {
+        val reservationId = remoteDataSource.createReservation(reservation)
+        
+        // Cache locally
+        val createdReservation = reservation.copy(reservationId = reservationId)
+        reservationDao.insertReservation(mapper.toEntity(createdReservation))
+        
+        return reservationId.ifEmpty { null }
     }
 
     override suspend fun cancelReservation(reservationId: String): Boolean {
@@ -127,7 +123,7 @@ class ReservationRepositoryImpl @Inject constructor(
                         ReservationStatus.PENDING
                     }
                 )
-                remoteDataSource.cancelReservation(reservationId)
+                remoteDataSource.updateReservationStatus(reservationId, status)
                 
                 // Update local
                 reservationDao.updateReservationStatus(reservationId, status)

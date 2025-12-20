@@ -3,6 +3,7 @@ package com.example.sera_application.di
 import com.example.sera_application.data.remote.datasource.AuthRemoteDataSource
 import com.example.sera_application.data.remote.datasource.EventRemoteDataSource
 import com.example.sera_application.data.remote.datasource.NotificationRemoteDataSource
+import com.example.sera_application.data.remote.datasource.PayPalRemoteDataSource
 import com.example.sera_application.data.remote.datasource.PaymentRemoteDataSource
 //import com.example.sera_application.data.remote.datasource.PayPalRemoteDataSource
 import com.example.sera_application.data.remote.datasource.ReservationRemoteDataSource
@@ -13,6 +14,7 @@ import com.example.sera_application.data.remote.firebase.FirebaseNotificationDat
 import com.example.sera_application.data.remote.firebase.FirebasePaymentDataSource
 import com.example.sera_application.data.remote.firebase.FirebaseReservationDataSource
 import com.example.sera_application.data.remote.firebase.FirebaseUserDataSource
+import com.example.sera_application.data.remote.paypal.PayPalDataSourceImpl
 import com.example.sera_application.data.remote.paypal.api.PayPalBackendApi
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -160,10 +162,10 @@ abstract class NetworkModule {
         }
     }
 
-//    // PayPal Remote Datasource binding
-//    @Binds
-//    @Singleton
-//    abstract fun bindPayPalDataSource(
-//        payPalRemoteDataSourceImpl: PayPalDataSourceImpl
-//    ): PayPalRemoteDataSource
+    // PayPal Remote Datasource binding
+    @Binds
+    @Singleton
+    abstract fun bindPayPalDataSource(
+        payPalRemoteDataSourceImpl: PayPalDataSourceImpl
+    ): PayPalRemoteDataSource
 }

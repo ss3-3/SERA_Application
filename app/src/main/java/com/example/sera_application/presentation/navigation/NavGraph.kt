@@ -1,8 +1,10 @@
 package com.example.sera_application.presentation.navigation
 
+import android.content.Intent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.platform.LocalContext
 import com.example.sera_application.presentation.ui.user.UserListScreen
 import com.example.sera_application.presentation.ui.reservation.ReservationListScreen
 import androidx.compose.runtime.Composable
@@ -32,7 +34,7 @@ import com.example.sera_application.presentation.ui.user.ChangePasswordScreen
 import com.example.sera_application.presentation.ui.user.EditUsernameScreen
 import com.example.sera_application.presentation.ui.user.ProfileScreen
 import com.example.sera_application.presentation.ui.event.*
-import com.example.sera_application.presentation.viewmodel.UserViewModel
+import com.example.sera_application.presentation.ui.payment.*
 import com.example.sera_application.presentation.viewmodel.event.EventFormViewModel
 
 fun NavHostController.navigateToReservationDetails(reservationId: String) {
@@ -109,7 +111,7 @@ fun MainNavGraph(
                 eventId = eventId,
                 onBackClick = { navController.popBackStack() },
                 onBookNowClick = {
-                    // TODO: Navigate to reservation/payment
+                    navController.navigate(Screen.CreateReservation.createRoute(eventId))
                 }
             )
         }
@@ -331,84 +333,93 @@ fun MainNavGraph(
 
         // Edit Username Screen
         composable(Screen.EditUsername.route) {
-            val viewModel: UserViewModel = hiltViewModel()
-            val uiState by viewModel.uiState.collectAsState()
-            val currentUser = uiState.currentUser
+            val viewModel: com.example.sera_application.presentation.viewmodel.user.EditProfileViewModel = hiltViewModel()
+            val user by viewModel.user.collectAsState()
+            val updateSuccess by viewModel.updateSuccess.collectAsState()
+            val isLoading by viewModel.isLoading.collectAsState()
+            val error by viewModel.error.collectAsState()
+            val currentUser = user
 
-            // Handle loading user if not present (though Profile should have loaded it)
-            LaunchedEffect(Unit) {
+
+            // Handle loading user if not present - use currentUser as dependency
+            LaunchedEffect(currentUser) {
                 if (currentUser == null) {
                     viewModel.loadCurrentUser()
                 }
             }
 
-            if (currentUser != null) {
-                EditUsernameScreen(
-                    currentUsername = currentUser.fullName,
-                    onBack = {
-                        navController.popBackStack()
-                    },
-                    onConfirm = { newName ->
-                        viewModel.updateUsername(
-                            userId = currentUser.userId,
-                            newName = newName,
-                            onSuccess = {
-                                navController.popBackStack()
-                            },
-                            onError = { error ->
-                                // Optional: Show error (passed via nav args or handled in VM state)
-                                // identifying error handling strategy later
-                            }
+
+            // Handle success navigation
+            LaunchedEffect(updateSuccess) {
+                if (updateSuccess) {
+                    navController.popBackStack()
+                }
+            }
+
+
+            when {
+                currentUser != null -> {
+                    EditUsernameScreen(
+                        currentUsername = currentUser.fullName,
+                        onBack = {
+                            navController.popBackStack()
+                        },
+                        onConfirm = { newName ->
+                            viewModel.updateUser(currentUser.copy(fullName = newName, updatedAt = System.currentTimeMillis()))
+                        }
+                    )
+                }
+                error != null -> {
+                    // Show error state
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        androidx.compose.material3.Text(
+                            text = error ?: "Unknown error",
+                            color = androidx.compose.material3.MaterialTheme.colorScheme.error
                         )
                     }
-                )
-            } else {
-                 // Show loading or fallback
-                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                     CircularProgressIndicator()
-                 }
+                }
+                else -> {
+                    // Show loading state by default if no user yet and no error
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                }
             }
         }
 
-        // Change Password Screen
+
+// Change Password Screen
         composable(Screen.ChangePassword.route) {
-            val viewModel: UserViewModel = hiltViewModel()
+            val viewModel: com.example.sera_application.presentation.viewmodel.user.EditProfileViewModel = hiltViewModel()
+            val passwordUpdateSuccess by viewModel.passwordUpdateSuccess.collectAsState()
+
+
+            LaunchedEffect(passwordUpdateSuccess) {
+                if (passwordUpdateSuccess) {
+                    navController.popBackStack()
+                }
+            }
+
 
             ChangePasswordScreen(
                 onBack = {
                     navController.popBackStack()
                 },
                 onConfirm = { oldPassword, newPassword, confirmPassword ->
-                     // confirmPassword check is already done in UI, but good to double check or just ignore
+                    // confirmPassword check is already done in UI, but good to double check or just ignore
                     if (newPassword == confirmPassword) {
                         viewModel.updatePassword(
                             currentPassword = oldPassword,
-                            newPassword = newPassword,
-                            onSuccess = {
-                                navController.popBackStack()
-                            },
-                            onError = { error ->
-                                // Optional: Show error
-                            }
+                            newPassword = newPassword
                         )
                     }
                 }
             )
         }
 
+
         // Profile Screen
         composable(Screen.Profile.route) {
-            val userViewModel: UserViewModel = hiltViewModel()
-            val userState by userViewModel.uiState.collectAsState()
-            val currentUser = userState.currentUser
-
-            // Load user to determine their role for navigation
-            LaunchedEffect(Unit) {
-                if (currentUser == null) {
-                    userViewModel.loadCurrentUser()
-                }
-            }
-
             ProfileScreen(
                 onBack = {
                     navController.popBackStack()
@@ -423,9 +434,14 @@ fun MainNavGraph(
                     // Navigate to user's order history
                     navController.navigate(Screen.UserReservationHistory.route)
                 },
-                onPaymentHistory = { },
+                onPaymentHistory = {
+                    navController.navigate(Screen.PaymentHistory.route)
+                },
                 onReservationManagement = {
-                    navController.navigate(Screen.ReservationManagement.route)
+                    navController.navigate(Screen.OrganizerPaymentManagement.route)
+                },
+                onPaymentHistoryOrganizer = {
+                    navController.navigate(Screen.OrganizerPaymentManagement.route)
                 },
                 onReport = { },
                 onUserManagement = {
@@ -440,14 +456,8 @@ fun MainNavGraph(
                 },
                 onDeleteAccount = { },
                 onHomeClick = {
-                    val homeScreen = when (currentUser?.role) {
-                        UserRole.ORGANIZER -> Screen.OrganizerEventManagement.route
-                        UserRole.ADMIN -> Screen.AdminEventManagement.route
-                        else -> Screen.EventList.route
-                    }
-                    navController.navigate(homeScreen) {
-                        popUpTo(navController.graph.startDestinationId)
-                        launchSingleTop = true
+                    navController.navigate(Screen.EventList.route) {
+                        popUpTo(Screen.EventList.route) { inclusive = true }
                     }
                 },
                 onAddEventClick = { },
@@ -467,8 +477,10 @@ fun MainNavGraph(
             val eventId = backStackEntry.arguments?.getString("eventId") ?: ""
             CreateReservationScreen(
                 eventId = eventId,
-                onBack = {
-                    navController.popBackStack()
+                onBack = { navController.popBackStack() },
+                onReservationConfirmed = { reservationId ->
+                    println("DEBUG: Navigating from Reservation to Payment: $reservationId")
+                    navController.navigate(Screen.Payment.createRoute(reservationId))
                 }
             )
         }
@@ -513,6 +525,103 @@ fun MainNavGraph(
         composable(Screen.AdminUserManagement.route) {
             com.example.sera_application.presentation.ui.user.AdminUserManagementScreen(
                 onBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        // Payment History Screen (User)
+        composable(Screen.PaymentHistory.route) {
+            PaymentHistoryScreen(
+                onBack = { navController.popBackStack() },
+                onViewReceipt = { orderData ->
+                    navController.navigate(Screen.Receipt.createRoute(orderData.orderId))
+                }
+            )
+        }
+
+        // Organizer Payment Management Screen
+        composable(Screen.OrganizerPaymentManagement.route) {
+            OrganizerPaymentManagementScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        // Payment Screen
+        composable(
+            route = Screen.Payment.route,
+            arguments = listOf(
+                navArgument("reservationId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val context = LocalContext.current
+            val reservationId = backStackEntry.arguments?.getString("reservationId") ?: ""
+            
+            LaunchedEffect(reservationId) {
+                val intent = Intent(context, PaymentActivity::class.java).apply {
+                    putExtra("RESERVATION_ID", reservationId)
+                }
+                context.startActivity(intent)
+            }
+            
+            // Show a loading indicator while the activity is being launched
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        }
+
+        // Payment Status Screen
+        composable(
+            route = Screen.PaymentStatus.route,
+            arguments = listOf(
+                navArgument("paymentId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val paymentId = backStackEntry.arguments?.getString("paymentId") ?: ""
+            PaymentStatusScreen(
+                paymentId = paymentId,
+                onViewReceipt = { pid ->
+                    navController.navigate(Screen.Receipt.createRoute(pid))
+                },
+                onBackToHome = {
+                    navController.navigate(Screen.EventList.route) {
+                        popUpTo(Screen.EventList.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        // Receipt Screen
+        composable(
+            route = Screen.Receipt.route,
+            arguments = listOf(
+                navArgument("paymentId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val paymentId = backStackEntry.arguments?.getString("paymentId") ?: ""
+            ReceiptScreen(
+                onBack = { navController.popBackStack() },
+                onDownloadReceipt = { /* Handle download if needed or let screen handle */ },
+                onRequestRefund = {
+                    navController.navigate(Screen.RefundRequest.createRoute(paymentId))
+                }
+            )
+        }
+
+        // Refund Request Screen
+        composable(
+            route = Screen.RefundRequest.route,
+            arguments = listOf(
+                navArgument("paymentId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            // Note: RefundRequestScreen might need paymentId via ViewModel or argument
+            RefundRequestScreen(
+                onBack = { navController.popBackStack() },
+                onSubmitSuccess = {
                     navController.popBackStack()
                 }
             )

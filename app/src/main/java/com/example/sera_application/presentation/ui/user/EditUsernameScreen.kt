@@ -29,7 +29,7 @@ fun EditUsernameScreen(
     onBack: () -> Unit = {},
     onConfirm: (String) -> Unit = {}
 ) {
-    var newUsername by rememberSaveable { mutableStateOf(TextFieldValue(currentUsername)) }
+    var newUsername by rememberSaveable { mutableStateOf(currentUsername) }
     var showConfirmationDialog by rememberSaveable { mutableStateOf(false) }
 
     val scrollState = rememberScrollState()
@@ -121,7 +121,7 @@ fun EditUsernameScreen(
                 // Confirm button
                 Button(
                     onClick = {
-                        if (newUsername.text.isNotBlank()) {
+                        if (newUsername.isNotBlank()) {
                             showConfirmationDialog = true
                         }
                     },
@@ -133,7 +133,7 @@ fun EditUsernameScreen(
                         containerColor = Color(0xFF1976D2),
                         contentColor = Color.White
                     ),
-                    enabled = newUsername.text.isNotBlank() && newUsername.text != currentUsername
+                    enabled = newUsername.isNotBlank() && newUsername != currentUsername
                 ) {
                     Text(
                         text = "Confirm",
@@ -212,7 +212,7 @@ fun EditUsernameScreen(
                         // Confirm Button
                         Button(
                             onClick = {
-                                onConfirm(newUsername.text)
+                                onConfirm(newUsername)
                                 showConfirmationDialog = false
                             },
                             modifier = Modifier

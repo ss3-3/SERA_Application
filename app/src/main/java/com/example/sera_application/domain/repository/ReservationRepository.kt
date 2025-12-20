@@ -4,7 +4,7 @@ import com.example.sera_application.domain.model.EventReservation
 
 interface ReservationRepository {
 
-    suspend fun createReservation(reservation: EventReservation): Boolean
+    suspend fun createReservation(reservation: EventReservation): String?
 
     suspend fun cancelReservation(reservationId: String): Boolean
 

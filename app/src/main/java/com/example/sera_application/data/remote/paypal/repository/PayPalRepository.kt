@@ -38,20 +38,19 @@ class PayPalRepository(
     suspend fun authenticate(): Result<String> = withContext(Dispatchers.IO) {
         try {
             Log.d(TAG, "Authenticating with PayPal...")
-
             val response = apiService.getAccessToken(
                 basicAuth = getBasicAuthHeader(),
                 grantType = "client_credentials"
             )
-
+            
             if (response.isSuccessful && response.body() != null) {
                 accessToken = response.body()!!.accessToken
                 Log.d(TAG, "Authentication successful")
                 Result.success(accessToken!!)
             } else {
-                val errorMsg = "Authentication failed: ${response.code()} - ${response.message()}"
-                Log.e(TAG, errorMsg)
-                Result.failure(Exception(errorMsg))
+                val errorBody = response.errorBody()?.string()
+                Log.e(TAG, "Authentication failed: ${response.code()} - $errorBody")
+                Result.failure(Exception("Authentication failed: ${response.code()}"))
             }
         } catch (e: Exception) {
             Log.e(TAG, "Authentication error", e)
@@ -66,8 +65,7 @@ class PayPalRepository(
     ): Result<PayPalOrderResponse> = withContext(Dispatchers.IO) {
         try {
             if (accessToken == null) {
-                Log.d(TAG, "No access token, authenticating first...")
-                authenticate().getOrNull() ?: return@withContext Result.failure(Exception("Failed to authenticate"))
+                return@withContext Result.failure(Exception("Not authenticated"))
             }
 
             Log.d(TAG, "Creating order: Amount=$amount $currencyCode")
@@ -96,12 +94,12 @@ class PayPalRepository(
 
             if (response.isSuccessful && response.body() != null) {
                 val order = response.body()!!
-                Log.d(TAG, "Order created successfully: ${order.id}, Status: ${order.status}")
+                Log.d(TAG, "Order created successfully: ${order.id}")
                 Result.success(order)
             } else {
-                val errorMsg = "Order creation failed: ${response.code()} - ${response.message()}"
-                Log.e(TAG, errorMsg)
-                Result.failure(Exception(errorMsg))
+                val errorBody = response.errorBody()?.string()
+                Log.e(TAG, "Order creation failed: ${response.code()} - $errorBody")
+                Result.failure(Exception("Order creation failed: ${response.code()}"))
             }
         } catch (e: Exception) {
             Log.e(TAG, "Order creation error", e)
@@ -112,8 +110,7 @@ class PayPalRepository(
     suspend fun captureOrder(orderId: String): Result<PayPalCaptureResponse> = withContext(Dispatchers.IO) {
         try {
             if (accessToken == null) {
-                Log.d(TAG, "No access token, authenticating first...")
-                authenticate().getOrNull() ?: return@withContext Result.failure(Exception("Failed to authenticate"))
+                return@withContext Result.failure(Exception("Not authenticated"))
             }
 
             Log.d(TAG, "Capturing order: $orderId")
@@ -125,13 +122,12 @@ class PayPalRepository(
 
             if (response.isSuccessful && response.body() != null) {
                 val capture = response.body()!!
-                Log.d(TAG, "Order captured successfully: ${capture.id}, Status: ${capture.status}")
+                Log.d(TAG, "Order captured successfully: ${capture.id}")
                 Result.success(capture)
             } else {
-                val errorBody = response.errorBody()?.string() ?: "No error body"
-                val errorMsg = "Order capture failed: ${response.code()} - ${response.message()} - $errorBody"
-                Log.e(TAG, errorMsg)
-                Result.failure(Exception(errorMsg))
+                val errorBody = response.errorBody()?.string()
+                Log.e(TAG, "Order capture failed: ${response.code()} - $errorBody")
+                Result.failure(Exception("Order capture failed: ${response.code()}"))
             }
         } catch (e: Exception) {
             Log.e(TAG, "Order capture error", e)

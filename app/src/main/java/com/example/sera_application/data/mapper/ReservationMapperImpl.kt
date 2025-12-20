@@ -20,6 +20,7 @@ class ReservationMapperImpl @Inject constructor() : ReservationMapper {
             eventId = entity.eventId,
             userId = entity.userId,
             seats = entity.seats,
+            totalPrice = entity.totalPrice,
             status = try {
                 ReservationStatus.valueOf(entity.status)
             } catch (e: IllegalArgumentException) {
@@ -35,6 +36,7 @@ class ReservationMapperImpl @Inject constructor() : ReservationMapper {
             eventId = domain.eventId,
             userId = domain.userId,
             seats = domain.seats,
+            totalPrice = domain.totalPrice,
             status = domain.status.name,
             createdAt = domain.createdAt
         )

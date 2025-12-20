@@ -37,12 +37,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.sera_application.R
 import com.example.sera_application.domain.model.enums.EventStatus
+import coil.compose.AsyncImage
 
 // Data Model
 data class TicketZone(
@@ -56,6 +58,7 @@ fun CreateReservationScreen(
     modifier: Modifier = Modifier,
     eventId: String, // Pass eventId instead of raw data
     onBack: () -> Unit = {},
+    onReservationConfirmed: (String) -> Unit = {},
     viewModel: com.example.sera_application.presentation.viewmodel.reservation.CreateReservationViewModel = androidx.hilt.navigation.compose.hiltViewModel()
 ) {
     // Load event data
@@ -73,7 +76,7 @@ fun CreateReservationScreen(
     val eventTime = event?.startTime ?: ""
     val venue = event?.location ?: ""
     val description = event?.description ?: "No description available."
-    
+
     val eventStatusLabel = event?.status?.name?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "Available"
     val eventStatusColor = when (event?.status) {
         EventStatus.APPROVED -> Color(0xFF4CAF50) // Green
@@ -84,32 +87,42 @@ fun CreateReservationScreen(
         null -> Color(0xFF4CAF50) // Default for null (Loading/Available)
     }
 
-    val zones = listOf(
-        TicketZone("General Admission", event?.priceRange ?: "Free", 100) // Placeholder logic for zones
-    )
+    val zones = remember(event) {
+        listOf(
+            TicketZone("Rock Zone", "RM %.2f".format(event?.rockZonePrice ?: 0.0), event?.rockZoneSeats ?: 0),
+            TicketZone("Normal Zone", "RM %.2f".format(event?.normalZonePrice ?: 0.0), event?.normalZoneSeats ?: 0)
+        )
+    }
 
-    var quantities by remember { mutableStateOf(zones.associate { it.name to 0 }) }
-    
+    var quantities by remember(zones) { mutableStateOf(zones.associate { it.name to 0 }) }
+
+    val context = LocalContext.current
     // Purchase handler wrapper
     val onPurchase: (Map<String, Int>) -> Unit = { selectedQuantities ->
-         viewModel.createReservation(
-             eventId = eventId,
-             quantities = selectedQuantities,
-             onSuccess = { 
-                 onBack() // Or navigate to success screen
-             },
-             onError = { /* Handle error toast */ }
-         )
+        viewModel.createReservation(
+            eventId = eventId,
+            quantities = selectedQuantities,
+            onSuccess = { reservationId ->
+                android.widget.Toast.makeText(context, "DIAGNOSTIC Success: $reservationId", android.widget.Toast.LENGTH_SHORT).show()
+                onReservationConfirmed(reservationId)
+            },
+            onError = { errorMsg ->
+                android.widget.Toast.makeText(context, "DIAGNOSTIC Error: $errorMsg", android.widget.Toast.LENGTH_LONG).show()
+            }
+        )
     }
 
     val configuration = LocalConfiguration.current
     val screenHeight = configuration.screenHeightDp.dp
-    val bannerHeight = 200.dp
+    val bannerHeight = 250.dp
+    val buttonHeight = 68.dp // Purchase button + padding
 
     // Draggable offset state
-    var offsetY by remember { mutableFloatStateOf((screenHeight - bannerHeight - 80.dp).value) }
-    val maxDragUp = 0f // fully expanded
-    val minDragDown = 0f // Cannot drag below initial position
+    // Initial offset: card starts right below the banner
+    val initialOffset = bannerHeight.value
+    var offsetY by remember { mutableFloatStateOf(initialOffset) }
+    val maxDragUp = (bannerHeight.value / 2) // Fully expanded (can go above half of banner)
+    val minDragDown = screenHeight.value - 100.dp.value // Collapsed state (more room at bottom)
 
     // Animated offset for smooth transitions
     val animatedOffsetY by animateFloatAsState(
@@ -118,14 +131,48 @@ fun CreateReservationScreen(
     )
     Box(modifier = modifier.fillMaxSize()) {
         Box(modifier = Modifier.height(240.dp)) {
-            Image(
-                painter = painterResource(id = R.drawable.ic_launcher_foreground), // <--- replace with your banner
-                contentDescription = null,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(250.dp),
-                contentScale = ContentScale.Crop
-            )
+            val context = LocalContext.current
+            val imagePath = event?.imagePath
+            val imageRes = remember(imagePath) {
+                if (!imagePath.isNullOrBlank()) {
+                    context.resources.getIdentifier(
+                        imagePath,
+                        "drawable",
+                        context.packageName
+                    )
+                } else 0
+            }
+
+            if (imageRes != 0) {
+                Image(
+                    painter = painterResource(id = imageRes),
+                    contentDescription = "Event Banner",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(250.dp),
+                    contentScale = ContentScale.Crop
+                )
+            } else if (!imagePath.isNullOrEmpty()) {
+                AsyncImage(
+                    model = imagePath,
+                    contentDescription = "Event Banner",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(250.dp),
+                    contentScale = ContentScale.Crop,
+                    placeholder = painterResource(id = R.drawable.ic_launcher_foreground),
+                    error = painterResource(id = R.drawable.ic_launcher_foreground)
+                )
+            } else {
+                Image(
+                    painter = painterResource(id = R.drawable.ic_launcher_foreground),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(250.dp),
+                    contentScale = ContentScale.Crop
+                )
+            }
             // Transparent circular back button
             IconButton(
                 onClick = onBack,
@@ -146,14 +193,14 @@ fun CreateReservationScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight()
-                .align(Alignment.BottomCenter)
-                .offset(y  = animatedOffsetY.dp)
+                .align(Alignment.TopStart)
+                .offset(y = animatedOffsetY.dp)
         ) {
             // Combined event card with details, description, and ticket selection
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 400.dp)
+                    .fillMaxHeight()
                     .pointerInput(Unit) {
                         detectVerticalDragGestures(
                             onDragEnd = {
@@ -195,7 +242,6 @@ fun CreateReservationScreen(
                         ) {}
                     }
 
-                    // Scrollable Content
                     Column(
                         modifier = Modifier
                             .weight(1f)
@@ -289,8 +335,10 @@ fun CreateReservationScreen(
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
         ) {
+            val totalSelected = quantities.values.sum()
             Button(
                 onClick = { onPurchase(quantities) },
+                enabled = !isLoading && totalSelected > 0,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp)
@@ -300,11 +348,19 @@ fun CreateReservationScreen(
                     containerColor = Color(0xFF1F7AE0)
                 )
             ) {
-                Text(
-                    text = "Purchase",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                if (isLoading) {
+                    androidx.compose.material3.CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text(
+                        text = "Purchase",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
     }
@@ -387,5 +443,3 @@ private fun QuantitySelector(
         }
     }
 }
-
-

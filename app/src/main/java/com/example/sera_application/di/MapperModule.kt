@@ -28,4 +28,10 @@ abstract class MapperModule {
     abstract fun bindReservationMapper(
         reservationMapperImpl: ReservationMapperImpl
     ): ReservationMapper
+
+    @Binds
+    @Singleton
+    abstract fun bindPaymentMapper(
+        paymentMapperImpl: PaymentMapperImpl
+    ): PaymentMapper
 }

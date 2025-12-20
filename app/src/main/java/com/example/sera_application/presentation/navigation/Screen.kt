@@ -54,4 +54,20 @@ sealed class Screen(val route: String) {
     }
 
     object AdminUserManagement : Screen("admin_user_management")
+    
+    // Payment Navigation
+    object PaymentHistory : Screen("payment_history")
+    object OrganizerPaymentManagement : Screen("organizer_payments")
+    object Payment : Screen("payment/{reservationId}") {
+        fun createRoute(reservationId: String) = "payment/$reservationId"
+    }
+    object PaymentStatus : Screen("payment_status/{paymentId}") {
+        fun createRoute(paymentId: String) = "payment_status/$paymentId"
+    }
+    object Receipt : Screen("receipt/{paymentId}") {
+        fun createRoute(paymentId: String) = "receipt/$paymentId"
+    }
+    object RefundRequest : Screen("refund_request/{paymentId}") {
+        fun createRoute(paymentId: String) = "refund_request/$paymentId"
+    }
 }

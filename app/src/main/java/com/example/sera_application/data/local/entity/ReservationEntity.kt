@@ -10,6 +10,7 @@ data class ReservationEntity(
     val eventId: String,
     val userId: String,
     val seats: Int,
+    val totalPrice: Double,
     val status: String, // Store as String, convert to/from ReservationStatus enum
     val createdAt: Long
 )

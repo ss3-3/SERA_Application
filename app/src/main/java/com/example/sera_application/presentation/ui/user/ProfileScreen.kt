@@ -14,6 +14,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -21,12 +23,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.sera_application.domain.model.enums.UserRole
-import com.example.sera_application.presentation.viewmodel.UserViewModel
+import com.example.sera_application.presentation.viewmodel.user.ProfileViewModel
 
 data class ProfileMenuItem(
     val title: String,
@@ -38,13 +39,14 @@ data class ProfileMenuItem(
 @Composable
 fun ProfileScreen(
     modifier: Modifier = Modifier,
-    viewModel: UserViewModel = hiltViewModel(),
+    viewModel: ProfileViewModel = hiltViewModel(),
     onBack: () -> Unit = {},
     // Pass through actions that initiate navigation or require inputs
     onEditUserName: () -> Unit = {},
     onPasswordUpdate: () -> Unit = {},
     onOrderHistory: () -> Unit = {},
     onPaymentHistory: () -> Unit = {},
+    onPaymentHistoryOrganizer: () -> Unit = {},
     onReservationManagement: () -> Unit = {},
     onReport: () -> Unit = {},
     onUserManagement: () -> Unit = {},
@@ -56,13 +58,30 @@ fun ProfileScreen(
     onAddEventClick: () -> Unit = {},
     onProfileClick: () -> Unit = {}
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val currentUser = uiState.currentUser
-    var showDeleteDialog by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    val user by viewModel.user.collectAsState()
+    val currentUser = user
+    val isLoading by viewModel.isLoading.collectAsState()
+    val isLoggedOut by viewModel.isLoggedOut.collectAsState()
+    val isAccountDeleted by viewModel.isAccountDeleted.collectAsState()
     
+    var showDeleteDialog by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var showLogoutConfirmDialog by remember { mutableStateOf(false) }
     // Refresh user data when entering screen
     LaunchedEffect(Unit) {
         viewModel.loadCurrentUser()
+    }
+
+    LaunchedEffect(isLoggedOut) {
+        if (isLoggedOut) {
+            onLogoutSuccess()
+        }
+    }
+
+    LaunchedEffect(isAccountDeleted) {
+        if (isAccountDeleted) {
+            showDeleteDialog = false
+            onDeleteAccount()
+        }
     }
 
     val menuItems = if (currentUser != null) {
@@ -72,13 +91,14 @@ fun ProfileScreen(
             onPasswordUpdate = onPasswordUpdate,
             onOrderHistory = onOrderHistory,
             onPaymentHistory = onPaymentHistory,
+            onPaymentHistoryOrganizer = onPaymentHistoryOrganizer,
             onReservationManagement = onReservationManagement,
             onReport = onReport,
             onUserManagement = onUserManagement,
             onEventApproval = onEventApproval,
             onAdminReports = onAdminReports,
             onLogout = {
-                viewModel.logout { onLogoutSuccess() }
+                showLogoutConfirmDialog = true
             },
             onDeleteAccount = { showDeleteDialog = true }
         )
@@ -123,7 +143,7 @@ fun ProfileScreen(
             }
         }
     ) { padding ->
-        if (uiState.isLoading) {
+        if (isLoading) {
              Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                  CircularProgressIndicator()
              }
@@ -172,13 +192,9 @@ fun ProfileScreen(
                     confirmButton = {
                         TextButton(
                             onClick = {
-                                viewModel.deleteAccount(
-                                    onSuccess = {
-                                        showDeleteDialog = false
-                                        onDeleteAccount()
-                                    },
-                                    onError = { /* Error is handled by UI state */ }
-                                )
+                                currentUser?.userId?.let { uid ->
+                                    viewModel.deleteAccount(uid)
+                                }
                             }
                         ) {
                             Text("Delete", color = Color.Red)
@@ -191,6 +207,47 @@ fun ProfileScreen(
                     }
                 )
             }
+            // Logout Confirmation Dialog
+            if (showLogoutConfirmDialog) {
+                AlertDialog(
+                    onDismissRequest = { showLogoutConfirmDialog = false },
+                    title = {
+                        Text(
+                            text = "Confirm Logout",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    },
+                    text = {
+                        Text(
+                            text = "Are you sure you want to log out?",
+                            fontSize = 14.sp
+                        )
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                viewModel.logout()
+                                showLogoutConfirmDialog = false
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF1976D2),
+                                contentColor = Color.White
+                            )
+                        ) {
+                            Text("Logout")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(
+                            onClick = { showLogoutConfirmDialog = false }
+                        ) {
+                            Text("Cancel")
+                        }
+                    },
+                    shape = RoundedCornerShape(16.dp)
+                )
+            }
         } else {
              // Error or empty state
              Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
@@ -200,10 +257,6 @@ fun ProfileScreen(
         }
     }
 }
-
-// ... Rest of the file (ProfilePictureSection, MenuItemsCard, etc.) remains mostly the same 
-// but I'll need to append them if write_to_file overwrites everything.
-// Since write_to_file DOES overwrite, I must include the helper components.
 
 @Composable
 private fun ProfilePictureSection(
@@ -456,6 +509,7 @@ private fun getMenuItemsForRole(
     onPasswordUpdate: () -> Unit,
     onOrderHistory: () -> Unit,
     onPaymentHistory: () -> Unit,
+    onPaymentHistoryOrganizer: () -> Unit,
     onReservationManagement: () -> Unit,
     onReport: () -> Unit,
     onUserManagement: () -> Unit,
@@ -482,6 +536,7 @@ private fun getMenuItemsForRole(
                 ProfileMenuItem("Edit User Name", Icons.Default.Edit, onEditUserName),
                 ProfileMenuItem("Password Update", Icons.Default.Lock, onPasswordUpdate),
                 ProfileMenuItem("Reservation Management", Icons.Default.Event, onReservationManagement),
+                ProfileMenuItem("Payment Management", Icons.Default.Payment, onPaymentHistoryOrganizer),
                 ProfileMenuItem("Report", Icons.Default.Assessment, onReport)
             ),
             secondGroup = listOf(

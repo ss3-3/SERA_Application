@@ -18,13 +18,13 @@ class FirebaseReservationDataSource(
             reservationsRef.document(reservation.reservationId)
         }
         val reservationWithId = reservation.copy(reservationId = docRef.id)
-        docRef.set(reservationWithId).await()
+        docRef.set(reservationToMap(reservationWithId)).await()
         return docRef.id
     }
 
     override suspend fun cancelReservation(reservationId: String) {
         reservationsRef.document(reservationId)
-            .update("status", "CANCELLED")
+            .update("status", com.example.sera_application.domain.model.enums.ReservationStatus.CANCELLED.name)
             .await()
     }
 
@@ -33,7 +33,7 @@ class FirebaseReservationDataSource(
             .whereEqualTo("userId", userId)
             .get()
             .await()
-        return snapshot.documents.mapNotNull { it.toObject(EventReservation::class.java) }
+        return snapshot.documents.mapNotNull { it.toReservation() }
     }
 
     override suspend fun getReservationsByEvent(eventId: String): List<EventReservation> {
@@ -41,16 +41,54 @@ class FirebaseReservationDataSource(
             .whereEqualTo("eventId", eventId)
             .get()
             .await()
-        return snapshot.documents.mapNotNull { it.toObject(EventReservation::class.java) }
+        return snapshot.documents.mapNotNull { it.toReservation() }
     }
 
     override suspend fun getAllReservations(): List<EventReservation> {
         val snapshot = reservationsRef.get().await()
-        return snapshot.documents.mapNotNull { it.toObject(EventReservation::class.java) }
+        return snapshot.documents.mapNotNull { it.toReservation() }
     }
 
     override suspend fun getReservationById(reservationId: String): EventReservation? {
         val snapshot = reservationsRef.document(reservationId).get().await()
-        return snapshot.toObject(EventReservation::class.java)
+        return snapshot.toReservation()
+    }
+
+    override suspend fun updateReservationStatus(reservationId: String, status: String) {
+        reservationsRef.document(reservationId)
+            .update("status", status)
+            .await()
+    }
+
+    private fun reservationToMap(reservation: EventReservation): Map<String, Any?> {
+        return mapOf(
+            "reservationId" to reservation.reservationId,
+            "eventId" to reservation.eventId,
+            "userId" to reservation.userId,
+            "seats" to reservation.seats,
+            "totalPrice" to reservation.totalPrice,
+            "status" to reservation.status.name,
+            "createdAt" to reservation.createdAt
+        )
+    }
+
+    private fun com.google.firebase.firestore.DocumentSnapshot.toReservation(): EventReservation? {
+        if (!exists()) return null
+        return try {
+            val statusStr = getString("status") ?: "PENDING"
+            val status = com.example.sera_application.domain.model.enums.ReservationStatus.valueOf(statusStr)
+            
+            EventReservation(
+                reservationId = getString("reservationId") ?: id,
+                eventId = getString("eventId") ?: "",
+                userId = getString("userId") ?: "",
+                seats = getLong("seats")?.toInt() ?: 0,
+                totalPrice = getDouble("totalPrice") ?: 0.0,
+                status = status,
+                createdAt = getLong("createdAt") ?: System.currentTimeMillis()
+            )
+        } catch (e: Exception) {
+            null
+        }
     }
 }

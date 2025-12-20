@@ -113,4 +113,11 @@ dependencies {
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
     implementation("androidx.compose.material:material-icons-extended:1.6.0")
+
+    implementation("androidx.browser:browser:1.8.0")
+
+    implementation("com.itextpdf:itext7-core:7.2.5")
+
+    //qr
+    implementation("com.google.zxing:core:3.5.1")
 }

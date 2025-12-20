@@ -68,6 +68,22 @@ class CreateReservationViewModel @Inject constructor(
                  return@launch
             }
 
+            val currentEvent = _event.value
+            if (currentEvent == null) {
+                onError("Internal Error: Event data not loaded")
+                _isLoading.value = false
+                return@launch
+            }
+
+            var totalPrice = 0.0
+            quantities.forEach { (zone, quantity) ->
+                totalPrice += when (zone) {
+                    "Rock Zone" -> currentEvent.rockZonePrice * quantity
+                    "Normal Zone" -> currentEvent.normalZonePrice * quantity
+                    else -> currentEvent.normalZonePrice * quantity
+                }
+            }
+
             // Simplistic: Assuming generic seat logic for now.
             // Ideally we'd create separate reservations or one logic structure
             val reservation = EventReservation(
@@ -75,21 +91,22 @@ class CreateReservationViewModel @Inject constructor(
                 eventId = eventId,
                 userId = userId,
                 seats = totalSeats,
+                totalPrice = totalPrice,
                 status = ReservationStatus.PENDING,
                 createdAt = System.currentTimeMillis()
             )
 
             try {
                 // Corrected call matching UseCase signature
-                val result = createReservationUseCase(reservation)
+                val reservationId = createReservationUseCase(reservation)
 
-                if (result) {
-                     onSuccess("Reservation created successfully")
+                if (reservationId != null) {
+                     onSuccess(reservationId)
                 } else {
-                     onError("Reservation failed")
+                     onError("Internal Error: Repository returned null ID")
                 }
             } catch (e: Exception) {
-                onError(e.message ?: "Unknown error")
+                onError("Exception [${e.javaClass.simpleName}]: ${e.message ?: "No message"}")
             } finally {
                 _isLoading.value = false
             }

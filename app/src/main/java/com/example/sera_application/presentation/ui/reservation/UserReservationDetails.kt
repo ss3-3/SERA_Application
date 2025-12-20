@@ -62,10 +62,10 @@ fun UserReservationDetailScreen(
     }
 
     val uiState by viewModel.uiState.collectAsState()
-    
+
     val reservationVal = uiState.reservation
     val eventVal = uiState.event
-    
+
     if (uiState.isLoading) {
          Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
@@ -93,11 +93,11 @@ fun UserReservationDetailScreen(
                 paymentMethod = "Credit Card",
                 zoneName = "General",
                 quantity = reservationVal.seats,
-                totalPrice = "RM ${(eventVal?.priceRange?.filter { it.isDigit() }?.toIntOrNull() ?: 10) * reservationVal.seats}",
-                pricePerSeat = eventVal?.priceRange ?: "RM 10"
+                totalPrice = "RM %.2f".format(reservationVal.totalPrice),
+                pricePerSeat = if (reservationVal.seats > 0) "RM %.2f".format(reservationVal.totalPrice / reservationVal.seats) else "N/A"
             )
         }
-    
+
         Scaffold(
             topBar = {
                 CenterAlignedTopAppBar(
@@ -386,39 +386,8 @@ private fun InfoRowWithIcon(
 
 @Composable
 private fun QRCodeSection(qrCodeData: String) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // QR Code placeholder - replace with actual QR code generation
-            // You can use a library like 'com.journeyapps:zxing-android-embedded'
-            // or generate QR code using Canvas
-            Box(
-                modifier = Modifier
-                    .size(200.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color.White)
-                    .border(
-                        width = 1.dp,
-                        color = Color(0xFFE0E0E0),
-                        shape = RoundedCornerShape(8.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    "QR Code\n($qrCodeData)",
-                    fontSize = 12.sp,
-                    color = Color.Gray,
-                    textAlign = TextAlign.Center
-                )
-            }
-        }
-    }
+    QrCodeDisplay(
+        data = qrCodeData,
+        size = 250
+    )
 }

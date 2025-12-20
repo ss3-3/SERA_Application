@@ -89,8 +89,8 @@ fun ReservationDetailScreen(
                 paymentAccount = "****-****-****-1234",
                 zoneName = "General",
                 quantity = reservationVal.seats,
-                totalPrice = "RM ${(eventVal?.priceRange?.filter { it.isDigit() }?.toIntOrNull() ?: 10) * reservationVal.seats}", // Rough estimate
-                pricePerSeat = eventVal?.priceRange ?: "RM 10"
+                totalPrice = "RM %.2f".format(reservationVal.totalPrice),
+                pricePerSeat = if (reservationVal.seats > 0) "RM %.2f".format(reservationVal.totalPrice / reservationVal.seats) else "N/A"
             )
         }
     

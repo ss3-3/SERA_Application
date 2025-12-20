@@ -15,4 +15,6 @@ interface ReservationRemoteDataSource {
     suspend fun getAllReservations(): List<EventReservation>
 
     suspend fun getReservationById(reservationId: String): EventReservation?
+
+    suspend fun updateReservationStatus(reservationId: String, status: String)
 }
