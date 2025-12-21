@@ -12,9 +12,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.Dispatchers
 import javax.inject.Inject
 
 @HiltViewModel
@@ -49,27 +53,38 @@ class ReservationListViewModel @Inject constructor(
         _isLoading.value = true
         _error.value = null
 
-        getUserReservationsUseCase(userId)
-            .onEach { reservationList ->
-                // Fetch event details for each reservation
-                android.util.Log.d("ReservationListVM", "Processing ${reservationList.size} reservations")
-                val enrichedList = mutableListOf<ReservationWithDetails>()
-                for (reservation in reservationList) {
-                    val event = getEventByIdUseCase(reservation.eventId)
-                    val payment = getPaymentByReservationIdUseCase(reservation.reservationId)
-                    val paymentId = payment?.paymentId
-                    android.util.Log.d("ReservationListVM", "ResId: ${reservation.reservationId}, PaymentId: $paymentId")
-                    enrichedList.add(ReservationWithDetails(reservation, event, paymentId))
-                }
-                
-                _reservations.value = enrichedList
+        // Call suspend function within coroutine scope and collect the Flow
+        viewModelScope.launch {
+            try {
+                getUserReservationsUseCase(userId)
+                    .onEach { reservationList ->
+                        // Fetch event details for each reservation
+                        android.util.Log.d("ReservationListVM", "Processing ${reservationList.size} reservations")
+                        
+                        // Use async to parallelize suspend function calls
+                        val enrichedList = reservationList.map { reservation ->
+                            async {
+                                val event = getEventByIdUseCase(reservation.eventId)
+                                val payment = getPaymentByReservationIdUseCase(reservation.reservationId)
+                                val paymentId = payment?.paymentId
+                                android.util.Log.d("ReservationListVM", "ResId: ${reservation.reservationId}, PaymentId: $paymentId")
+                                ReservationWithDetails(reservation, event, paymentId)
+                            }
+                        }.awaitAll()
+                        
+                        _reservations.value = enrichedList
+                        _isLoading.value = false
+                    }
+                    .catch { exception ->
+                        _error.value = exception.message ?: "Failed to observe reservations"
+                        _isLoading.value = false
+                    }
+                    .collect() // Collect the Flow
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Failed to load reservations"
                 _isLoading.value = false
             }
-            .catch { exception ->
-                _error.value = exception.message ?: "Failed to observe reservations"
-                _isLoading.value = false
-            }
-            .launchIn(viewModelScope)
+        }
     }
 
     fun fetchReservations(userId: String) {

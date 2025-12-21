@@ -28,9 +28,13 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import com.example.sera_application.domain.model.enums.EventStatus
+import com.example.sera_application.domain.model.enums.UserRole
 import com.example.sera_application.presentation.viewmodel.event.AdminEventManagementViewModel
+import com.example.sera_application.presentation.viewmodel.user.ProfileViewModel
 import com.example.sera_application.utils.DateTimeFormatterUtil
 import com.example.sera_application.presentation.ui.components.SafeImageLoader
+import com.example.sera_application.utils.BottomNavigationBar
+import androidx.navigation.NavController
 
 // UI model for admin event list
 data class AdminEventModel(
@@ -63,27 +67,41 @@ data class AdminEventDetails(
 fun AdminEventManagementScreen(
     onEventClick: (String) -> Unit = {},  // Navigate to approval screen
     onDeleteEventClick: (String) -> Unit = {},
-    onHomeClick: () -> Unit = {},
-    onReservationClick: () -> Unit = {},
-    onProfileClick: () -> Unit = {},
-    viewModel: AdminEventManagementViewModel = hiltViewModel()
+    navController: NavController? = null,
+    viewModel: AdminEventManagementViewModel = hiltViewModel(),
+    profileViewModel: ProfileViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var selectedStatus by remember { mutableStateOf<EventStatus?>(EventStatus.PENDING) }
     var showDeleteDialog by remember { mutableStateOf<String?>(null) }
+    
+    // Get current user for role-based navigation
+    val currentUser by profileViewModel.user.collectAsState()
+    
+    // Use the ViewModel's selected status as the source of truth
+    val selectedStatus = uiState.selectedStatus
+    
+    // Load current user
+    LaunchedEffect(Unit) {
+        profileViewModel.loadCurrentUser()
+    }
 
-    // Load events on first composition
+    // Load events on first composition AND whenever we navigate back to this screen
     LaunchedEffect(Unit) {
         viewModel.loadAllEvents()
     }
-
-    // Update ViewModel when search query or status changes
-    LaunchedEffect(selectedStatus) {
-        viewModel.updateStatusFilter(selectedStatus)
+    
+    // Reload events when the screen resumes (e.g., after coming back from approval screen)
+    DisposableEffect(Unit) {
+        onDispose {
+            // Refresh when leaving and coming back
+            viewModel.refreshEvents()
+        }
     }
 
-    // Get filtered events from ViewModel
-    val filteredEvents = viewModel.getFilteredEvents()
+    // Get filtered events from ViewModel - this will automatically update when selectedStatus changes
+    val filteredEvents = remember(uiState.selectedStatus, uiState.searchQuery, uiState.events) {
+        viewModel.getFilteredEvents()
+    }
 
     Scaffold(
         topBar = {
@@ -143,6 +161,15 @@ fun AdminEventManagementScreen(
                     containerColor = Color(0xFF1A1A1A)
                 )
             )
+        },
+        bottomBar = {
+            navController?.let { nav ->
+                BottomNavigationBar(
+                    navController = nav,
+                    currentRoute = nav.currentBackStackEntry?.destination?.route,
+                    userRole = currentUser?.role
+                )
+            }
         }
     ) { padding ->
         Column(
@@ -168,11 +195,31 @@ fun AdminEventManagementScreen(
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    // "All" filter chip
+                    item {
+                        Button(
+                            onClick = { viewModel.updateStatusFilter(null) },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (selectedStatus == null) Color(0xFF2196F3).copy(alpha = 0.15f) else Color(0xFFF5F5F5)
+                            ),
+                            shape = RoundedCornerShape(20.dp),
+                            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = "All",
+                                fontSize = 14.sp,
+                                fontWeight = if (selectedStatus == null) FontWeight.Bold else FontWeight.Normal,
+                                color = if (selectedStatus == null) Color(0xFF2196F3) else Color.Gray
+                            )
+                        }
+                    }
+                    
+                    // Individual status chips
                     items(EventStatus.values().toList()) { status ->
                         StatusFilterChip(
                             status = status,
                             isSelected = selectedStatus == status,
-                            onClick = { selectedStatus = status }
+                            onClick = { viewModel.updateStatusFilter(status) }
                         )
                     }
                 }
@@ -440,12 +487,4 @@ private fun AdminEventCard(
             }
         }
     }
-}
-
-// ==================== PREVIEW ====================
-
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-private fun AdminEventManagementScreenPreview() {
-    AdminEventManagementScreen()
 }

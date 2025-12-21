@@ -39,6 +39,7 @@ fun AdminEventApprovalScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val event = uiState.event
+    val context = LocalContext.current
 
     // Load event details when screen opens
     LaunchedEffect(eventId) {
@@ -47,15 +48,33 @@ fun AdminEventApprovalScreen(
         }
     }
 
-    // Handle approval/rejection success - navigate back
-    LaunchedEffect(uiState.isApprovalSuccess, uiState.isRejectionSuccess) {
-        if (uiState.isApprovalSuccess || uiState.isRejectionSuccess) {
-            onApproveClick() // Navigate back after success
-        }
-    }
-
     var showApproveDialog by remember { mutableStateOf(false) }
     var showRejectDialog by remember { mutableStateOf(false) }
+    
+    // Handle approval/rejection success - show feedback and navigate back
+    LaunchedEffect(uiState.isApprovalSuccess) {
+        if (uiState.isApprovalSuccess) {
+            android.widget.Toast.makeText(context, "Event approved successfully!", android.widget.Toast.LENGTH_SHORT).show()
+            kotlinx.coroutines.delay(500) // Small delay for user feedback
+            onBackClick() // Navigate back after success
+        }
+    }
+    
+    LaunchedEffect(uiState.isRejectionSuccess) {
+        if (uiState.isRejectionSuccess) {
+            android.widget.Toast.makeText(context, "Event rejected successfully!", android.widget.Toast.LENGTH_SHORT).show()
+            kotlinx.coroutines.delay(500) // Small delay for user feedback
+            onBackClick() // Navigate back after success
+        }
+    }
+    
+    // Show error messages
+    LaunchedEffect(uiState.errorMessage) {
+        uiState.errorMessage?.let { error ->
+            android.widget.Toast.makeText(context, error, android.widget.Toast.LENGTH_LONG).show()
+            viewModel.clearError()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -455,15 +474,21 @@ fun AdminEventApprovalScreen(
                 confirmButton = {
                     TextButton(
                         onClick = {
+                            showApproveDialog = false
                             viewModel.approveEvent(event.id) { success, error ->
-                                showApproveDialog = false
-                                if (success) {
-                                    onApproveClick() // Navigate back
-                                }
+                                // Success/error handling is done in LaunchedEffect
                             }
-                        }
+                        },
+                        enabled = !uiState.isLoading
                     ) {
-                        Text("Approve", color = Color(0xFF4CAF50))
+                        if (uiState.isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = Color(0xFF4CAF50)
+                            )
+                        } else {
+                            Text("Approve", color = Color(0xFF4CAF50))
+                        }
                     }
                 },
                 dismissButton = {
@@ -483,15 +508,21 @@ fun AdminEventApprovalScreen(
                 confirmButton = {
                     TextButton(
                         onClick = {
+                            showRejectDialog = false
                             viewModel.rejectEvent(event.id) { success, error ->
-                                showRejectDialog = false
-                                if (success) {
-                                    onRejectClick() // Navigate back
-                                }
+                                // Success/error handling is done in LaunchedEffect
                             }
-                        }
+                        },
+                        enabled = !uiState.isLoading
                     ) {
-                        Text("Reject", color = Color.Red)
+                        if (uiState.isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = Color.Red
+                            )
+                        } else {
+                            Text("Reject", color = Color.Red)
+                        }
                     }
                 },
                 dismissButton = {

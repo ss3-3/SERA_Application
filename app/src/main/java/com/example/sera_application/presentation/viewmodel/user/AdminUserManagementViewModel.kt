@@ -3,7 +3,9 @@ package com.example.sera_application.presentation.viewmodel.user
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.sera_application.domain.model.User
+import com.example.sera_application.domain.model.enums.UserRole
 import com.example.sera_application.domain.usecase.user.ApproveOrganizerUseCase
+import com.example.sera_application.domain.usecase.user.GetAllUsersUseCase
 import com.example.sera_application.domain.usecase.user.GetPendingOrganizersUseCase
 import com.example.sera_application.domain.usecase.user.RejectOrganizerUseCase
 import com.example.sera_application.domain.usecase.user.SuspendUserUseCase
@@ -19,13 +21,20 @@ import javax.inject.Inject
  * UI State for Admin User Management Screen
  */
 data class AdminUserManagementUiState(
-    val users: List<User> = emptyList(),
+    val allUsers: List<User> = emptyList(),
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val filterType: UserFilterType = UserFilterType.ALL
 )
+
+enum class UserFilterType {
+    ALL,
+    PENDING_ORGANIZER
+}
 
 @HiltViewModel
 class AdminUserManagementViewModel @Inject constructor(
+    private val getAllUsersUseCase: GetAllUsersUseCase,
     private val getPendingOrganizersUseCase: GetPendingOrganizersUseCase,
     private val suspendUserUseCase: SuspendUserUseCase,
     private val approveOrganizerUseCase: ApproveOrganizerUseCase,
@@ -46,16 +55,30 @@ class AdminUserManagementViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
-                val users = getPendingOrganizersUseCase()
-                _uiState.update { it.copy(users = users, isLoading = false) }
+                val allUsers = getAllUsersUseCase()
+                // Filter to only show organizers
+                val organizers = allUsers.filter { it.role == UserRole.ORGANIZER }
+                _uiState.update { it.copy(allUsers = organizers, isLoading = false) }
             } catch (e: Exception) {
                 _uiState.update { 
                     it.copy(
                         isLoading = false, 
-                        error = e.message ?: "Failed to load pending organizers"
+                        error = e.message ?: "Failed to load users"
                     ) 
                 }
             }
+        }
+    }
+    
+    fun updateFilter(filterType: UserFilterType) {
+        _uiState.update { it.copy(filterType = filterType) }
+    }
+    
+    fun getFilteredUsers(): List<User> {
+        val state = _uiState.value
+        return when (state.filterType) {
+            UserFilterType.ALL -> state.allUsers
+            UserFilterType.PENDING_ORGANIZER -> state.allUsers.filter { !it.isApproved }
         }
     }
 
@@ -80,6 +103,12 @@ class AdminUserManagementViewModel @Inject constructor(
                 }
             }
         }
+    }
+    
+    fun removeUser(userId: String) {
+        // This could be implemented as delete or permanent removal
+        // For now, we'll use rejectOrganizer
+        rejectOrganizer(userId)
     }
 
     fun approveOrganizer(userId: String) {

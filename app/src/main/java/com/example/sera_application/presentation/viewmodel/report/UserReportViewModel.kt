@@ -8,12 +8,16 @@ import com.example.sera_application.domain.usecase.report.GetTopParticipantsUseC
 import com.example.sera_application.domain.usecase.report.GetUserGrowthTrendUseCase
 import com.example.sera_application.domain.usecase.report.GetUserStatsUseCase
 import com.patrykandpatryk.vico.core.entry.FloatEntry
+import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
+import android.util.Log
 
+@HiltViewModel
 class UserReportViewModel @Inject constructor(
     private val getUserStatsUseCase: GetUserStatsUseCase,
     private val getUserGrowthTrendUseCase: GetUserGrowthTrendUseCase,
@@ -60,50 +64,88 @@ class UserReportViewModel @Inject constructor(
 
     fun loadUserData(month: String? = null) {
         viewModelScope.launch {
-            getUserStatsUseCase(month).collect { stats ->
-                _totalUsers.value = stats.totalUsers
-                _newUsers.value = stats.newUsers
-                _participants.value = stats.participants
-            }
+            getUserStatsUseCase(month)
+                .catch { exception ->
+                    Log.e("UserReportViewModel", "Error loading user stats: ${exception.message}", exception)
+                    _totalUsers.value = 0
+                    _newUsers.value = 0
+                    _participants.value = 0
+                }
+                .collect { stats ->
+                    _totalUsers.value = stats.totalUsers
+                    _newUsers.value = stats.newUsers
+                    _participants.value = stats.participants
+                }
         }
 
         // Load last month data for comparison
         viewModelScope.launch {
-            getUserStatsUseCase(getPreviousMonth(month)).collect { lastMonthStats ->
-                _lastMonthNewUsers.value = lastMonthStats.newUsers
-                _lastMonthParticipants.value = lastMonthStats.participants
-            }
+            getUserStatsUseCase(getPreviousMonth(month))
+                .catch { exception ->
+                    Log.e("UserReportViewModel", "Error loading last month stats: ${exception.message}", exception)
+                    _lastMonthNewUsers.value = 0
+                    _lastMonthParticipants.value = 0
+                }
+                .collect { lastMonthStats ->
+                    _lastMonthNewUsers.value = lastMonthStats.newUsers
+                    _lastMonthParticipants.value = lastMonthStats.participants
+                }
         }
 
         viewModelScope.launch {
-            getUserGrowthTrendUseCase(7).collect { trends ->
-                _totalUsersData.value = trends.totalUsers
-                _newUsersData.value = trends.newUsers
-            }
+            getUserGrowthTrendUseCase(7)
+                .catch { exception ->
+                    Log.e("UserReportViewModel", "Error loading user growth trend: ${exception.message}", exception)
+                    _totalUsersData.value = emptyList()
+                    _newUsersData.value = emptyList()
+                }
+                .collect { trends ->
+                    _totalUsersData.value = trends.totalUsers
+                    _newUsersData.value = trends.newUsers
+                }
         }
 
         viewModelScope.launch {
-            getTopParticipantsUseCase().collect { participants ->
-                _topParticipants.value = participants
-            }
+            getTopParticipantsUseCase()
+                .catch { exception ->
+                    Log.e("UserReportViewModel", "Error loading top participants: ${exception.message}", exception)
+                    _topParticipants.value = emptyList()
+                }
+                .collect { participants ->
+                    _topParticipants.value = participants
+                }
         }
 
         viewModelScope.launch {
-            getEventParticipationStatsUseCase().collect { stats ->
-                _participatingUsers.value = stats.participatingUsers
-                _userPercentage.value = stats.userPercentage
-                _averageEventsPerUser.value = stats.averageEventsPerUser
-                _totalBookings.value = stats.totalBookings
-            }
+            getEventParticipationStatsUseCase()
+                .catch { exception ->
+                    Log.e("UserReportViewModel", "Error loading event participation stats: ${exception.message}", exception)
+                    _participatingUsers.value = 0
+                    _userPercentage.value = 0.0
+                    _averageEventsPerUser.value = 0.0
+                    _totalBookings.value = 0
+                }
+                .collect { stats ->
+                    _participatingUsers.value = stats.participatingUsers
+                    _userPercentage.value = stats.userPercentage
+                    _averageEventsPerUser.value = stats.averageEventsPerUser
+                    _totalBookings.value = stats.totalBookings
+                }
         }
     }
 
     fun loadTrendData(days: Int) {
         viewModelScope.launch {
-            getUserGrowthTrendUseCase(days).collect { trends ->
-                _totalUsersData.value = trends.totalUsers
-                _newUsersData.value = trends.newUsers
-            }
+            getUserGrowthTrendUseCase(days)
+                .catch { exception ->
+                    Log.e("UserReportViewModel", "Error loading trend data: ${exception.message}", exception)
+                    _totalUsersData.value = emptyList()
+                    _newUsersData.value = emptyList()
+                }
+                .collect { trends ->
+                    _totalUsersData.value = trends.totalUsers
+                    _newUsersData.value = trends.newUsers
+                }
         }
     }
 

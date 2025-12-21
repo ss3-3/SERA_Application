@@ -5,12 +5,17 @@ import androidx.lifecycle.viewModelScope
 import com.example.sera_application.domain.model.uimodel.EventListUiModel
 import com.example.sera_application.domain.usecase.report.FilterEventsByDateUseCase
 import com.example.sera_application.domain.usecase.report.GetAllEventsUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
+import jakarta.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
+import android.util.Log
 
-class EventReportViewModel(
+@HiltViewModel
+class EventReportViewModel @Inject constructor(
     private val getAllEventsUseCase: GetAllEventsUseCase,
     private val filterEventsByDateUseCase: FilterEventsByDateUseCase
 ) : ViewModel() {
@@ -27,19 +32,31 @@ class EventReportViewModel(
 
     private fun loadAllEvents() {
         viewModelScope.launch {
-            getAllEventsUseCase().collect { eventList ->
-                _events.value = eventList
-                _eventCount.value = eventList.size
-            }
+            getAllEventsUseCase()
+                .catch { exception ->
+                    Log.e("EventReportViewModel", "Error loading events: ${exception.message}", exception)
+                    _events.value = emptyList()
+                    _eventCount.value = 0
+                }
+                .collect { eventList ->
+                    _events.value = eventList
+                    _eventCount.value = eventList.size
+                }
         }
     }
 
     fun filterByDateRange(startDate: Long?, endDate: Long?) {
         viewModelScope.launch {
-            filterEventsByDateUseCase(startDate, endDate).collect { filtered ->
-                _events.value = filtered
-                _eventCount.value = filtered.size
-            }
+            filterEventsByDateUseCase(startDate, endDate)
+                .catch { exception ->
+                    Log.e("EventReportViewModel", "Error filtering events: ${exception.message}", exception)
+                    _events.value = emptyList()
+                    _eventCount.value = 0
+                }
+                .collect { filtered ->
+                    _events.value = filtered
+                    _eventCount.value = filtered.size
+                }
         }
     }
 }

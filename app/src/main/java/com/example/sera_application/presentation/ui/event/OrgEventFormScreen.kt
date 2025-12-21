@@ -386,20 +386,20 @@ fun EventFormScreen(
                                 .fillMaxWidth()
                                 .clickable { showDatePicker = true }
                         ) {
-                            OutlinedTextField(
-                                value = eventDateText,
-                                onValueChange = {},
-                                readOnly = true,
+                        OutlinedTextField(
+                            value = eventDateText,
+                            onValueChange = {},
+                            readOnly = true,
                                 enabled = false,
-                                placeholder = { Text("Select date", fontSize = 14.sp, color = Color.Gray) },
+                            placeholder = { Text("Select date", fontSize = 14.sp, color = Color.Gray) },
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(8.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
+                            shape = RoundedCornerShape(8.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
                                     disabledBorderColor = Color(0xFFE0E0E0),
                                     disabledTextColor = Color.Black,
                                     disabledPlaceholderColor = Color.Gray,
                                     disabledTrailingIconColor = Color.Gray
-                                ),
+                            ),
                                 trailingIcon = { 
                                     Icon(
                                         Icons.Default.CalendarToday, 
@@ -407,8 +407,8 @@ fun EventFormScreen(
                                         tint = Color(0xFF2196F3)
                                     ) 
                                 },
-                                singleLine = true
-                            )
+                            singleLine = true
+                        )
                         }
                     }
 
@@ -445,20 +445,20 @@ fun EventFormScreen(
                                 .fillMaxWidth()
                                 .clickable { showStartTimePicker = true }
                         ) {
-                            OutlinedTextField(
-                                value = eventStartTime,
-                                onValueChange = {},
-                                readOnly = true,
+                        OutlinedTextField(
+                            value = eventStartTime,
+                            onValueChange = {},
+                            readOnly = true,
                                 enabled = false,
-                                placeholder = { Text("Select time", fontSize = 14.sp, color = Color.Gray) },
+                            placeholder = { Text("Select time", fontSize = 14.sp, color = Color.Gray) },
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(8.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
+                            shape = RoundedCornerShape(8.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
                                     disabledBorderColor = Color(0xFFE0E0E0),
                                     disabledTextColor = Color.Black,
                                     disabledPlaceholderColor = Color.Gray,
                                     disabledTrailingIconColor = Color.Gray
-                                ),
+                            ),
                                 trailingIcon = { 
                                     Icon(
                                         Icons.Default.AccessTime, 
@@ -466,8 +466,8 @@ fun EventFormScreen(
                                         tint = Color(0xFF2196F3)
                                     ) 
                                 },
-                                singleLine = true
-                            )
+                            singleLine = true
+                        )
                         }
                     }
 
@@ -478,20 +478,20 @@ fun EventFormScreen(
                                 .fillMaxWidth()
                                 .clickable { showEndTimePicker = true }
                         ) {
-                            OutlinedTextField(
-                                value = eventEndTime,
-                                onValueChange = {},
-                                readOnly = true,
+                        OutlinedTextField(
+                            value = eventEndTime,
+                            onValueChange = {},
+                            readOnly = true,
                                 enabled = false,
-                                placeholder = { Text("Select time", fontSize = 14.sp, color = Color.Gray) },
+                            placeholder = { Text("Select time", fontSize = 14.sp, color = Color.Gray) },
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(8.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
+                            shape = RoundedCornerShape(8.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
                                     disabledBorderColor = Color(0xFFE0E0E0),
                                     disabledTextColor = Color.Black,
                                     disabledPlaceholderColor = Color.Gray,
                                     disabledTrailingIconColor = Color.Gray
-                                ),
+                            ),
                                 trailingIcon = { 
                                     Icon(
                                         Icons.Default.AccessTime, 
@@ -499,8 +499,8 @@ fun EventFormScreen(
                                         tint = Color(0xFF2196F3)
                                     ) 
                                 },
-                                singleLine = true
-                            )
+                            singleLine = true
+                        )
                         }
                     }
                 }

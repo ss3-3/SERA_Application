@@ -1,22 +1,10 @@
 package com.example.sera_application.presentation.navigation
 
+import android.R.attr.type
 import android.content.Intent
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.ui.platform.LocalContext
 import com.example.sera_application.presentation.ui.user.UserListScreen
 import com.example.sera_application.presentation.ui.reservation.ReservationListScreen
@@ -28,10 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -40,10 +25,9 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.sera_application.domain.model.enums.UserRole
 import com.example.sera_application.presentation.ui.auth.LoginScreen
-import com.example.sera_application.presentation.ui.auth.OrganizerWaitingApprovalScreen
 import com.example.sera_application.presentation.ui.auth.SignUpScreen
-import com.example.sera_application.presentation.ui.dashboard.OrganizerDashboardScreen
-import com.example.sera_application.presentation.ui.dashboardcontainer.AdminDashboardContainer
+import com.example.sera_application.presentation.ui.auth.OrganizerWaitingApprovalScreen
+import com.example.sera_application.presentation.ui.notification.NotificationListScreen
 import com.example.sera_application.presentation.ui.event.EventDetailsScreen
 import com.example.sera_application.presentation.ui.event.OrganizerEventManagementScreen
 import com.example.sera_application.presentation.ui.reservation.CreateReservationScreen
@@ -55,15 +39,55 @@ import com.example.sera_application.presentation.ui.user.ChangePasswordScreen
 import com.example.sera_application.presentation.ui.user.EditUsernameScreen
 import com.example.sera_application.presentation.ui.user.ProfileScreen
 import com.example.sera_application.presentation.ui.event.*
-import com.example.sera_application.presentation.ui.notification.NotificationListScreen
+import com.example.sera_application.presentation.ui.payment.PaymentActivity
 import com.example.sera_application.presentation.ui.payment.*
+import com.example.sera_application.presentation.ui.dashboardcontainer.AdminDashboardContainer
+import com.example.sera_application.presentation.ui.dashboard.OrganizerDashboardScreen
 import com.example.sera_application.presentation.viewmodel.event.EventFormViewModel
+import com.example.sera_application.presentation.navigation.asNavigationController
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.*
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun OrganizerDashboardWithTopBar(
+    organizerId: String,
+    onBackClick: () -> Unit
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("My Dashboard") },
+                navigationIcon = {
+                    IconButton(onClick = onBackClick) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color(0xFFFFC107),
+                    titleContentColor = Color.Black,
+                    navigationIconContentColor = Color.Black
+                )
+            )
+        }
+    ) { paddingValues ->
+        Box(modifier = Modifier.padding(paddingValues)) {
+            OrganizerDashboardScreen(organizerId = organizerId)
+        }
+    }
+}
 
 fun NavHostController.navigateToReservationDetails(reservationId: String) {
     navigate(Screen.ReservationDetails.createRoute(reservationId))
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainNavGraph(
     navController: NavHostController = rememberNavController(),
@@ -72,7 +96,7 @@ fun MainNavGraph(
     val navigationController = remember(navController) {
         navController.asNavigationController()
     }
-
+    
     CompositionLocalProvider(LocalNavigationController provides navigationController) {
         NavHost(
             navController = navController,
@@ -506,7 +530,6 @@ fun MainNavGraph(
 
 
                 LaunchedEffect(passwordUpdateSuccess) {
-                    viewModel.loadCurrentUser()
                     if (passwordUpdateSuccess) {
                         navigationController.navigateBack()
                     }
@@ -551,6 +574,7 @@ fun MainNavGraph(
                         navController.navigate(Screen.OrganizerPaymentManagement.route)
                     },
                     onReport = {
+                        // Navigate to organizer dashboard for organizers
                         currentUser?.userId?.let { userId ->
                             navController.navigate(Screen.OrganizerDashboard.createRoute(userId))
                         }
@@ -560,6 +584,7 @@ fun MainNavGraph(
                     },
                     onEventApproval = { },
                     onAdminReports = {
+                        // Navigate to admin dashboard container (has tabs for all reports)
                         navController.navigate(Screen.AdminDashboardContainer.route)
                     },
                     onLogoutSuccess = {
@@ -671,12 +696,12 @@ fun MainNavGraph(
                 )
             }
 
-            // Admin Reservation Management Screen
-            composable(Screen.AdminReservationManagement.route) {
-                com.example.sera_application.presentation.ui.reservation.AdminReservationManagementScreen(
-                    navController = navController
-                )
-            }
+        // Admin Reservation Management Screen
+        composable(Screen.AdminReservationManagement.route) {
+            com.example.sera_application.presentation.ui.reservation.AdminReservationManagementScreen(
+                navController = navController
+            )
+        }
 
             // Payment History Screen (User)
             composable(Screen.PaymentHistory.route) {
@@ -799,12 +824,14 @@ fun MainNavGraph(
                 }
             }
 
+            // Admin Dashboard Container (with Report Tabs)
             composable(Screen.AdminDashboardContainer.route) {
                 AdminDashboardContainer(
                     onBack = { navController.popBackStack() }
                 )
             }
 
+            // Organizer Dashboard Screen
             composable(
                 route = Screen.OrganizerDashboard.route,
                 arguments = listOf(
@@ -814,29 +841,11 @@ fun MainNavGraph(
                 )
             ) { backStackEntry ->
                 val organizerId = backStackEntry.arguments?.getString("organizerId") ?: ""
-
                 if (organizerId.isNotEmpty()) {
-                    Scaffold(
-                        topBar = {
-                            TopAppBar(
-                                title = { Text("My Dashboard") },
-                                navigationIcon = {
-                                    IconButton(onClick = { navController.popBackStack() }) {
-                                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
-                                    }
-                                },
-                                colors = TopAppBarDefaults.topAppBarColors(
-                                    containerColor = Color(0xFFFFC107),
-                                    titleContentColor = Color.Black,
-                                    navigationIconContentColor = Color.Black
-                                )
-                            )
-                        }
-                    ) { paddingValues ->
-                        Box(modifier = Modifier.padding(paddingValues)) {
-                            OrganizerDashboardScreen(organizerId = organizerId)
-                        }
-                    }
+                    OrganizerDashboardWithTopBar(
+                        organizerId = organizerId,
+                        onBackClick = { navController.popBackStack() }
+                    )
                 } else {
                     Box(
                         modifier = Modifier.fillMaxSize(),

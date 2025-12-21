@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.BookOnline
+import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
@@ -31,7 +33,7 @@ import com.example.sera_application.presentation.navigation.Screen
  * Navigation structure:
  * - PARTICIPANT: Home (EventList) | Me (Profile)
  * - ORGANIZER: Home (OrganizerEventManagement) | Add Event (+) | Me (Profile)
- * - ADMIN: No bottom navigation bar (returns empty)
+ * - ADMIN: Home (AdminDashboard) | Event | Reservation | Me (Profile)
  */
 @Composable
 fun BottomNavigationBar(
@@ -39,17 +41,15 @@ fun BottomNavigationBar(
     currentRoute: String?,
     userRole: UserRole?
 ) {
-    // Admin users don't have bottom navigation
-    if (userRole == UserRole.ADMIN) {
-        return
-    }
-
     when (userRole) {
         UserRole.PARTICIPANT -> {
             ParticipantBottomNav(navController, currentRoute)
         }
         UserRole.ORGANIZER -> {
             OrganizerBottomNav(navController, currentRoute)
+        }
+        UserRole.ADMIN -> {
+            AdminBottomNav(navController, currentRoute)
         }
         else -> {
             // Default to participant navigation if role is unknown
@@ -152,14 +152,64 @@ private fun OrganizerBottomNav(
     }
 }
 
+@Composable
+private fun AdminBottomNav(
+    navController: NavController,
+    currentRoute: String?
+) {
+    NavigationBar(
+        containerColor = Color.White
+    ) {
+        NavigationBarItem(
+            icon = { Icon(Icons.Default.Event, contentDescription = "Event") },
+            label = { Text("Event") },
+            selected = currentRoute == Screen.AdminEventManagement.route,
+            onClick = {
+                navController.navigate(Screen.AdminEventManagement.route) {
+                    launchSingleTop = true
+                }
+            }
+        )
+        NavigationBarItem(
+            icon = { Icon(Icons.Default.BookOnline, contentDescription = "Reservation") },
+            label = { Text("Reservation") },
+            selected = currentRoute == Screen.AdminReservationManagement.route,
+            onClick = {
+                navController.navigate(Screen.AdminReservationManagement.route) {
+                    launchSingleTop = true
+                }
+            }
+        )
+        NavigationBarItem(
+            icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
+            label = { Text("Me") },
+            selected = currentRoute == Screen.Profile.route,
+            onClick = {
+                navController.navigate(Screen.Profile.route) {
+                    launchSingleTop = true
+                }
+            }
+        )
+    }
+}
+
 /**
  * Helper function to determine if current route is a home route for the given role
  */
-private fun isHomeRoute(currentRoute: String?, userRole: UserRole): Boolean {
+private fun isHomeRoute(
+    currentRoute: String?,
+    userRole: UserRole
+): Boolean {
     return when (userRole) {
-        UserRole.PARTICIPANT -> currentRoute == Screen.EventList.route
-        UserRole.ORGANIZER -> currentRoute == Screen.OrganizerEventManagement.route
-        UserRole.ADMIN -> currentRoute == Screen.AdminEventManagement.route
+        UserRole.PARTICIPANT ->
+            currentRoute == Screen.EventList.route
+
+        UserRole.ORGANIZER ->
+            currentRoute == Screen.OrganizerEventManagement.route
+
+        UserRole.ADMIN ->
+            currentRoute == Screen.AdminEventManagement.route
+
         else -> false
     }
 }

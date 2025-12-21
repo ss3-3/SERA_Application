@@ -9,12 +9,17 @@ import com.example.sera_application.domain.usecase.report.GetRevenueTrendUseCase
 import com.example.sera_application.domain.usecase.report.GetTopEarningEventsUseCase
 import com.example.sera_application.domain.usecase.report.GetTotalRevenueUseCase
 import com.patrykandpatryk.vico.core.entry.FloatEntry
+import dagger.hilt.android.lifecycle.HiltViewModel
+import jakarta.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
+import android.util.Log
 
-class RevenueReportViewModel(
+@HiltViewModel
+class RevenueReportViewModel @Inject constructor(
     private val getTotalRevenueUseCase: GetTotalRevenueUseCase,
     private val getRevenueTrendUseCase: GetRevenueTrendUseCase,
     private val getTopEarningEventsUseCase: GetTopEarningEventsUseCase,
@@ -42,37 +47,63 @@ class RevenueReportViewModel(
 
     private fun loadRevenueData() {
         viewModelScope.launch {
-            getTotalRevenueUseCase().collect { data ->
-                _totalRevenue.value = data.total
-                _revenueGrowth.value = data.growth
-            }
+            getTotalRevenueUseCase()
+                .catch { exception ->
+                    Log.e("RevenueReportViewModel", "Error loading total revenue: ${exception.message}", exception)
+                    _totalRevenue.value = 0.0
+                    _revenueGrowth.value = 0.0
+                }
+                .collect { data ->
+                    _totalRevenue.value = data.total
+                    _revenueGrowth.value = data.growth
+                }
         }
 
         viewModelScope.launch {
-            getRevenueTrendUseCase(7).collect { trend ->
-                _revenueData.value = trend
-            }
+            getRevenueTrendUseCase(7)
+                .catch { exception ->
+                    Log.e("RevenueReportViewModel", "Error loading revenue trend: ${exception.message}", exception)
+                    _revenueData.value = emptyList()
+                }
+                .collect { trend ->
+                    _revenueData.value = trend
+                }
         }
 
         viewModelScope.launch {
-            getTopEarningEventsUseCase().collect { events ->
-                _topEarningEvents.value = events
-            }
+            getTopEarningEventsUseCase()
+                .catch { exception ->
+                    Log.e("RevenueReportViewModel", "Error loading top earning events: ${exception.message}", exception)
+                    _topEarningEvents.value = emptyList()
+                }
+                .collect { events ->
+                    _topEarningEvents.value = events
+                }
         }
 
         viewModelScope.launch {
-            getPaymentStatisticsUseCase().collect { stats ->
-                _paymentStats.value = stats
-            }
+            getPaymentStatisticsUseCase()
+                .catch { exception ->
+                    Log.e("RevenueReportViewModel", "Error loading payment statistics: ${exception.message}", exception)
+                    _paymentStats.value = null
+                }
+                .collect { stats ->
+                    _paymentStats.value = stats
+                }
         }
     }
 
     fun loadTrendData(period: String) {
         viewModelScope.launch {
             val days = if (period == "Weekly") 7 else 30
-            getRevenueTrendUseCase(days).collect { trend ->
-                _revenueData.value = trend
-            }
+            getRevenueTrendUseCase(days)
+                .catch { exception ->
+                    Log.e("RevenueReportViewModel", "Error loading trend data: ${exception.message}", exception)
+                    _revenueData.value = emptyList()
+                }
+                .collect { trend ->
+                    _revenueData.value = trend
+                }
         }
     }
 }

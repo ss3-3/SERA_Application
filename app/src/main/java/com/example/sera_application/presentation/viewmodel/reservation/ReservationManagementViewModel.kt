@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import javax.inject.Inject
 
 @HiltViewModel
@@ -48,26 +50,30 @@ class ReservationManagementViewModel @Inject constructor(
         _isLoading.value = true
         _error.value = null
 
-        getEventReservationsUseCase(eventId)
-            .onEach { reservationList ->
-                // Fetch event details for each reservation
-                val enrichedList = reservationList.map { reservation ->
-                    try {
-                        val event = getEventByIdUseCase(reservation.eventId)
-                        ReservationWithDetails(reservation, event)
-                    } catch (e: Exception) {
-                        ReservationWithDetails(reservation, null)
-                    }
+        viewModelScope.launch {
+            getEventReservationsUseCase(eventId)
+                .onEach { reservationList ->
+                    // Fetch event details for each reservation using coroutine scope
+                    val enrichedList = reservationList.map { reservation ->
+                        async {
+                            try {
+                                val event = getEventByIdUseCase(reservation.eventId)
+                                ReservationWithDetails(reservation, event)
+                            } catch (e: Exception) {
+                                ReservationWithDetails(reservation, null)
+                            }
+                        }
+                    }.awaitAll()
+                    
+                    _reservations.value = enrichedList
+                    _isLoading.value = false
                 }
-                
-                _reservations.value = enrichedList
-                _isLoading.value = false
-            }
-            .catch { exception ->
-                _error.value = exception.message ?: "Failed to observe event reservations"
-                _isLoading.value = false
-            }
-            .launchIn(viewModelScope)
+                .catch { exception ->
+                    _error.value = exception.message ?: "Failed to observe event reservations"
+                    _isLoading.value = false
+                }
+                .launchIn(viewModelScope)
+        }
     }
 
     /**

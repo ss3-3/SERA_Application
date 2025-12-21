@@ -61,6 +61,7 @@ sealed class Screen(val route: String) {
     }
 
     object AdminUserManagement : Screen("admin_user_management")
+    object AdminReservationManagement : Screen("admin_reservation_management")
     
     // Payment Navigation
     object PaymentHistory : Screen("payment_history")

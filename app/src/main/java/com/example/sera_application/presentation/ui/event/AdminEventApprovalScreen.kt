@@ -94,10 +94,15 @@ class AdminEventApprovalViewModel @Inject constructor(
     fun approveEvent(eventId: String, onResult: (Boolean, String?) -> Unit) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            android.util.Log.d("AdminEventApproval", "===== Starting approval process =====")
+            android.util.Log.d("AdminEventApproval", "Event ID: $eventId")
 
             try {
                 val success = approveEventUseCase(eventId)
+                android.util.Log.d("AdminEventApproval", "Approval UseCase result: $success")
+                
                 if (success) {
+                    android.util.Log.d("AdminEventApproval", "✅ Event approved successfully")
                     _uiState.update {
                         it.copy(
                             isLoading = false,
@@ -107,19 +112,24 @@ class AdminEventApprovalViewModel @Inject constructor(
                     }
                     onResult(true, null)
                 } else {
+                    val errorMsg = "Failed to approve event - Check Firebase Firestore rules or network connection"
+                    android.util.Log.e("AdminEventApproval", "❌ $errorMsg")
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            errorMessage = "Failed to approve event"
+                            errorMessage = errorMsg
                         )
                     }
-                    onResult(false, "Failed to approve event")
+                    onResult(false, errorMsg)
                 }
             } catch (e: Exception) {
+                val errorMsg = "Error approving event: ${e.message}"
+                android.util.Log.e("AdminEventApproval", "❌ Exception: $errorMsg", e)
+                e.printStackTrace()
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        errorMessage = "Error approving event: ${e.message}"
+                        errorMessage = errorMsg
                     )
                 }
                 onResult(false, e.message)
@@ -133,10 +143,15 @@ class AdminEventApprovalViewModel @Inject constructor(
     fun rejectEvent(eventId: String, onResult: (Boolean, String?) -> Unit) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            android.util.Log.d("AdminEventApproval", "===== Starting rejection process =====")
+            android.util.Log.d("AdminEventApproval", "Event ID: $eventId")
 
             try {
                 val success = rejectEventUseCase(eventId)
+                android.util.Log.d("AdminEventApproval", "Rejection UseCase result: $success")
+                
                 if (success) {
+                    android.util.Log.d("AdminEventApproval", "✅ Event rejected successfully")
                     _uiState.update {
                         it.copy(
                             isLoading = false,
@@ -146,19 +161,24 @@ class AdminEventApprovalViewModel @Inject constructor(
                     }
                     onResult(true, null)
                 } else {
+                    val errorMsg = "Failed to reject event - Check Firebase Firestore rules or network connection"
+                    android.util.Log.e("AdminEventApproval", "❌ $errorMsg")
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            errorMessage = "Failed to reject event"
+                            errorMessage = errorMsg
                         )
                     }
-                    onResult(false, "Failed to reject event")
+                    onResult(false, errorMsg)
                 }
             } catch (e: Exception) {
+                val errorMsg = "Error rejecting event: ${e.message}"
+                android.util.Log.e("AdminEventApproval", "❌ Exception: $errorMsg", e)
+                e.printStackTrace()
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        errorMessage = "Error rejecting event: ${e.message}"
+                        errorMessage = errorMsg
                     )
                 }
                 onResult(false, e.message)

@@ -293,20 +293,26 @@ class EventRepositoryImpl @Inject constructor(
 
     override suspend fun approveEvent(eventId: String): Boolean {
         return try {
+            android.util.Log.d("EventRepository", "Approving event: $eventId with status: ${EventStatus.APPROVED.name}")
             remoteDataSource.updateEventStatus(eventId, EventStatus.APPROVED.name)
             eventDao.updateEventStatus(eventId, EventStatus.APPROVED.name)
+            android.util.Log.d("EventRepository", "Successfully approved event: $eventId")
             true
         } catch (e: Exception) {
+            android.util.Log.e("EventRepository", "Failed to approve event $eventId: ${e.message}", e)
             false
         }
     }
 
     override suspend fun rejectEvent(eventId: String): Boolean {
         return try {
+            android.util.Log.d("EventRepository", "Rejecting event: $eventId with status: ${EventStatus.REJECTED.name}")
             remoteDataSource.updateEventStatus(eventId, EventStatus.REJECTED.name)
             eventDao.updateEventStatus(eventId, EventStatus.REJECTED.name)
+            android.util.Log.d("EventRepository", "Successfully rejected event: $eventId")
             true
         } catch (e: Exception) {
+            android.util.Log.e("EventRepository", "Failed to reject event $eventId: ${e.message}", e)
             false
         }
     }
