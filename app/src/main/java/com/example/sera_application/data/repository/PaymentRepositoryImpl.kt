@@ -1,11 +1,13 @@
 package com.example.sera_application.data.repository
 
+import com.example.sera_application.data.local.EventRevenue
 import com.example.sera_application.data.local.dao.PaymentDao
 import com.example.sera_application.data.mapper.PaymentMapper
 import com.example.sera_application.data.remote.datasource.PaymentRemoteDataSource
 import com.example.sera_application.data.remote.paypal.repository.PayPalRepository
 import com.example.sera_application.domain.model.Payment
 import com.example.sera_application.domain.model.enums.PaymentStatus
+import com.example.sera_application.domain.model.uimodel.PaymentStatistics
 import com.example.sera_application.domain.repository.PaymentRepository
 import javax.inject.Inject
 
@@ -140,6 +142,95 @@ class PaymentRepositoryImpl @Inject constructor(
             }
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+
+    // Add
+    override suspend fun getTotalRevenueByEvents(eventIds: List<String>): Double {
+        return try {
+            paymentDao.getTotalRevenueByEvents(eventIds)
+        } catch (e: Exception) {
+            0.0
+        }
+    }
+
+    override suspend fun getTotalRevenue(): Double {
+        return try {
+            paymentDao.getTotalRevenue()
+        } catch (e: Exception) {
+            0.0
+        }
+    }
+
+    override suspend fun getRevenueByDateRange(startDate: Long, endDate: Long): Double {
+        return try {
+            paymentDao.getRevenueByDateRange(startDate, endDate)
+        } catch (e: Exception) {
+            0.0
+        }
+    }
+
+    override suspend fun getRevenueTrend(days: Int, startDate: Long): List<Double> {
+        return try {
+            val trendData = paymentDao.getRevenueTrend(days, startDate)
+            trendData.map { it.revenue }
+        } catch (e: Exception) {
+            List(days) { 0.0 }
+        }
+    }
+
+    override suspend fun getTopRevenueEventIds(limit: Int): List<EventRevenue> {
+        return try {
+            paymentDao.getTopRevenueEvents(limit)
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    override suspend fun getAllPayments(): List<Payment> {
+        return try {
+            val entities = paymentDao.getAllPayments()
+            mapper.toDomainList(entities)
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    override suspend fun getPaymentStatistics(): PaymentStatistics {
+        return try {
+            val allPayments = paymentDao.getAllPayments()
+            val totalPayments = allPayments.size
+            val successCount = paymentDao.getPaymentCountByStatus(PaymentStatus.SUCCESS.name)
+            val pendingCount = paymentDao.getPaymentCountByStatus(PaymentStatus.PENDING.name)
+            val failedCount = paymentDao.getPaymentCountByStatus(PaymentStatus.FAILED.name)
+            val totalRevenue = paymentDao.getTotalRevenue()
+
+            val successRate = if (totalPayments == 0) 0.0 else successCount.toDouble() / totalPayments
+            val pendingRate = if (totalPayments == 0) 0.0 else pendingCount.toDouble() / totalPayments
+            val failedRate = if (totalPayments == 0) 0.0 else failedCount.toDouble() / totalPayments
+
+            PaymentStatistics(
+                totalPayments = totalPayments,
+                successCount = successCount,
+                pendingCount = pendingCount,
+                failedCount = failedCount,
+                totalRevenue = totalRevenue,
+                successRate = successRate,
+                pendingRate = pendingRate,
+                failedRate = failedRate
+            )
+        } catch (e: Exception) {
+            PaymentStatistics(
+                totalPayments = 0,
+                successCount = 0,
+                pendingCount = 0,
+                failedCount = 0,
+                totalRevenue = 0.0,
+                successRate = 0.0,
+                pendingRate = 0.0,
+                failedRate = 0.0
+            )
         }
     }
 

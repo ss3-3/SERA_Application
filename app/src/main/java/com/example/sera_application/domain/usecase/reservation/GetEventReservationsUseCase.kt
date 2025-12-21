@@ -9,7 +9,7 @@ import javax.inject.Inject
 class GetEventReservationsUseCase @Inject constructor(
     private val reservationRepository: ReservationRepository
 ) {
-    operator fun invoke(eventId: String): Flow<List<EventReservation>> {
+    suspend operator fun invoke(eventId: String): Flow<List<EventReservation>> {
         if (eventId.isBlank()) return flowOf(emptyList())
 
         return reservationRepository.getEventReservations(eventId)

@@ -1,6 +1,7 @@
 package com.example.sera_application.data.repository
 
 import com.example.sera_application.data.local.dao.EventDao
+import com.example.sera_application.data.local.dao.UserDao
 import com.example.sera_application.data.local.entity.EventEntity
 import com.example.sera_application.data.mapper.EventMapper
 import com.example.sera_application.data.remote.datasource.EventRemoteDataSource
@@ -20,7 +21,8 @@ class EventRepositoryImpl @Inject constructor(
     private val remoteDataSource: EventRemoteDataSource,
     private val eventDao: EventDao,
     private val mapper: EventMapper,
-    private val userRemoteDataSource: UserRemoteDataSource
+    private val userRemoteDataSource: UserRemoteDataSource,
+    private val userDao: UserDao
 ) : EventRepository {
 
     /**
@@ -237,6 +239,58 @@ class EventRepositoryImpl @Inject constructor(
         }
     }
 
+
+    // Add
+    override suspend fun getTotalEventCount(): Int {
+        return eventDao.getTotalEventCount()
+    }
+
+    override suspend fun getAllEvents(): List<Event> {
+        val entities = eventDao.getAllEvents()
+        // Preload organizer names for all events
+        val organizerIds = entities.map { it.organizerId }.distinct()
+        organizerIds.forEach { id ->
+            if (!organizerNameCache.containsKey(id)) {
+                getOrganizerName(id)
+            }
+        }
+        val organizerNameSnapshot = organizerNameCache.toMap()
+        return mapper.toDomainList(entities) { organizerId ->
+            organizerNameSnapshot[organizerId] ?: ""
+        }
+    }
+
+    override suspend fun getPopularEvents(limit: Int): List<Event> {
+        val entities = eventDao.getPopularEvents(limit)
+        // Preload organizer names for these events
+        val organizerIds = entities.map { it.organizerId }.distinct()
+        organizerIds.forEach { id ->
+            if (!organizerNameCache.containsKey(id)) {
+                getOrganizerName(id)
+            }
+        }
+        val organizerNameSnapshot = organizerNameCache.toMap()
+        return mapper.toDomainList(entities) { organizerId ->
+            organizerNameSnapshot[organizerId] ?: ""
+        }
+    }
+
+    override suspend fun getEventsByDateRange(startDate: Long, endDate: Long): List<Event> {
+        val entities = eventDao.getEventsByDateRange(startDate, endDate)
+        // Preload organizer names for these events
+        val organizerIds = entities.map { it.organizerId }.distinct()
+        organizerIds.forEach { id ->
+            if (!organizerNameCache.containsKey(id)) {
+                getOrganizerName(id)
+            }
+        }
+        val organizerNameSnapshot = organizerNameCache.toMap()
+        return mapper.toDomainList(entities) { organizerId ->
+            organizerNameSnapshot[organizerId] ?: ""
+        }
+    }
+
+
     override suspend fun approveEvent(eventId: String): Boolean {
         return try {
             remoteDataSource.updateEventStatus(eventId, EventStatus.APPROVED.name)
@@ -305,9 +359,18 @@ class EventRepositoryImpl @Inject constructor(
 //    }
 
     override suspend fun getApprovedEvents(): List<Event> {
-        return eventDao
-            .getEventsByStatus("APPROVED")
-            .map(mapper::toDomain)
+        val entities = eventDao.getEventsByStatus("APPROVED")
+        // Preload organizer names for these events
+        val organizerIds = entities.map { it.organizerId }.distinct()
+        organizerIds.forEach { id ->
+            if (!organizerNameCache.containsKey(id)) {
+                getOrganizerName(id)
+            }
+        }
+        val organizerNameSnapshot = organizerNameCache.toMap()
+        return mapper.toDomainList(entities) { organizerId ->
+            organizerNameSnapshot[organizerId] ?: ""
+        }
     }
 
     override suspend fun updateAvailableSeats(

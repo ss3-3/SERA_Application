@@ -120,4 +120,9 @@ dependencies {
 
     //qr
     implementation("com.google.zxing:core:3.5.1")
+
+    // Reporting
+    implementation("com.patrykandpatryk.vico:compose:1.5.2")
+    implementation("com.patrykandpatryk.vico:compose-m3:1.5.2")
+    implementation("com.patrykandpatryk.vico:core:1.5.2")
 }

@@ -1,5 +1,6 @@
 package com.example.sera_application.data.repository
 
+import com.example.sera_application.data.local.UserGrowthData
 import com.example.sera_application.data.local.dao.UserDao
 import com.example.sera_application.data.mapper.UserMapper
 import com.example.sera_application.data.remote.datasource.UserRemoteDataSource
@@ -129,6 +130,41 @@ class UserRepositoryImpl @Inject constructor(
             }
         } catch (e: Exception) {
             false
+        }
+    }
+
+
+    // Add
+    override suspend fun getTotalUserCount(): Int {
+        return try {
+            userDao.getTotalUserCount()
+        } catch (e: Exception) {
+            0
+        }
+    }
+
+    override suspend fun getUsersCreatedBetween(startDate: Long, endDate: Long): Int {
+        return try {
+            userDao.getUsersCreatedBetween(startDate, endDate)
+        } catch (e: Exception) {
+            0
+        }
+    }
+
+    override suspend fun getUserGrowthTrend(days: Int, startDate: Long): List<UserGrowthData> {
+        return try {
+            userDao.getUserGrowthTrend(days, startDate)
+        } catch (e: Exception) {
+            List(days) { UserGrowthData(it.toString(), 0, 0) }
+        }
+    }
+
+    override suspend fun getMonthlyUserGrowthTrend(startDate: Long): List<Int> {
+        return try {
+            val monthlyData = userDao.getMonthlyUserGrowthTrend(startDate)
+            monthlyData.map { it.count }
+        } catch (e: Exception) {
+            List(12) { 0 }
         }
     }
 }

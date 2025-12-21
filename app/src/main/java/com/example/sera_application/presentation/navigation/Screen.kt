@@ -23,7 +23,13 @@ sealed class Screen(val route: String) {
 
     object Profile : Screen("profile")
     object OrganizerHome : Screen("organizer_home")
-    object AdminDashboard : Screen("admin_dashboard")
+
+    object AdminDashboardContainer : Screen("admin_dashboard_container")
+
+    object OrganizerDashboard : Screen("organizer_dashboard/{organizerId}") {
+        fun createRoute(organizerId: String) = "organizer_dashboard/$organizerId"
+    }
+
 
     object Login : Screen("login")
     object SignUp : Screen("signup")

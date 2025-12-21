@@ -1,5 +1,6 @@
 package com.example.sera_application.data.repository
 
+import com.example.sera_application.data.local.UserParticipation
 import com.example.sera_application.data.local.dao.ReservationDao
 import com.example.sera_application.data.mapper.ReservationMapper
 import com.example.sera_application.data.remote.datasource.ReservationRemoteDataSource
@@ -50,7 +51,7 @@ class ReservationRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun getUserReservations(userId: String): Flow<List<EventReservation>> {
+    override suspend fun getUserReservations(userId: String): Flow<List<EventReservation>> {
         return flow {
             try {
                 val remoteReservations = remoteDataSource.getReservationsByUser(userId)
@@ -69,7 +70,7 @@ class ReservationRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun getEventReservations(eventId: String): Flow<List<EventReservation>> {
+    override suspend fun getEventReservations(eventId: String): Flow<List<EventReservation>> {
         return flow {
             try {
                 val remoteReservations = remoteDataSource.getReservationsByEvent(eventId)
@@ -140,6 +141,55 @@ class ReservationRepositoryImpl @Inject constructor(
             }
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    // Add
+    override suspend fun getTotalReservationCount(): Int {
+        return try {
+            reservationDao.getTotalReservationCount()
+        } catch (e: Exception) {
+            0
+        }
+    }
+
+    override suspend fun getUniqueParticipantsCount(): Int {
+        return try {
+            reservationDao.getUniqueParticipantsCount()
+        } catch (e: Exception) {
+            0
+        }
+    }
+
+    override suspend fun getTotalParticipantsByEvents(eventIds: List<String>): Int {
+        return try {
+            reservationDao.getTotalParticipantsByEvents(eventIds)
+        } catch (e: Exception) {
+            0
+        }
+    }
+
+    override suspend fun getParticipantsByEvent(eventId: String): Int {
+        return try {
+            reservationDao.getParticipantsByEvent(eventId)
+        } catch (e: Exception) {
+            0
+        }
+    }
+
+    override suspend fun getTopParticipants(limit: Int): List<UserParticipation> {
+        return try {
+            reservationDao.getTopParticipants(limit)
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    override suspend fun getMonthlyReservationTrend(startDate: Long): List<Int> {
+        return try {
+            reservationDao.getMonthlyReservationTrend(startDate).map { it.count }
+        } catch (e: Exception) {
+            List(12) { 0 }
         }
     }
 }

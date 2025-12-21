@@ -1,7 +1,9 @@
 package com.example.sera_application.domain.repository
 
+import com.example.sera_application.data.local.EventRevenue
 import com.example.sera_application.domain.model.Payment
 import com.example.sera_application.domain.usecase.payment.PayPalOrderCreationResult
+import com.example.sera_application.domain.model.uimodel.PaymentStatistics
 
 interface PaymentRepository {
 
@@ -18,4 +20,14 @@ interface PaymentRepository {
     suspend fun refundPayment(paymentId: String): Boolean
 
     suspend fun getPaymentByReservationId(reservationId: String): Payment?
+
+
+    // Add
+    suspend fun getTotalRevenueByEvents(eventIds: List<String>): Double
+    suspend fun getTotalRevenue(): Double
+    suspend fun getRevenueByDateRange(startDate: Long, endDate: Long): Double
+    suspend fun getRevenueTrend(days: Int, startDate: Long): List<Double>
+    suspend fun getTopRevenueEventIds(limit: Int): List<EventRevenue>
+    suspend fun getAllPayments(): List<Payment>
+    suspend fun getPaymentStatistics(): PaymentStatistics
 }
