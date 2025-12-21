@@ -16,4 +16,6 @@ interface PaymentRepository {
     suspend fun getPaymentHistory(userId: String): List<Payment>
 
     suspend fun refundPayment(paymentId: String): Boolean
+
+    suspend fun getPaymentByReservationId(reservationId: String): Payment?
 }

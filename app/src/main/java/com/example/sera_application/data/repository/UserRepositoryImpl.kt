@@ -120,7 +120,10 @@ class UserRepositoryImpl @Inject constructor(
             val user = getUserById(userId)
             if (user != null) {
                 val updatedUser = user.copy(accountStatus = "SUSPENDED")
-                updateUser(updatedUser)
+                // Update both remote and local
+                remoteDataSource.updateUserProfile(updatedUser)
+                userDao.insertUser(mapper.toEntity(updatedUser))
+                true
             } else {
                 false
             }

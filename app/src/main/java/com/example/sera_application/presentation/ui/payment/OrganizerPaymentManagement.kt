@@ -27,7 +27,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.sera_application.ui.theme.SERA_ApplicationTheme
 import java.util.Locale
+import com.example.sera_application.utils.bottomNavigationBar
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.sera_application.presentation.viewmodel.user.ProfileViewModel
+import com.example.sera_application.domain.model.enums.UserRole
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint
 class OrganizerPaymentManagementActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -61,7 +67,8 @@ data class PaymentInfo(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrganizerPaymentManagementScreen(
-    onBack: () -> Unit = {}
+    onBack: () -> Unit = {},
+    navController: androidx.navigation.NavController? = null
 ) {
     val context = LocalContext.current
     var selectedEvent by rememberSaveable { mutableStateOf("") }
@@ -69,6 +76,15 @@ fun OrganizerPaymentManagementScreen(
     var showReviewRefundDialog by rememberSaveable { mutableStateOf(false) }
     var showPaymentDetailsDialog by rememberSaveable { mutableStateOf(false) }
     var selectedPayment by rememberSaveable { mutableStateOf<PaymentInfo?>(null) }
+    
+    // Get current user for role-based navigation
+    val profileViewModel: ProfileViewModel = hiltViewModel()
+    val currentUser by profileViewModel.user.collectAsState()
+    
+    // Load current user
+    LaunchedEffect(Unit) {
+        profileViewModel.loadCurrentUser()
+    }
 
     val events = listOf("MUSIC FIESTA 6.0", "GUITAR Festival", "VOICHESTRA")
 
@@ -174,7 +190,13 @@ fun OrganizerPaymentManagementScreen(
             )
         },
         bottomBar = {
-            OrganizerBottomNavigationBar()
+            navController?.let { nav ->
+                bottomNavigationBar(
+                    navController = nav,
+                    currentRoute = nav.currentBackStackEntry?.destination?.route,
+                    userRole = currentUser?.role ?: UserRole.ORGANIZER
+                )
+            }
         }
     ) { paddingValues ->
         Column(
@@ -680,94 +702,5 @@ fun DetailRow(label: String, value: String) {
             fontWeight = FontWeight.Medium,
             color = Color.Black
         )
-    }
-}
-
-@Composable
-fun OrganizerBottomNavigationBar() {
-    val context = LocalContext.current
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = Color.White,
-        shadowElevation = 8.dp
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(60.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .clickable {
-                        Toast.makeText(context, "Navigate to Home", Toast.LENGTH_SHORT).show()
-                    },
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Home,
-                    contentDescription = "Home",
-                    tint = Color(0xFF666666),
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Home",
-                    fontSize = 11.sp,
-                    color = Color(0xFF666666)
-                )
-            }
-
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .clickable {
-                        Toast.makeText(context, "Add Event", Toast.LENGTH_SHORT).show()
-                    },
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Add",
-                    tint = Color(0xFF666666),
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Add",
-                    fontSize = 11.sp,
-                    color = Color(0xFF666666)
-                )
-            }
-
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .clickable {
-                        Toast.makeText(context, "Navigate to Profile", Toast.LENGTH_SHORT).show()
-                    },
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = "Profile",
-                    tint = Color(0xFF666666),
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Profile",
-                    fontSize = 11.sp,
-                    color = Color(0xFF666666)
-                )
-            }
-        }
     }
 }

@@ -310,4 +310,30 @@ class EventRepositoryImpl @Inject constructor(
             .map(mapper::toDomain)
     }
 
+    override suspend fun updateAvailableSeats(
+        eventId: String,
+        rockZoneDelta: Int,
+        normalZoneDelta: Int
+    ): Boolean {
+        return try {
+            // Update remote
+            remoteDataSource.updateAvailableSeats(eventId, rockZoneDelta, normalZoneDelta)
+
+            // Update local
+            val localEvent = eventDao.getEventById(eventId)
+            localEvent?.let { entity ->
+                val updatedEntity = entity.copy(
+                    rockZoneSeats = entity.rockZoneSeats + rockZoneDelta,
+                    normalZoneSeats = entity.normalZoneSeats + normalZoneDelta,
+                    availableSeats = entity.availableSeats + rockZoneDelta + normalZoneDelta
+                )
+                eventDao.insertEvent(updatedEntity)
+            }
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("EventRepositoryImpl", "Error updating available seats for event $eventId", e)
+            false
+        }
+    }
+
 }

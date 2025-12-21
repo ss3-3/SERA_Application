@@ -8,6 +8,7 @@ import com.example.sera_application.domain.model.User
 import com.example.sera_application.domain.usecase.event.GetEventByIdUseCase
 import com.example.sera_application.domain.usecase.reservation.CancelReservationUseCase
 import com.example.sera_application.domain.usecase.reservation.GetReservationByIdUseCase
+import com.example.sera_application.domain.usecase.payment.GetPaymentByReservationIdUseCase
 import com.example.sera_application.domain.usecase.user.GetUserProfileUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,6 +21,7 @@ data class ReservationDetailState(
     val reservation: EventReservation? = null,
     val event: Event? = null,
     val participant: User? = null,
+    val paymentId: String? = null,
     val isLoading: Boolean = false,
     val error: String? = null,
     val isCancelling: Boolean = false
@@ -30,7 +32,8 @@ class ReservationDetailsViewModel @Inject constructor(
     private val getReservationByIdUseCase: GetReservationByIdUseCase,
     private val getEventByIdUseCase: GetEventByIdUseCase,
     private val getUserProfileUseCase: GetUserProfileUseCase,
-    private val cancelReservationUseCase: CancelReservationUseCase
+    private val cancelReservationUseCase: CancelReservationUseCase,
+    private val getPaymentByReservationIdUseCase: GetPaymentByReservationIdUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ReservationDetailState())
@@ -56,10 +59,17 @@ class ReservationDetailsViewModel @Inject constructor(
                         null
                     }
                     
+                    val payment = try {
+                        getPaymentByReservationIdUseCase(reservationId)
+                    } catch (e: Exception) {
+                        null
+                    }
+                    
                     _uiState.value = _uiState.value.copy(
                         reservation = reservation,
                         event = event,
                         participant = participant,
+                        paymentId = payment?.paymentId,
                         isLoading = false
                     )
                 } else {

@@ -46,6 +46,7 @@ import com.example.sera_application.R
 import com.example.sera_application.domain.model.enums.EventStatus
 import coil.compose.AsyncImage
 import com.example.sera_application.presentation.ui.components.SafeImageLoader
+import com.example.sera_application.utils.DateTimeFormatterUtil
 
 // Data Model
 data class TicketZone(
@@ -83,8 +84,10 @@ fun CreateReservationScreen(
 
     // Default values or loading state
     val eventName = event?.name ?: "Loading..."
-    val eventDate = event?.date ?: ""
-    val eventTime = event?.startTime ?: ""
+    val eventDate = event?.let { DateTimeFormatterUtil.formatDate(it.date) } ?: "Loading..."
+    val eventTime = event?.let { 
+        DateTimeFormatterUtil.formatTimeRange(it.startTime, it.endTime) 
+    } ?: ""
     val venue = event?.location ?: ""
     val description = event?.description ?: "No description available."
 
@@ -143,19 +146,18 @@ fun CreateReservationScreen(
     )
     Box(modifier = modifier.fillMaxSize()) {
         Box(modifier = Modifier.height(240.dp)) {
-            SafeImageLoader(
+            EventBannerImage(
                 imagePath = event?.imagePath,
-                contentDescription = "Event Banner",
+                eventName = event?.name ?: "Event",
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(250.dp),
-                contentScale = ContentScale.Crop
+                    .height(250.dp)
             )
             // Transparent circular back button
             IconButton(
                 onClick = onBack,
                 modifier = Modifier
-                    .padding(16.dp)
+                    .padding(top = 30.dp, start = 16.dp)
                     .size(42.dp)
                     .background(Color(0x66000000), CircleShape)
             ) {
@@ -418,6 +420,67 @@ private fun QuantitySelector(
         Text(quantity.toString(), modifier = Modifier.width(24.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         IconButton(onClick = onIncrement) {
             Text("+", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun EventBannerImage(
+    imagePath: String?,
+    eventName: String,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    
+    // Try to load as drawable resource first
+    val imageRes = remember(imagePath) {
+        if (imagePath != null && imagePath.isNotBlank()) {
+            // Check if it's a drawable resource name
+            val resId = context.resources.getIdentifier(
+                imagePath,
+                "drawable",
+                context.packageName
+            )
+            if (resId != 0) resId else null
+        } else {
+            null
+        }
+    }
+    
+    when {
+        // Case 1: Valid drawable resource
+        imageRes != null -> {
+            Image(
+                painter = painterResource(id = imageRes),
+                contentDescription = eventName,
+                modifier = modifier,
+                contentScale = ContentScale.Crop
+            )
+        }
+        // Case 2: Try as file path
+        imagePath != null && imagePath.isNotBlank() -> {
+            SafeImageLoader(
+                imagePath = imagePath,
+                contentDescription = eventName,
+                modifier = modifier,
+                contentScale = ContentScale.Crop
+            )
+        }
+        // Case 3: No image - show placeholder
+        else -> {
+            Box(
+                modifier = modifier
+                    .background(Color(0xFF1A237E)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = eventName,
+                    color = Color.White,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
         }
     }
 }

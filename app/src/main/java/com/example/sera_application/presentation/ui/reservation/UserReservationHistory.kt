@@ -55,7 +55,8 @@ data class ReservationUiModel(
     val organizerName: String,
     val date: String,
     val tab: ReservationTab,
-    val status: ReservationStatus
+    val status: ReservationStatus,
+    val paymentId: String? = null
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -69,6 +70,8 @@ fun MyReservationScreen(
     profileViewModel: ProfileViewModel = hiltViewModel()
 ) {
     var selectedTab by remember { mutableStateOf(ReservationTab.UPCOMING) }
+    var showCancelDialog by remember { mutableStateOf(false) }
+    var reservationToCancel by remember { mutableStateOf<ReservationUiModel?>(null) }
     
     val currentUser by profileViewModel.user.collectAsState()
 
@@ -112,7 +115,8 @@ fun MyReservationScreen(
                     com.example.sera_application.domain.model.enums.ReservationStatus.CANCELLED -> ReservationStatus.CANCELLED
                     com.example.sera_application.domain.model.enums.ReservationStatus.COMPLETED -> ReservationStatus.COMPLETED
                     else -> ReservationStatus.PENDING
-                }
+                },
+                paymentId = details.paymentId
             )
         }
     }
@@ -146,6 +150,30 @@ fun MyReservationScreen(
         },
         modifier = modifier.fillMaxSize()
     ) { padding ->
+        if (showCancelDialog && reservationToCancel != null) {
+            AlertDialog(
+                onDismissRequest = { showCancelDialog = false },
+                title = { Text("Cancel Reservation") },
+                text = { Text("Are you sure you want to cancel this reservation? This will initiate the refund request process.") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            reservationToCancel?.let { onCancelReservation(it) }
+                            showCancelDialog = false
+                        },
+                        colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFE53935))
+                    ) {
+                        Text("Confirm")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showCancelDialog = false }) {
+                        Text("No")
+                    }
+                }
+            )
+        }
+
         // Using a single LazyColumn to avoid nesting scrollable components
         LazyColumn(
             modifier = Modifier
@@ -186,7 +214,10 @@ fun MyReservationScreen(
                         ReservationCard(
                             reservation = item,
                             onViewDetails = { onViewDetails(item) },
-                            onCancelReservation = { onCancelReservation(item) }
+                            onCancelReservation = {
+                                reservationToCancel = item
+                                showCancelDialog = true
+                            }
                         )
                     }
                 }

@@ -9,6 +9,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -27,16 +29,13 @@ class NotificationViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
-    private val _unreadCount = MutableStateFlow(0)
-    val unreadCount: StateFlow<Int> = _unreadCount.asStateFlow()
-
-    init {
-        viewModelScope.launch {
-            _notifications.collect { notifications ->
-                _unreadCount.value = notifications.count { !it.isRead }
-            }
-        }
-    }
+    val unreadCount: StateFlow<Int> = _notifications.map { notifications ->
+        notifications.count { !it.isRead }
+    }.stateIn(
+        scope = viewModelScope,
+        started = kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000),
+        initialValue = 0
+    )
 
     fun loadNotifications(userId: String) {
         viewModelScope.launch {

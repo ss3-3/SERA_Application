@@ -98,7 +98,7 @@ fun UserReservationDetailScreen(
             CircularProgressIndicator()
         }
     } else if (reservationVal != null) {
-        val uiModel = remember(reservationVal, eventVal) {
+        val uiModel = remember(reservationVal, eventVal, uiState.paymentId) {
              UserReservationDetailUiModel(
                 reservationId = reservationVal.reservationId,
                 eventName = eventVal?.name ?: "Unknown Event",
@@ -116,8 +116,8 @@ fun UserReservationDetailScreen(
                 status = reservationVal.status,
                 transactionDate = java.text.SimpleDateFormat("dd MMM yyyy").format(java.util.Date(reservationVal.createdAt)),
                 transactionTime = java.text.SimpleDateFormat("hh:mm a").format(java.util.Date(reservationVal.createdAt)),
-                transactionId = reservationVal.reservationId, // Using reservation ID as transaction ID
-                paymentMethod = "Credit Card",
+                transactionId = uiState.paymentId ?: reservationVal.reservationId, 
+                paymentMethod = "PayPal",
                 zoneName = "General",
                 quantity = reservationVal.seats,
                 totalPrice = "RM %.2f".format(reservationVal.totalPrice),

@@ -3,6 +3,7 @@ package com.example.sera_application.data.mapper
 import com.example.sera_application.domain.model.Notification
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.DocumentSnapshot
+import java.util.Date
 
 object NotificationMapper {
     fun notificationToFirestoreMap(notification: Notification): Map<String, Any?> {
@@ -15,7 +16,7 @@ object NotificationMapper {
             "relatedEventId" to notification.relatedEventId,
             "relatedReservationId" to notification.relatedReservationId,
             "isRead" to notification.isRead,
-            "createdAt" to Timestamp(notification.createdAt / 1000, ((notification.createdAt % 1000) * 1_000_000).toInt())
+            "createdAt" to Timestamp(Date(notification.createdAt))
         )
     }
 }

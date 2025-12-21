@@ -75,17 +75,19 @@ class ReservationManagementViewModel @Inject constructor(
             _isUpdating.value = true
             _error.value = null
 
-            val result = updateReservationStatusUseCase(reservationId, status)
-            result.fold(
-                onSuccess = {
+            try {
+                val success = updateReservationStatusUseCase(reservationId, status.name)
+                if (success) {
                     _isUpdating.value = false
                     // Flow will automatically update the list
-                },
-                onFailure = { exception ->
-                    _error.value = exception.message ?: "Failed to update reservation status"
+                } else {
+                    _error.value = "Failed to update reservation status"
                     _isUpdating.value = false
                 }
-            )
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Failed to update reservation status"
+                _isUpdating.value = false
+            }
         }
     }
 }

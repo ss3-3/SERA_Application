@@ -7,14 +7,19 @@ import javax.inject.Inject
 class UpdateReservationStatusUseCase @Inject constructor(
     private val reservationRepository: ReservationRepository
 ) {
-    suspend operator fun invoke(
-        reservationId: String,
-        status: ReservationStatus
-    ): Result<Unit> {
-        if (reservationId.isBlank()) {
-            return Result.failure(IllegalArgumentException("Reservation ID cannot be blank"))
-        }
+    suspend operator fun invoke(reservationId: String, status: String): Boolean {
+        if (reservationId.isBlank() || status.isBlank()) return false
 
-        return reservationRepository.updateReservationStatus(reservationId, status)
+        return try {
+            val statusEnum = try {
+                ReservationStatus.valueOf(status)
+            } catch (e: IllegalArgumentException) {
+                return false
+            }
+            val result = reservationRepository.updateReservationStatus(reservationId, statusEnum)
+            result.isSuccess
+        } catch (e: Exception) {
+            false
+        }
     }
 }

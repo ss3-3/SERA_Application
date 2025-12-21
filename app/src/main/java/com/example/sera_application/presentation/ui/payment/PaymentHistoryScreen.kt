@@ -26,16 +26,22 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.lifecycleScope
-import com.example.sera_application.BottomNavigationBar
 import com.example.sera_application.presentation.navigation.LocalNavigationController
 import com.example.sera_application.presentation.navigation.NavigationController
 import com.example.sera_application.ui.theme.SERA_ApplicationTheme
 import com.example.sera_application.utils.PdfReceiptGenerator
 import com.example.sera_application.utils.ReceiptData
+import com.example.sera_application.utils.bottomNavigationBar
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.sera_application.presentation.viewmodel.user.ProfileViewModel
+import com.example.sera_application.domain.model.enums.UserRole
+import com.example.sera_application.presentation.viewmodel.payment.PaymentHistoryViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint
 class PaymentHistoryActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -146,11 +152,33 @@ fun FilterButton(
 @Composable
 fun PaymentHistoryScreen(
     onViewReceipt: (OrderData) -> Unit,
-    navigationController: NavigationController = LocalNavigationController.current
+    navigationController: NavigationController = LocalNavigationController.current,
+    navController: androidx.navigation.NavController? = null,
+    viewModel: PaymentHistoryViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
-    var searchQuery by rememberSaveable { mutableStateOf("") }
+    
+    // Get current user for role-based navigation
+    val profileViewModel: ProfileViewModel = hiltViewModel()
+    val currentUser by profileViewModel.user.collectAsState()
+    
+    // Payment history data from ViewModel
+    val filteredOrders by viewModel.filteredOrders.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val searchQuery by viewModel.searchQuery.collectAsState()
+    
     var selectedFilter by rememberSaveable { mutableStateOf("All") }
+    
+    // Load current user and payment history
+    LaunchedEffect(Unit) {
+        profileViewModel.loadCurrentUser()
+    }
+    
+    LaunchedEffect(currentUser) {
+        currentUser?.userId?.let { userId ->
+            viewModel.loadPaymentHistory(userId)
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -177,7 +205,13 @@ fun PaymentHistoryScreen(
             )
         },
         bottomBar = {
-            BottomNavigationBar()
+            navController?.let { nav ->
+                bottomNavigationBar(
+                    navController = nav,
+                    currentRoute = nav.currentBackStackEntry?.destination?.route,
+                    userRole = currentUser?.role ?: UserRole.PARTICIPANT
+                )
+            }
         }
     ) { paddingValues ->
         Column(
@@ -196,6 +230,16 @@ fun PaymentHistoryScreen(
             )
 
             Spacer(modifier = Modifier.height(12.dp))
+
+            // Summary Card with real data
+            val totalPayments = filteredOrders.size
+            val successfulPayments = filteredOrders.count { it.status.contains("Paid", ignoreCase = true) }
+            val refundedPayments = filteredOrders.count { it.status.contains("Refund", ignoreCase = true) }
+            val totalSpent = filteredOrders
+                .filter { it.status.contains("Paid", ignoreCase = true) }
+                .sumOf { 
+                    it.price.replace("RM ", "").replace(",", "").toDoubleOrNull() ?: 0.0 
+                }
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -218,7 +262,7 @@ fun PaymentHistoryScreen(
                             modifier = Modifier.weight(1f)
                         )
                         Text(
-                            text = "15",
+                            text = "$totalPayments",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
                             color = Color.Black,
@@ -239,7 +283,7 @@ fun PaymentHistoryScreen(
                             modifier = Modifier.weight(1f)
                         )
                         Text(
-                            text = "10",
+                            text = "$successfulPayments",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
                             color = Color.Black,
@@ -260,7 +304,7 @@ fun PaymentHistoryScreen(
                             modifier = Modifier.weight(1f)
                         )
                         Text(
-                            text = "2",
+                            text = "$refundedPayments",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
                             color = Color.Black,
@@ -281,7 +325,7 @@ fun PaymentHistoryScreen(
                             modifier = Modifier.weight(1f)
                         )
                         Text(
-                            text = "RM 250.00",
+                            text = "RM ${String.format("%.2f", totalSpent)}",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
                             color = Color.Black,
@@ -295,7 +339,7 @@ fun PaymentHistoryScreen(
 
             OutlinedTextField(
                 value = searchQuery,
-                onValueChange = { searchQuery = it },
+                onValueChange = { viewModel.onSearchQueryChanged(it) },
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = {
                     Text(
@@ -352,26 +396,34 @@ fun PaymentHistoryScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            val orders = listOf(
-                OrderData("MUSIC FIESTA 6.0", "1234-1234-1234", "RM 70.00", "2 tickets", "Refund Pending", "Jan 12, 2025"),
-                OrderData("GUITAR Festival", "8456-2654-5952", "RM 60.00", "1 tickets", "Paid", "Jan 10, 2025"),
-                OrderData("VOICHESTRA", "1234-1308-7566", "RM180.00", "3 tickets", "Refunded", "Feb 25, 2025")
-            )
-
-            val filteredOrders = orders.filter { order ->
-                val matchesSearch = order.eventName.contains(searchQuery, ignoreCase = true) ||
-                        order.orderId.contains(searchQuery, ignoreCase = true)
-                val matchesFilter = when (selectedFilter) {
+            // Apply additional filter based on selected button
+            val displayedOrders = filteredOrders.filter { order ->
+                when (selectedFilter) {
                     "All" -> true
-                    "Pending" -> order.status == "Refund Pending"
-                    "Paid" -> order.status == "Paid"
-                    "Refunded" -> order.status == "Refunded"
+                    "Pending" -> order.status.contains("Pending", ignoreCase = true)
+                    "Paid" -> order.status.contains("Paid", ignoreCase = true) && !order.status.contains("Refund", ignoreCase = true)
+                    "Refunded" -> order.status.contains("Refund", ignoreCase = true)
                     else -> true
                 }
-                matchesSearch && matchesFilter
             }
 
-            if (filteredOrders.isEmpty()) {
+            if (isLoading) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+            } else if (displayedOrders.isEmpty()) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
@@ -392,7 +444,7 @@ fun PaymentHistoryScreen(
                     }
                 }
             } else {
-                filteredOrders.forEach { order ->
+                displayedOrders.forEach { order ->
                     OrderCard(
                         orderData = order,
                         onViewReceipt = { onViewReceipt(order) }

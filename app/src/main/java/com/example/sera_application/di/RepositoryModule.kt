@@ -5,6 +5,7 @@ import com.example.sera_application.data.repository.EventRepositoryImpl
 import com.example.sera_application.data.repository.ImageRepositoryImpl
 import com.example.sera_application.data.repository.NotificationRepositoryImpl
 import com.example.sera_application.data.repository.PaymentRepositoryImpl
+import com.example.sera_application.data.repository.ReportRepositoryImpl
 import com.example.sera_application.data.repository.ReservationRepositoryImpl
 import com.example.sera_application.data.repository.UserRepositoryImpl
 import com.example.sera_application.domain.repository.AuthRepository
@@ -12,6 +13,7 @@ import com.example.sera_application.domain.repository.EventRepository
 import com.example.sera_application.domain.repository.ImageRepository
 import com.example.sera_application.domain.repository.NotificationRepository
 import com.example.sera_application.domain.repository.PaymentRepository
+import com.example.sera_application.domain.repository.ReportRepository
 import com.example.sera_application.domain.repository.ReservationRepository
 import com.example.sera_application.domain.repository.UserRepository
 import dagger.Binds
@@ -69,4 +71,10 @@ abstract class RepositoryModule {
     abstract fun bindImageRepository(
         imageRepositoryImpl: ImageRepositoryImpl
     ): ImageRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindReportRepository(
+        reportRepositoryImpl: ReportRepositoryImpl
+    ): ReportRepository
 }

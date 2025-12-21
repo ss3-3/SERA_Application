@@ -1,5 +1,6 @@
 package com.example.sera_application.presentation.ui.payment
 
+
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -22,44 +23,90 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.widget.Toast
-import com.example.sera_application.BottomNavigationBar
 import com.example.sera_application.ui.theme.SERA_ApplicationTheme
+import com.example.sera_application.MainActivity
 import java.util.Locale
+import com.example.sera_application.utils.bottomNavigationBar
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.sera_application.presentation.viewmodel.user.ProfileViewModel
+import com.example.sera_application.domain.model.enums.UserRole
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import dagger.hilt.android.AndroidEntryPoint
+
 
 @Composable
 fun PaymentStatusScreen(
     paymentId: String,
     onViewReceipt: (String) -> Unit,
-    onBackToHome: () -> Unit
+    onBackToHome: () -> Unit,
+    onProfileClick: () -> Unit,
+    navController: androidx.navigation.NavController? = null
 ) {
     // For now, redirecting to Success screen with the provided paymentId
     // In a real app, you might fetch status from a ViewModel
     PaymentSuccessScreen(
         transactionId = paymentId,
-        amount = 70.0 // Default for mock
+        amount = 70.0, // Default for mock
+        onHomeClick = onBackToHome,
+        onProfileClick = onProfileClick,
+        navController = navController
     )
 }
 
+
+@AndroidEntryPoint
 class PaymentStatusActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+
         val isSuccess = intent.getBooleanExtra("PAYMENT_SUCCESS", true)
         val transactionId = intent.getStringExtra("TRANSACTION_ID") ?: "1234-1234-1234"
         val amount = intent.getDoubleExtra("AMOUNT", 70.0)
+        val reservationId = intent.getStringExtra("RESERVATION_ID")
         val failureReason = intent.getStringExtra("FAILURE_REASON") ?: "Insufficient balance in your PayPal account."
+
 
         setContent {
             SERA_ApplicationTheme {
                 if (isSuccess) {
                     PaymentSuccessScreen(
                         transactionId = transactionId,
-                        amount = amount
+                        amount = amount,
+                        reservationId = reservationId,
+                        onHomeClick = {
+                            val intent = Intent(this, MainActivity::class.java).apply {
+                                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                            }
+                            startActivity(intent)
+                        },
+                        onProfileClick = {
+                            val intent = Intent(this, MainActivity::class.java).apply {
+                                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                                putExtra("DESTINATION", "profile")
+                            }
+                            startActivity(intent)
+                        }
                     )
                 } else {
                     PaymentFailScreen(
                         failureReason = failureReason,
-                        orderDetails = "Order #1234 • 2 tickets • RM ${String.format(Locale.US, "%.2f", amount)}"
+                        orderDetails = "Order #1234 • 2 tickets • RM ${String.format(Locale.US, "%.2f", amount)}",
+                        onHomeClick = {
+                            val intent = Intent(this, MainActivity::class.java).apply {
+                                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                            }
+                            startActivity(intent)
+                        },
+                        onProfileClick = {
+                            val intent = Intent(this, MainActivity::class.java).apply {
+                                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                                putExtra("DESTINATION", "profile")
+                            }
+                            startActivity(intent)
+                        }
                     )
                 }
             }
@@ -67,16 +114,38 @@ class PaymentStatusActivity : ComponentActivity() {
     }
 }
 
+
 @Composable
 fun PaymentSuccessScreen(
     transactionId: String,
-    amount: Double
+    amount: Double,
+    reservationId: String? = null,
+    onHomeClick: () -> Unit,
+    onProfileClick: () -> Unit,
+    navController: androidx.navigation.NavController? = null
 ) {
     val context = LocalContext.current
+    val currentDate = java.text.SimpleDateFormat("MMM d, yyyy", java.util.Locale.US).format(java.util.Date())
+    val currentTime = java.text.SimpleDateFormat("h:mm a", java.util.Locale.US).format(java.util.Date())
+
+    // Get current user for role-based navigation
+    val profileViewModel: ProfileViewModel = hiltViewModel()
+    val currentUser by profileViewModel.user.collectAsState()
+    
+    // Load current user
+    LaunchedEffect(Unit) {
+        profileViewModel.loadCurrentUser()
+    }
 
     Scaffold(
         bottomBar = {
-            BottomNavigationBar()
+            navController?.let { nav ->
+                bottomNavigationBar(
+                    navController = nav,
+                    currentRoute = nav.currentBackStackEntry?.destination?.route,
+                    userRole = currentUser?.role ?: UserRole.PARTICIPANT
+                )
+            }
         }
     ) { paddingValues ->
         Column(
@@ -89,6 +158,7 @@ fun PaymentSuccessScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(40.dp))
+
 
             Surface(
                 modifier = Modifier.size(120.dp),
@@ -107,7 +177,9 @@ fun PaymentSuccessScreen(
                 }
             }
 
+
             Spacer(modifier = Modifier.height(24.dp))
+
 
             Text(
                 text = "Payment",
@@ -122,7 +194,9 @@ fun PaymentSuccessScreen(
                 color = Color.Black
             )
 
+
             Spacer(modifier = Modifier.height(12.dp))
+
 
             Text(
                 text = "Your payment has been processed successfully.",
@@ -132,7 +206,9 @@ fun PaymentSuccessScreen(
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
 
+
             Spacer(modifier = Modifier.height(32.dp))
+
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -146,24 +222,34 @@ fun PaymentSuccessScreen(
                     TransactionDetailRow("Transaction ID", transactionId)
                     Spacer(modifier = Modifier.height(16.dp))
 
+
                     TransactionDetailRow("Amount Paid", "RM${String.format(Locale.US, "%.2f", amount)}")
                     Spacer(modifier = Modifier.height(16.dp))
+
 
                     TransactionDetailRow("Payment Method", "PayPal")
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    TransactionDetailRow("Date", "Nov 8, 2025")
+
+                    TransactionDetailRow("Date", currentDate)
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    TransactionDetailRow("Time", "7:00 PM")
+
+                    TransactionDetailRow("Time", currentTime)
                 }
             }
 
+
             Spacer(modifier = Modifier.height(32.dp))
+
 
             Button(
                 onClick = {
-                    context.startActivity(Intent(context, ReceiptActivity::class.java))
+                    val intent = Intent(context, ReceiptActivity::class.java).apply {
+                        putExtra("TRANSACTION_ID", transactionId)
+                        putExtra("RESERVATION_ID", reservationId)
+                    }
+                    context.startActivity(intent)
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -181,21 +267,41 @@ fun PaymentSuccessScreen(
                 )
             }
 
+
             Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
 
+
 @Composable
 fun PaymentFailScreen(
     failureReason: String,
-    orderDetails: String
+    orderDetails: String,
+    onHomeClick: () -> Unit,
+    onProfileClick: () -> Unit,
+    navController: androidx.navigation.NavController? = null
 ) {
     val context = LocalContext.current
 
+    // Get current user for role-based navigation
+    val profileViewModel: ProfileViewModel = hiltViewModel()
+    val currentUser by profileViewModel.user.collectAsState()
+    
+    // Load current user
+    LaunchedEffect(Unit) {
+        profileViewModel.loadCurrentUser()
+    }
+
     Scaffold(
         bottomBar = {
-            BottomNavigationBar()
+            navController?.let { nav ->
+                bottomNavigationBar(
+                    navController = nav,
+                    currentRoute = nav.currentBackStackEntry?.destination?.route,
+                    userRole = currentUser?.role ?: UserRole.PARTICIPANT
+                )
+            }
         }
     ) { paddingValues ->
         Column(
@@ -208,6 +314,7 @@ fun PaymentFailScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(40.dp))
+
 
             Surface(
                 modifier = Modifier.size(120.dp),
@@ -226,7 +333,9 @@ fun PaymentFailScreen(
                 }
             }
 
+
             Spacer(modifier = Modifier.height(24.dp))
+
 
             Text(
                 text = "Payment",
@@ -241,7 +350,9 @@ fun PaymentFailScreen(
                 color = Color.Black
             )
 
+
             Spacer(modifier = Modifier.height(12.dp))
+
 
             Text(
                 text = "Your payment could not be",
@@ -254,7 +365,9 @@ fun PaymentFailScreen(
                 color = Color.Gray
             )
 
+
             Spacer(modifier = Modifier.height(32.dp))
+
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -278,7 +391,9 @@ fun PaymentFailScreen(
                         modifier = Modifier.padding(top = 4.dp)
                     )
 
+
                     Spacer(modifier = Modifier.height(16.dp))
+
 
                     Text(
                         text = "Order Details:",
@@ -295,7 +410,9 @@ fun PaymentFailScreen(
                 }
             }
 
+
             Spacer(modifier = Modifier.height(32.dp))
+
 
             Button(
                 onClick = {
@@ -317,7 +434,9 @@ fun PaymentFailScreen(
                 )
             }
 
+
             Spacer(modifier = Modifier.height(12.dp))
+
 
             Button(
                 onClick = {
@@ -339,10 +458,12 @@ fun PaymentFailScreen(
                 )
             }
 
+
             Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
+
 
 @Composable
 fun TransactionDetailRow(label: String, value: String) {

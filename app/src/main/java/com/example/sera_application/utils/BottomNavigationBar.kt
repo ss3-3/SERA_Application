@@ -1,83 +1,165 @@
-package com.example.sera_application
+package com.example.sera_application.utils
 
-import android.widget.Toast
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Surface
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
+import com.example.sera_application.domain.model.enums.UserRole
+import com.example.sera_application.presentation.navigation.Screen
 
+/**
+ * Shared bottom navigation bar that handles role-based navigation for all screens.
+ * 
+ * @param navController NavController for navigation
+ * @param currentRoute Current navigation route to highlight selected item
+ * @param userRole User's role (PARTICIPANT, ORGANIZER, or ADMIN)
+ * 
+ * Navigation structure:
+ * - PARTICIPANT: Home (EventList) | Me (Profile)
+ * - ORGANIZER: Home (OrganizerEventManagement) | Add Event (+) | Me (Profile)
+ * - ADMIN: No bottom navigation bar (returns empty)
+ */
 @Composable
-fun BottomNavigationBar() {
-    val context = LocalContext.current
+fun bottomNavigationBar(
+    navController: NavController,
+    currentRoute: String?,
+    userRole: UserRole?
+) {
+    // Admin users don't have bottom navigation
+    if (userRole == UserRole.ADMIN) {
+        return
+    }
 
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = Color.White,
-        shadowElevation = 8.dp
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(60.dp)
-        ) {
-            BottomNavItem(
-                icon = Icons.Default.Home,
-                label = "Home",
-                modifier = Modifier.weight(1f),
-                onClick = {
-                    Toast.makeText(context, "Navigate to Home", Toast.LENGTH_SHORT).show()
-                }
-            )
-
-            BottomNavItem(
-                icon = Icons.Default.Person,
-                label = "Me",
-                modifier = Modifier.weight(1f),
-                onClick = {
-                    Toast.makeText(context, "Navigate to Profile", Toast.LENGTH_SHORT).show()
-                }
-            )
+    when (userRole) {
+        UserRole.PARTICIPANT -> {
+            ParticipantBottomNav(navController, currentRoute)
+        }
+        UserRole.ORGANIZER -> {
+            OrganizerBottomNav(navController, currentRoute)
+        }
+        else -> {
+            // Default to participant navigation if role is unknown
+            ParticipantBottomNav(navController, currentRoute)
         }
     }
 }
 
 @Composable
-fun BottomNavItem(
-    icon: ImageVector,
-    label: String,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
+private fun ParticipantBottomNav(
+    navController: NavController,
+    currentRoute: String?
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxHeight()
-            .clickable { onClick() },
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+    NavigationBar(
+        containerColor = Color.White
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            tint = Color(0xFF666666),
-            modifier = Modifier.size(24.dp)
+        NavigationBarItem(
+            icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
+            label = { Text("Home", fontSize = 12.sp) },
+            selected = isHomeRoute(currentRoute, UserRole.PARTICIPANT),
+            onClick = {
+                navController.navigate(Screen.EventList.route) {
+                    popUpTo(Screen.EventList.route) { inclusive = true }
+                    launchSingleTop = true
+                }
+            }
         )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = label,
-            fontSize = 11.sp,
-            color = Color(0xFF666666)
+        NavigationBarItem(
+            icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
+            label = { Text("Me", fontSize = 12.sp) },
+            selected = currentRoute == Screen.Profile.route,
+            onClick = {
+                navController.navigate(Screen.Profile.route) {
+                    launchSingleTop = true
+                }
+            }
         )
+    }
+}
+
+@Composable
+private fun OrganizerBottomNav(
+    navController: NavController,
+    currentRoute: String?
+) {
+    NavigationBar(
+        containerColor = Color.White
+    ) {
+        NavigationBarItem(
+            icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
+            label = { Text("Home", fontSize = 12.sp) },
+            selected = isHomeRoute(currentRoute, UserRole.ORGANIZER),
+            onClick = {
+                navController.navigate(Screen.OrganizerEventManagement.route) {
+                    popUpTo(Screen.OrganizerEventManagement.route) { inclusive = true }
+                    launchSingleTop = true
+                }
+            }
+        )
+        
+        // Center Add Event button with custom styling
+        NavigationBarItem(
+            icon = {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .background(
+                            color = Color.DarkGray,
+                            shape = RoundedCornerShape(50)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Add Event",
+                        tint = Color.White,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+            },
+            label = { }, // Empty label for center button
+            selected = false,
+            onClick = {
+                navController.navigate(Screen.CreateEvent.route) {
+                    launchSingleTop = true
+                }
+            }
+        )
+        
+        NavigationBarItem(
+            icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
+            label = { Text("Me", fontSize = 12.sp) },
+            selected = currentRoute == Screen.Profile.route,
+            onClick = {
+                navController.navigate(Screen.Profile.route) {
+                    launchSingleTop = true
+                }
+            }
+        )
+    }
+}
+
+/**
+ * Helper function to determine if current route is a home route for the given role
+ */
+private fun isHomeRoute(currentRoute: String?, userRole: UserRole): Boolean {
+    return when (userRole) {
+        UserRole.PARTICIPANT -> currentRoute == Screen.EventList.route
+        UserRole.ORGANIZER -> currentRoute == Screen.OrganizerEventManagement.route
+        UserRole.ADMIN -> currentRoute == Screen.AdminEventManagement.route
+        else -> false
     }
 }

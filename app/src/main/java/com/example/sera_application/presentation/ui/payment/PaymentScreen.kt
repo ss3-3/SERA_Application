@@ -1,5 +1,6 @@
 package com.example.sera_application.presentation.ui.payment
 
+
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -11,6 +12,7 @@ import androidx.activity.viewModels
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -21,7 +23,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,7 +34,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
-import com.example.sera_application.BottomNavigationBar
 import com.example.sera_application.R
 import com.example.sera_application.ui.theme.SERA_ApplicationTheme
 import com.example.sera_application.data.remote.paypal.repository.PayPalRepository
@@ -45,44 +45,76 @@ import com.example.sera_application.presentation.viewmodel.payment.PaymentScreen
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.example.sera_application.utils.bottomNavigationBar
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.sera_application.presentation.viewmodel.user.ProfileViewModel
+import com.example.sera_application.domain.model.enums.UserRole
+import androidx.compose.runtime.LaunchedEffect
+
 
 @AndroidEntryPoint
 class PaymentActivity : ComponentActivity() {
 
+
     @Inject
     lateinit var paymentRemoteDataSource: PaymentRemoteDataSource
-    
+
     @Inject
-    lateinit var paypalRepository: PayPalRepository
-    
+    lateinit var updateReservationStatusUseCase: com.example.sera_application.domain.usecase.reservation.UpdateReservationStatusUseCase
+
+
+    private lateinit var paypalRepository: PayPalRepository
     private var pendingOrderId: String? = null
     private val isProcessingPayment = mutableStateOf(false)
     private val viewModel: PaymentScreenViewModel by viewModels()
 
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+
+        paypalRepository = PayPalRepository(
+            clientId = "AQTPtN2werWX-j1tUfqQwifM0cfqviYHUVl9exM5fj4Ac2-kYXpqyjuaWw9mya3Tiwe2ppXGYyHNcBAP",
+            clientSecret = "EN02FWz7AC_SwRw6FuprITB4AT_XdM2ZMV2p1VSaBY7TJr-gONuIupplRCxQURSxBrMcPDmjxeUDfQf9",
+            isSandbox = true
+        )
+
+
         val reservationId = intent.getStringExtra("RESERVATION_ID") ?: ""
-        
+
         // Load reservation data
         if (reservationId.isNotEmpty()) {
             viewModel.loadReservationDetails(reservationId)
         }
 
+
         handleDeepLink(intent)
+
 
         setContent {
             SERA_ApplicationTheme {
                 val reservation by viewModel.reservation.collectAsState()
                 val event by viewModel.event.collectAsState()
                 val isLoadingData by viewModel.isLoading.collectAsState()
-                
+
                 PaymentScreen(
                     reservationId = reservationId,
                     reservation = reservation,
                     event = event,
                     isLoadingData = isLoadingData,
-                    onBack = { finish() },
+                    onBack = {
+                        // Navigate back to Create Reservation screen
+                        val eventId = event?.eventId
+                        if (eventId != null) {
+                            val intent = Intent(this, com.example.sera_application.MainActivity::class.java).apply {
+                                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                                putExtra("DESTINATION", "create_reservation")
+                                putExtra("EVENT_ID", eventId)
+                            }
+                            startActivity(intent)
+                        }
+                        finish()
+                    },
                     onPaymentSuccess = { paymentId ->
                         val totalAmount = reservation?.totalPrice ?: 70.0
                         val intent = Intent(this, PaymentStatusActivity::class.java).apply {
@@ -100,10 +132,12 @@ class PaymentActivity : ComponentActivity() {
         }
     }
 
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleDeepLink(intent)
     }
+
 
     private fun handleDeepLink(intent: Intent?) {
         val data = intent?.data
@@ -111,7 +145,7 @@ class PaymentActivity : ComponentActivity() {
             // Log the full deep link URL for debugging
             Log.d("PaymentActivity", "Deep link received: $data")
             Log.d("PaymentActivity", "Deep link host: ${data.host}")
-            
+
             when (data.host) {
                 "paypal.return" -> {
                     // Log all query parameters
@@ -120,21 +154,39 @@ class PaymentActivity : ComponentActivity() {
                     queryParams.forEach { param ->
                         Log.d("PaymentActivity", "  $param = ${data.getQueryParameter(param)}")
                     }
-                    
-                    // Try multiple possible parameter names that PayPal might use
-                    val orderId = data.getQueryParameter("token") 
+
+                    val orderId = data.getQueryParameter("token")
                         ?: data.getQueryParameter("orderId")
                         ?: data.getQueryParameter("id")
                         ?: data.getQueryParameter("orderID")
-                    
-                    if (orderId != null) {
-                        Log.d("PaymentActivity", "Attempting to capture order: $orderId")
-                        capturePayPalOrder(orderId)
-                    } else {
-                        // Log what parameters were actually received
-                        val receivedParams = queryParams.joinToString(", ")
-                        Log.e("PaymentActivity", "No order ID found in parameters: $receivedParams")
-                        showPaymentFailure("Invalid payment token - no order ID found in redirect URL")
+
+
+                    // Also extract our custom reservationId to avoid state loss
+                    val reservationId = data.getQueryParameter("reservationId")
+
+                    lifecycleScope.launch {
+                        if (reservationId != null && viewModel.reservation.value == null) {
+                            Log.d("PaymentActivity", "State lost. Reloading reservation: $reservationId")
+                            viewModel.loadReservationDetails(reservationId)
+
+                            // Simple wait loop to ensure data is loaded before proceeding to capture
+                            // This prevents the race condition where capture finishes before metadata reloads
+                            var checkCount = 0
+                            while (viewModel.reservation.value == null && checkCount < 10) {
+                                kotlinx.coroutines.delay(500)
+                                checkCount++
+                                Log.d("PaymentActivity", "Waiting for reservation data load... ${checkCount}")
+                            }
+                        }
+
+                        if (orderId != null) {
+                            Log.d("PaymentActivity", "Attempting to capture order: $orderId")
+                            capturePayPalOrder(orderId)
+                        } else {
+                            val receivedParams = queryParams.joinToString(", ")
+                            Log.e("PaymentActivity", "No order ID found in parameters: $receivedParams")
+                            showPaymentFailure("Invalid payment token - no order ID found in redirect URL")
+                        }
                     }
                 }
                 "paypal.cancel" -> {
@@ -153,11 +205,12 @@ class PaymentActivity : ComponentActivity() {
         }
     }
 
+
     private fun startPayPalCheckout() {
         lifecycleScope.launch {
             try {
                 isProcessingPayment.value = true
-                
+
                 val authResult = paypalRepository.authenticate()
                 if (authResult.isFailure) {
                     isProcessingPayment.value = false
@@ -165,55 +218,109 @@ class PaymentActivity : ComponentActivity() {
                     return@launch
                 }
 
+
                 // Create order
+                val reservation = viewModel.reservation.value
+                val event = viewModel.event.value
+
+                val amountStr = String.format("%.2f", reservation?.totalPrice ?: 70.0)
+                val eventDescription = "${event?.name ?: "Event"} - ${reservation?.seats ?: 0} Tickets"
+                val reservationId = reservation?.reservationId ?: ""
+
+
                 val orderResult = paypalRepository.createOrder(
-                    amount = "70.00",
+                    amount = amountStr,
                     currencyCode = "MYR",
-                    description = "MUSIC FIESTA 6.0 - 2 Tickets"
+                    description = eventDescription,
+                    reservationId = reservationId
                 )
+
 
                 if (orderResult.isSuccess) {
                     val order = orderResult.getOrNull()!!
                     pendingOrderId = order.id
 
+                    Log.d("PaymentActivity", "✅ Order created successfully: ${order.id}")
+                    Log.d("PaymentActivity", "Order status: ${order.status}")
+                    Log.d("PaymentActivity", "Number of links: ${order.links.size}")
+
+                    // Log all links for debugging
+                    order.links.forEachIndexed { index, link ->
+                        Log.d("PaymentActivity", "Link $index: rel='${link.rel}', href='${link.href}'")
+                    }
+
+
                     // Find the approve link
                     val approveLink = order.links.find { it.rel == "approve" }
 
-                    if (approveLink != null) {
-                        Log.d("PaymentScreen", "Opening PayPal checkout URL: ${approveLink.href}")
-                        isProcessingPayment.value = false
-                        
-                        // Open PayPal checkout page in Custom Tab
-                        val customTabsIntent = CustomTabsIntent.Builder()
-                            .setShowTitle(true)
-                            .build()
 
-                        customTabsIntent.launchUrl(this@PaymentActivity, Uri.parse(approveLink.href))
+                    if (approveLink != null) {
+                        Log.d("PaymentActivity", "✅ Found approve link: ${approveLink.href}")
+                        Log.d("PaymentActivity", "Opening PayPal checkout URL...")
+                        isProcessingPayment.value = false
+
+                        try {
+                            // Open PayPal checkout page in Custom Tab
+                            val customTabsIntent = CustomTabsIntent.Builder()
+                                .setShowTitle(true)
+                                .build()
+
+
+                            customTabsIntent.launchUrl(this@PaymentActivity, Uri.parse(approveLink.href))
+                            Log.d("PaymentActivity", "✅ Custom Tab launched successfully")
+                        } catch (e: Exception) {
+                            Log.e("PaymentActivity", "❌ Error launching Custom Tab: ${e.message}", e)
+                            showPaymentFailure("Could not open PayPal checkout page: ${e.message}")
+                        }
                     } else {
                         isProcessingPayment.value = false
+                        Log.e("PaymentActivity", "❌ No approve link found in order response")
+                        Log.e("PaymentActivity", "Available link types: ${order.links.map { it.rel }}")
                         showPaymentFailure("Could not get PayPal checkout URL")
                     }
                 } else {
                     isProcessingPayment.value = false
+                    Log.e("PaymentActivity", "❌ Order creation failed: ${orderResult.exceptionOrNull()?.message}")
                     showPaymentFailure("Order creation failed: ${orderResult.exceptionOrNull()?.message}")
                 }
             } catch (e: Exception) {
                 isProcessingPayment.value = false
+                Log.e("PaymentActivity", "❌ Exception in startPayPalCheckout: ${e.message}", e)
                 showPaymentFailure("Error: ${e.message}")
             }
         }
     }
 
+
     private fun capturePayPalOrder(orderId: String) {
+        Log.d("PaymentActivity", "🔄 Starting capture process for order: $orderId")
         isProcessingPayment.value = true
         lifecycleScope.launch {
             try {
+                // Re-authenticate to ensure we have a valid access token
+                // The token from order creation may have expired
+                Log.d("PaymentActivity", "Re-authenticating with PayPal before capture...")
+                val authResult = paypalRepository.authenticate()
+                if (authResult.isFailure) {
+                    Log.e("PaymentActivity", "❌ Re-authentication failed: ${authResult.exceptionOrNull()?.message}")
+                    showPaymentFailure("Authentication failed: ${authResult.exceptionOrNull()?.message}")
+                    return@launch
+                }
+                Log.d("PaymentActivity", "✅ Re-authentication successful")
+
+                Log.d("PaymentActivity", "Calling captureOrder API...")
                 val captureResult = paypalRepository.captureOrder(orderId)
+
+                Log.d("PaymentActivity", "Capture result: isSuccess=${captureResult.isSuccess}")
+
 
                 if (captureResult.isSuccess) {
                     val capture = captureResult.getOrNull()!!
+                    Log.d("PaymentActivity", "✅ Payment captured successfully: ${capture.id}")
+                    Log.d("PaymentActivity", "Capture status: ${capture.status}")
+
                     val reservation = viewModel.reservation.value
-                    
+
                     // Save payment to Firebase
                     if (reservation != null) {
                         val payment = com.example.sera_application.domain.model.Payment(
@@ -225,40 +332,61 @@ class PaymentActivity : ComponentActivity() {
                             status = PaymentStatus.SUCCESS,
                             createdAt = System.currentTimeMillis()
                         )
-                        
+
                         // Save payment to Firebase
                         try {
                             Log.d("PaymentActivity", "Attempting to save payment: $payment")
                             val savedPaymentId = paymentRemoteDataSource.savePayment(payment)
                             Log.d("PaymentActivity", "✅ Payment saved to Firebase successfully: $savedPaymentId")
+                            Toast.makeText(this@PaymentActivity, "Payment recorded successfully", Toast.LENGTH_SHORT).show()
                         } catch (e: Exception) {
                             Log.e("PaymentActivity", "❌ Error saving payment to Firebase: ${e.message}", e)
                             e.printStackTrace()
+                            // Show user-visible error
+                            Toast.makeText(
+                                this@PaymentActivity,
+                                "Warning: Payment completed but record save failed. Please contact support if needed.",
+                                Toast.LENGTH_LONG
+                            ).show()
                         }
-                        
+
                         // Update reservation status to CONFIRMED
-                        // TODO: Add UpdateReservationStatusUseCase call here
+                        try {
+                            Log.d("PaymentActivity", "Updating reservation status to CONFIRMED: ${reservation.reservationId}")
+                            updateReservationStatusUseCase(reservation.reservationId, "CONFIRMED")
+                            Log.d("PaymentActivity", "✅ Reservation status updated successfully")
+                        } catch (e: Exception) {
+                            Log.e("PaymentActivity", "❌ Error updating reservation status: ${e.message}", e)
+                        }
                     }
 
+
                     // Navigate to success screen
+                    Log.d("PaymentActivity", "Navigating to success screen...")
                     val intent = Intent(this@PaymentActivity, PaymentStatusActivity::class.java).apply {
                         putExtra("PAYMENT_SUCCESS", true)
                         putExtra("TRANSACTION_ID", capture.id)
                         putExtra("AMOUNT", reservation?.totalPrice ?: 70.0)
+                        putExtra("RESERVATION_ID", reservation?.reservationId)
                     }
                     startActivity(intent)
                     finish()
                 } else {
                     // Navigate to failure screen
-                    showPaymentFailure(captureResult.exceptionOrNull()?.message ?: "Payment capture failed")
+                    val errorMessage = captureResult.exceptionOrNull()?.message ?: "Payment capture failed"
+                    Log.e("PaymentActivity", "❌ Capture failed: $errorMessage")
+                    showPaymentFailure(errorMessage)
                 }
             } catch (e: Exception) {
+                Log.e("PaymentActivity", "❌ Exception in capturePayPalOrder: ${e.message}", e)
+                e.printStackTrace()
                 showPaymentFailure(e.message ?: "Unknown error occurred")
             } finally {
                 isProcessingPayment.value = false
             }
         }
     }
+
 
     private fun showPaymentFailure(reason: String) {
         val intent = Intent(this@PaymentActivity, PaymentStatusActivity::class.java).apply {
@@ -271,6 +399,7 @@ class PaymentActivity : ComponentActivity() {
     }
 }
 
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PaymentScreen(
@@ -281,13 +410,24 @@ fun PaymentScreen(
     onBack: () -> Unit,
     onPaymentSuccess: (String) -> Unit,
     isProcessing: Boolean,
-    onPayPalCheckout: () -> Unit
+    onPayPalCheckout: () -> Unit,
+    navController: androidx.navigation.NavController? = null
 ) {
     val context = LocalContext.current
     var selectedPayment by rememberSaveable { mutableStateOf("") }
     var showPaymentDialog by rememberSaveable { mutableStateOf(false) }
     var email by rememberSaveable { mutableStateOf("") }
     var name by rememberSaveable { mutableStateOf("") }
+    
+    // Get current user for role-based navigation
+    val profileViewModel: ProfileViewModel = hiltViewModel()
+    val currentUser by profileViewModel.user.collectAsState()
+    
+    // Load current user
+    LaunchedEffect(Unit) {
+        profileViewModel.loadCurrentUser()
+    }
+
 
     Scaffold(
         topBar = {
@@ -321,7 +461,13 @@ fun PaymentScreen(
             )
         },
         bottomBar = {
-            BottomNavigationBar()
+            navController?.let { nav ->
+                bottomNavigationBar(
+                    navController = nav,
+                    currentRoute = nav.currentBackStackEntry?.destination?.route,
+                    userRole = currentUser?.role ?: UserRole.PARTICIPANT
+                )
+            }
         }
     ) { paddingValues ->
         Box(
@@ -347,11 +493,15 @@ fun PaymentScreen(
                 ) {
                     EventDetailsCard(event = event, reservation = reservation)
 
+
                     Spacer(modifier = Modifier.height(16.dp))
+
 
                     PriceBreakdownCard(reservation = reservation)
 
+
                     Spacer(modifier = Modifier.height(20.dp))
+
 
                     Text(
                         text = "Payment Method",
@@ -360,7 +510,9 @@ fun PaymentScreen(
                         color = Color.Black
                     )
 
+
                     Spacer(modifier = Modifier.height(12.dp))
+
 
                     // PayPal Option
                     PaymentMethodCard(
@@ -373,7 +525,9 @@ fun PaymentScreen(
                         enabled = !isProcessing
                     )
 
+
                     Spacer(modifier = Modifier.height(20.dp))
+
 
                     Button(
                         onClick = {
@@ -404,6 +558,7 @@ fun PaymentScreen(
                     }
                 }
             }
+
 
             // Loading overlay
             if (isProcessing) {
@@ -446,6 +601,7 @@ fun PaymentScreen(
         }
     }
 
+
     if (showPaymentDialog) {
         PaymentDetailsDialog(
             email = email,
@@ -461,6 +617,7 @@ fun PaymentScreen(
         )
     }
 }
+
 
 @Composable
 fun EventDetailsCard(event: Event?, reservation: EventReservation?) {
@@ -479,15 +636,16 @@ fun EventDetailsCard(event: Event?, reservation: EventReservation?) {
                     .height(180.dp),
                 shape = RoundedCornerShape(8.dp)
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.eventdeafault),
-                    contentDescription = "Event Banner",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
+                PaymentEventImage(
+                    imagePath = event?.imagePath,
+                    eventName = event?.name ?: "Event",
+                    modifier = Modifier.fillMaxSize()
                 )
             }
 
+
             Spacer(modifier = Modifier.height(12.dp))
+
 
             Text(
                 text = event?.name ?: "Event Name",
@@ -496,9 +654,11 @@ fun EventDetailsCard(event: Event?, reservation: EventReservation?) {
                 color = Color.Black
             )
 
+
             Spacer(modifier = Modifier.height(12.dp))
 
-            EventDetailRow("Date", event?.date?.let { 
+
+            EventDetailRow("Date", event?.date?.let {
                 val format = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault())
                 format.format(java.util.Date(it))
             } ?: "N/A")
@@ -512,8 +672,9 @@ fun EventDetailsCard(event: Event?, reservation: EventReservation?) {
     }
 }
 
+
 @Composable
-fun EventDetailRow(label: String, value: Any) {
+fun EventDetailRow(label: String, value: String) {
     Row(
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -524,19 +685,20 @@ fun EventDetailRow(label: String, value: Any) {
             modifier = Modifier.width(70.dp)
         )
         Text(
-            text = value.toString(),
+            text = value,
             fontSize = 14.sp,
             color = Color.Black
         )
     }
 }
 
+
 @Composable
 fun PriceBreakdownCard(reservation: EventReservation?) {
     val seats = reservation?.seats ?: 0
     val pricePerTicket = if (seats > 0) (reservation?.totalPrice ?: 0.0) / seats else 0.0
     val totalPrice = reservation?.totalPrice ?: 0.0
-    
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -562,11 +724,15 @@ fun PriceBreakdownCard(reservation: EventReservation?) {
                 )
             }
 
+
             Spacer(modifier = Modifier.height(16.dp))
+
 
             HorizontalDivider(color = Color(0xFFE5E5E5))
 
+
             Spacer(modifier = Modifier.height(16.dp))
+
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -580,6 +746,7 @@ fun PriceBreakdownCard(reservation: EventReservation?) {
                     color = Color.Black
                 )
 
+
                 Text(
                     text = "RM%.2f".format(totalPrice),
                     fontSize = 16.sp,
@@ -590,6 +757,7 @@ fun PriceBreakdownCard(reservation: EventReservation?) {
         }
     }
 }
+
 
 @Composable
 fun PaymentMethodCard(
@@ -622,7 +790,9 @@ fun PaymentMethodCard(
                 alpha = if (enabled) 1f else 0.5f
             )
 
+
             Spacer(modifier = Modifier.width(12.dp))
+
 
             Text(
                 text = title,
@@ -631,6 +801,7 @@ fun PaymentMethodCard(
                 color = if (enabled) Color.Black else Color.Gray,
                 modifier = Modifier.weight(1f)
             )
+
 
             RadioButton(
                 selected = selected,
@@ -647,6 +818,7 @@ fun PaymentMethodCard(
     }
 }
 
+
 @Composable
 fun PaymentDetailsDialog(
     email: String,
@@ -658,6 +830,7 @@ fun PaymentDetailsDialog(
     onProceedToPayPal: () -> Unit
 ) {
     val context = LocalContext.current
+
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -695,7 +868,9 @@ fun PaymentDetailsDialog(
                     singleLine = true
                 )
 
+
                 Spacer(modifier = Modifier.height(12.dp))
+
 
                 OutlinedTextField(
                     value = name,
@@ -718,7 +893,9 @@ fun PaymentDetailsDialog(
                     singleLine = true
                 )
 
+
                 Spacer(modifier = Modifier.height(16.dp))
+
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -731,7 +908,9 @@ fun PaymentDetailsDialog(
                         modifier = Modifier.size(20.dp)
                     )
 
+
                     Spacer(modifier = Modifier.width(8.dp))
+
 
                     Text(
                         text = if (paymentMethod == "PayPal") {
@@ -768,6 +947,7 @@ fun PaymentDetailsDialog(
                     )
                 }
 
+
                 Button(
                     onClick = {
                         if (email.isBlank() || name.isBlank()) {
@@ -779,6 +959,7 @@ fun PaymentDetailsDialog(
                             return@Button
                         }
 
+
                         val emailPattern = "[a-zA-Z0-9._-]+@[a-z]+\\.+[a-z]+"
                         if (!email.matches(emailPattern.toRegex())) {
                             Toast.makeText(
@@ -788,6 +969,7 @@ fun PaymentDetailsDialog(
                             ).show()
                             return@Button
                         }
+
 
                         onProceedToPayPal()
                     },
@@ -815,4 +997,59 @@ fun PaymentDetailsDialog(
         },
         dismissButton = null
     )
+}
+
+@Composable
+private fun PaymentEventImage(
+    imagePath: String?,
+    eventName: String,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    
+    // Try to load as drawable resource first
+    val imageRes = remember(imagePath) {
+        if (imagePath != null && imagePath.isNotBlank()) {
+            // Check if it's a drawable resource name
+            val resId = context.resources.getIdentifier(
+                imagePath,
+                "drawable",
+                context.packageName
+            )
+            if (resId != 0) resId else null
+        } else {
+            null
+        }
+    }
+    
+    when {
+        // Case 1: Valid drawable resource
+        imageRes != null -> {
+            Image(
+                painter = painterResource(id = imageRes),
+                contentDescription = eventName,
+                modifier = modifier,
+                contentScale = ContentScale.Crop
+            )
+        }
+        // Case 2: Try as file path (future support)
+        imagePath != null && imagePath.isNotBlank() -> {
+            // For now, if not a drawable, use default
+            Image(
+                painter = painterResource(id = R.drawable.eventdeafault),
+                contentDescription = eventName,
+                modifier = modifier,
+                contentScale = ContentScale.Crop
+            )
+        }
+        // Case 3: No image - use default
+        else -> {
+            Image(
+                painter = painterResource(id = R.drawable.eventdeafault),
+                contentDescription = eventName,
+                modifier = modifier,
+                contentScale = ContentScale.Crop
+            )
+        }
+    }
 }

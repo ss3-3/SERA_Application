@@ -8,7 +8,6 @@ import com.example.sera_application.domain.model.enums.ReservationStatus
 import com.example.sera_application.domain.repository.ReservationRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.onEach
 import javax.inject.Inject
 
 /**
@@ -23,18 +22,17 @@ class ReservationRepositoryImpl @Inject constructor(
 
     override suspend fun createReservation(reservation: EventReservation): Result<String> {
         return try {
-            val result = remoteDataSource.createReservation(reservation)
-            result.fold(
-                onSuccess = { reservationId ->
-                    // Cache locally
-                    val createdReservation = reservation.copy(reservationId = reservationId)
-                    reservationDao.insertReservation(mapper.toEntity(createdReservation))
-                    Result.success(reservationId)
-                },
-                onFailure = { exception ->
-                    Result.failure(exception)
-                }
-            )
+            val reservationId = remoteDataSource.createReservation(reservation)
+
+            // Cache locally
+            val createdReservation = reservation.copy(reservationId = reservationId)
+            reservationDao.insertReservation(mapper.toEntity(createdReservation))
+
+            if (reservationId.isNotEmpty()) {
+                Result.success(reservationId)
+            } else {
+                Result.failure(Exception("Failed to create reservation"))
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -42,16 +40,10 @@ class ReservationRepositoryImpl @Inject constructor(
 
     override suspend fun cancelReservation(reservationId: String): Result<Unit> {
         return try {
-            val result = remoteDataSource.cancelReservation(reservationId)
-            result.fold(
-                onSuccess = {
-                    // Update local cache
-                    reservationDao.updateReservationStatus(reservationId, ReservationStatus.CANCELLED.name)
-                },
-                onFailure = { exception ->
-                    return Result.failure(exception)
-                }
-            )
+            remoteDataSource.cancelReservation(reservationId)
+
+            // Update local cache
+            reservationDao.updateReservationStatus(reservationId, ReservationStatus.CANCELLED.name)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -60,32 +52,38 @@ class ReservationRepositoryImpl @Inject constructor(
 
     override fun getUserReservations(userId: String): Flow<List<EventReservation>> {
         return flow {
-            remoteDataSource.fetchUserReservations(userId).collect { reservations ->
-                // Cache locally when data arrives
-                if (reservations.isNotEmpty()) {
-                    try {
-                        reservationDao.insertReservations(mapper.toEntityList(reservations))
-                    } catch (e: Exception) {
-                        // Log error but don't fail the flow
-                    }
+            try {
+                val remoteReservations = remoteDataSource.getReservationsByUser(userId)
+
+                // Cache locally
+                if (remoteReservations.isNotEmpty()) {
+                    reservationDao.insertReservations(mapper.toEntityList(remoteReservations))
                 }
-                emit(reservations)
+
+                emit(remoteReservations)
+            } catch (e: Exception) {
+                // Fallback to local cache
+                val localEntities = reservationDao.getReservationsByUser(userId)
+                emit(mapper.toDomainList(localEntities))
             }
         }
     }
 
     override fun getEventReservations(eventId: String): Flow<List<EventReservation>> {
         return flow {
-            remoteDataSource.fetchEventReservations(eventId).collect { reservations ->
-                // Cache locally when data arrives
-                if (reservations.isNotEmpty()) {
-                    try {
-                        reservationDao.insertReservations(mapper.toEntityList(reservations))
-                    } catch (e: Exception) {
-                        // Log error but don't fail the flow
-                    }
+            try {
+                val remoteReservations = remoteDataSource.getReservationsByEvent(eventId)
+
+                // Cache locally
+                if (remoteReservations.isNotEmpty()) {
+                    reservationDao.insertReservations(mapper.toEntityList(remoteReservations))
                 }
-                emit(reservations)
+
+                emit(remoteReservations)
+            } catch (e: Exception) {
+                // Fallback to local cache
+                val localEntities = reservationDao.getReservationsByEvent(eventId)
+                emit(mapper.toDomainList(localEntities))
             }
         }
     }
@@ -101,7 +99,7 @@ class ReservationRepositoryImpl @Inject constructor(
         } catch (e: Exception) {
             // No direct all method in DAO yet, maybe fetch all or filter?
             // For now return empty list or implement getAll in DAO
-            emptyList() 
+            emptyList()
         }
     }
 
@@ -110,9 +108,9 @@ class ReservationRepositoryImpl @Inject constructor(
             // Try local first
             val localReservation = reservationDao.getReservationById(reservationId)
             if (localReservation != null) {
-                 return mapper.toDomain(localReservation)
+                return mapper.toDomain(localReservation)
             }
-            
+
             // Try remote
             val remoteReservation = remoteDataSource.getReservationById(reservationId)
             if (remoteReservation != null) {
@@ -127,22 +125,19 @@ class ReservationRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun updateReservationStatus(
-        reservationId: String,
-        status: ReservationStatus
-    ): Result<Unit> {
+    override suspend fun updateReservationStatus(reservationId: String, status: ReservationStatus): Result<Unit> {
         return try {
-            val result = remoteDataSource.updateReservationStatus(reservationId, status)
-            result.fold(
-                onSuccess = {
-                    // Update local cache
-                    reservationDao.updateReservationStatus(reservationId, status.name)
-                },
-                onFailure = { exception ->
-                    return Result.failure(exception)
-                }
-            )
-            Result.success(Unit)
+            val reservation = reservationDao.getReservationById(reservationId)
+            if (reservation != null) {
+                // Update remote
+                remoteDataSource.updateReservationStatus(reservationId, status.name)
+
+                // Update local
+                reservationDao.updateReservationStatus(reservationId, status.name)
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception("Reservation not found"))
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }

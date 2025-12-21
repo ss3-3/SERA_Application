@@ -1,5 +1,6 @@
 package com.example.sera_application.presentation.viewmodel.reservation
 
+
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.sera_application.domain.model.Event
@@ -15,20 +16,26 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+
 @HiltViewModel
 class CreateReservationViewModel @Inject constructor(
-    private val getEventByIdUseCase: GetEventByIdUseCase,
-    private val createReservationUseCase: CreateReservationUseCase
+    private val getEventByIdUseCase: com.example.sera_application.domain.usecase.event.GetEventByIdUseCase,
+    private val createReservationUseCase: com.example.sera_application.domain.usecase.reservation.CreateReservationUseCase,
+    private val updateAvailableSeatsUseCase: com.example.sera_application.domain.usecase.event.UpdateAvailableSeatsUseCase
 ) : ViewModel() {
+
 
     private val _event = MutableStateFlow<Event?>(null)
     val event: StateFlow<Event?> = _event.asStateFlow()
 
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
+
 
     fun loadEvent(eventId: String) {
         viewModelScope.launch {
@@ -45,39 +52,40 @@ class CreateReservationViewModel @Inject constructor(
         }
     }
 
+
     fun createReservation(
         eventId: String,
         quantities: Map<String, Int>,
-        onSuccess: () -> Unit,
+        onSuccess: (String) -> Unit,
         onError: (String) -> Unit
     ) {
         viewModelScope.launch {
             _isLoading.value = true
-            _error.value = null
+
 
             val userId = FirebaseAuth.getInstance().currentUser?.uid
             if (userId == null) {
-                _error.value = "User not logged in"
                 onError("User not logged in")
                 _isLoading.value = false
                 return@launch
             }
 
+
             val totalSeats = quantities.values.sum()
             if (totalSeats == 0) {
-                _error.value = "Please select at least one ticket"
                 onError("Please select at least one ticket")
                 _isLoading.value = false
                 return@launch
             }
 
+
             val currentEvent = _event.value
             if (currentEvent == null) {
-                _error.value = "Internal Error: Event data not loaded"
                 onError("Internal Error: Event data not loaded")
                 _isLoading.value = false
                 return@launch
             }
+
 
             var totalPrice = 0.0
             quantities.forEach { (zone, quantity) ->
@@ -88,6 +96,7 @@ class CreateReservationViewModel @Inject constructor(
                 }
             }
 
+
             // Simplistic: Assuming generic seat logic for now.
             // Ideally we'd create separate reservations or one logic structure
             val reservation = EventReservation(
@@ -95,25 +104,40 @@ class CreateReservationViewModel @Inject constructor(
                 eventId = eventId,
                 userId = userId,
                 seats = totalSeats,
+                rockZoneSeats = quantities["Rock Zone"] ?: 0,
+                normalZoneSeats = quantities["Normal Zone"] ?: 0,
                 totalPrice = totalPrice,
                 status = ReservationStatus.PENDING,
                 createdAt = System.currentTimeMillis()
             )
 
-            val result = createReservationUseCase(reservation)
-            result.fold(
-                onSuccess = {
-                    _error.value = null
-                    onSuccess()
-                },
-                onFailure = { exception ->
-                    val errorMessage = exception.message ?: "Failed to create reservation"
-                    _error.value = errorMessage
-                    onError(errorMessage)
+
+            try {
+                // Corrected call matching UseCase signature
+                val result = createReservationUseCase(reservation)
+                val reservationId = result.getOrNull()
+
+                if (reservationId != null) {
+                    // Deduct seats from event
+                    val rockDelta = -(quantities["Rock Zone"] ?: 0)
+                    val normalDelta = -(quantities["Normal Zone"] ?: 0)
+
+                    val success = updateAvailableSeatsUseCase(eventId, rockDelta, normalDelta)
+
+                    if (success) {
+                        onSuccess(reservationId)
+                    } else {
+                        onError("Reservation created, but seat count update failed. Please check Firestore security rules or data types.")
+                    }
+                } else {
+                    onError("Internal Error: Repository returned null ID")
                 }
-            )
-            
-            _isLoading.value = false
+            } catch (e: Exception) {
+                onError("Exception [${e.javaClass.simpleName}]: ${e.message ?: "No message"}")
+            } finally {
+                _isLoading.value = false
+            }
         }
     }
 }
+

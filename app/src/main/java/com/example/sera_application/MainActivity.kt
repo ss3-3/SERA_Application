@@ -17,6 +17,23 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        
+        val destination = intent.getStringExtra("DESTINATION")
+        val eventId = intent.getStringExtra("EVENT_ID")
+        
+        val startDestination = when (destination) {
+            "event_list" -> com.example.sera_application.presentation.navigation.Screen.EventList.route
+            "profile" -> com.example.sera_application.presentation.navigation.Screen.Profile.route
+            "create_reservation" -> {
+                if (eventId != null) {
+                    com.example.sera_application.presentation.navigation.Screen.CreateReservation.createRoute(eventId)
+                } else {
+                    com.example.sera_application.presentation.navigation.Screen.EventList.route
+                }
+            }
+            else -> com.example.sera_application.presentation.navigation.Screen.Login.route
+        }
+        
         setContent {
             SERA_ApplicationTheme {
                 // A surface container using the 'background' color from the theme
@@ -24,7 +41,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    MainNavGraph()
+                    MainNavGraph(startDestination = startDestination)
                 }
             }
         }

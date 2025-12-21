@@ -81,6 +81,10 @@ import com.example.sera_application.presentation.ui.components.SafeImageLoader
 import com.example.sera_application.utils.permissions.rememberNotificationPermissionState
 import android.widget.Toast
 import android.os.Build
+import com.example.sera_application.utils.bottomNavigationBar
+import com.example.sera_application.domain.model.enums.UserRole
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.sera_application.presentation.viewmodel.user.ProfileViewModel
 
 // UI-specific model for displaying events
 data class EventDisplayModel(
@@ -145,12 +149,22 @@ fun EventListScreen(
     onEventClick: (String) -> Unit = {}, // Pass event ID
     onProfileClick: () -> Unit = {},
     onNotificationClick: () -> Unit = {},
+    navController: androidx.navigation.NavController? = null,
     viewModel: EventListViewModel = hiltViewModel()
 ) {
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var selectedCategory by rememberSaveable { mutableStateOf<EventCategoryUI?>(null) }
 
     val uiState by viewModel.uiState.collectAsState()
+    
+    // Get current user for role-based navigation
+    val profileViewModel: ProfileViewModel = hiltViewModel()
+    val currentUser by profileViewModel.user.collectAsState()
+    
+    // Load current user
+    LaunchedEffect(Unit) {
+        profileViewModel.loadCurrentUser()
+    }
     
     // Load events on first composition
     LaunchedEffect(Unit) {
@@ -313,20 +327,11 @@ fun EventListScreen(
             )
         },
         bottomBar = {
-            NavigationBar(
-                containerColor = Color.White
-            ) {
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
-                    label = { Text("Home") },
-                    selected = true,
-                    onClick = { }
-                )
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
-                    label = { Text("Me") },
-                    selected = false,
-                    onClick = onProfileClick
+            navController?.let { nav ->
+                bottomNavigationBar(
+                    navController = nav,
+                    currentRoute = nav.currentBackStackEntry?.destination?.route,
+                    userRole = currentUser?.role ?: UserRole.PARTICIPANT
                 )
             }
         }
@@ -486,6 +491,77 @@ private fun EventBanner(
 }
 
 @Composable
+private fun EventCardImage(
+    imagePath: String?,
+    eventName: String,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    
+    // Try to load as drawable resource first
+    val imageRes = remember(imagePath) {
+        if (imagePath != null && imagePath.isNotBlank()) {
+            // Check if it's a drawable resource name
+            val resId = context.resources.getIdentifier(
+                imagePath,
+                "drawable",
+                context.packageName
+            )
+            if (resId != 0) resId else null
+        } else {
+            null
+        }
+    }
+    
+    when {
+        // Case 1: Valid drawable resource
+        imageRes != null -> {
+            Image(
+                painter = painterResource(id = imageRes),
+                contentDescription = eventName,
+                modifier = modifier,
+                contentScale = ContentScale.Crop
+            )
+        }
+        // Case 2: Try as file path
+        imagePath != null && imagePath.isNotBlank() -> {
+            SafeImageLoader(
+                imagePath = imagePath,
+                contentDescription = eventName,
+                modifier = modifier,
+                contentScale = ContentScale.Crop
+            )
+        }
+        // Case 3: No image - show placeholder with gradient
+        else -> {
+            Box(
+                modifier = modifier
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                Color(0xFF1A237E),
+                                Color(0xFF0D47A1)
+                            )
+                        )
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = eventName,
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(8.dp),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun CategoryChip(
     category: EventCategoryUI,
     isSelected: Boolean,
@@ -544,11 +620,10 @@ private fun EventCard(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                SafeImageLoader(
+                EventCardImage(
                     imagePath = event.bannerUrl,
-                    contentDescription = event.name,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
+                    eventName = event.name,
+                    modifier = Modifier.fillMaxSize()
                 )
             }
 
@@ -685,7 +760,7 @@ private fun getSampleEvents(): List<EventDisplayModel> {
             totalSeats = 120,
             category = EventCategoryUI.MUSIC,
             description = "A cappella choir performance event.",
-            bannerUrl = "voichstra"
+            bannerUrl = "voichestra"
         ),
         EventDisplayModel(
             id = "4",

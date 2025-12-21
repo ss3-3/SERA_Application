@@ -2,6 +2,7 @@ package com.example.sera_application.presentation.viewmodel.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.sera_application.data.local.PreferencesManager
 import com.example.sera_application.domain.model.User
 import com.example.sera_application.domain.repository.AuthRepository
 import com.example.sera_application.domain.usecase.auth.LoginUseCase
@@ -15,25 +16,42 @@ import javax.inject.Inject
 @HiltViewModel
 class LoginViewModel @Inject constructor(
     private val loginUseCase: LoginUseCase,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val preferencesManager: PreferencesManager
 ) : ViewModel() {
 
     private val _loginState = MutableStateFlow<LoginState>(LoginState.Idle)
     val loginState: StateFlow<LoginState> = _loginState.asStateFlow()
 
-    fun login(email: String, password: String) {
+    fun login(email: String, password: String, rememberMe: Boolean = false) {
         viewModelScope.launch {
             _loginState.value = LoginState.Loading
 
             val result = loginUseCase(email.trim(), password.trim())
 
             _loginState.value = if (result.isSuccess) {
+                // Save credentials if remember me is checked
+                if (rememberMe) {
+                    preferencesManager.setRememberMe(true)
+                    preferencesManager.saveCredentials(email.trim(), password.trim())
+                } else {
+                    preferencesManager.setRememberMe(false)
+                    preferencesManager.clearSavedCredentials()
+                }
                 LoginState.Success(result.getOrNull()!!)
             } else {
                 val errorMessage = result.exceptionOrNull()?.message ?: "Login failed"
                 LoginState.Error(errorMessage)
             }
         }
+    }
+
+    fun getSavedCredentials(): Pair<String?, String?> {
+        return Pair(preferencesManager.getSavedEmail(), preferencesManager.getSavedPassword())
+    }
+
+    fun hasSavedCredentials(): Boolean {
+        return preferencesManager.hasSavedCredentials()
     }
 
     fun resendVerificationEmail() {

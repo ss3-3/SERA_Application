@@ -97,11 +97,10 @@ fun MainNavGraph(
         composable(Screen.SignUp.route) {
             SignUpScreen(
                 onRegisterSuccess = { user ->
-                    // Navigate back to login or auto-login
-                    navigationController.navigateBack()
+                    navigationController.navigateToLogin()
                 },
                 onLoginClick = {
-                    navigationController.navigateBack()
+                    navigationController.navigateToLogin()
                 }
             )
         }
@@ -138,7 +137,8 @@ fun MainNavGraph(
                     currentUser?.userId?.let { userId ->
                         navController.navigate(Screen.Notifications.createRoute(userId))
                     }
-                }
+                },
+                navController = navController
             )
         }
 
@@ -176,7 +176,8 @@ fun MainNavGraph(
                 },
                 onProfileClick = {
                     navController.navigate(Screen.Profile.route)
-                }
+                },
+                navController = navController
             )
         }
 
@@ -348,7 +349,16 @@ fun MainNavGraph(
                     navController.navigate("user_reservation_detail/${reservation.reservationId}")
                 },
                 onCancelReservation = { reservation ->
-                    // TODO: Handle cancel reservation logic
+                    android.util.Log.d("NavGraph", "onCancelReservation clicked for: ${reservation.reservationId}, paymentId: ${reservation.paymentId}")
+                    reservation.paymentId?.let { paymentId ->
+                        if (paymentId.isNotEmpty()) {
+                            navController.navigate(Screen.RefundRequest.createRoute(paymentId))
+                        } else {
+                            android.widget.Toast.makeText(navController.context, "Payment ID is empty", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    } ?: run {
+                        android.widget.Toast.makeText(navController.context, "No payment information for this reservation", android.widget.Toast.LENGTH_SHORT).show()
+                    }
                 }
             )
         }
@@ -376,14 +386,6 @@ fun MainNavGraph(
             )
         }
 
-        // Edit Profile Screen
-        composable(Screen.EditProfile.route) {
-            val viewModel: com.example.sera_application.presentation.viewmodel.user.EditProfileViewModel = hiltViewModel()
-            com.example.sera_application.presentation.ui.user.EditProfileScreen(
-                navController = navController,
-                viewModel = viewModel
-            )
-        }
 
         // Notification Screen
         composable(
@@ -480,15 +482,20 @@ fun MainNavGraph(
         }
         // Profile Screen
         composable(Screen.Profile.route) {
+            val profileViewModel: com.example.sera_application.presentation.viewmodel.user.ProfileViewModel = hiltViewModel()
+            val currentUser by profileViewModel.user.collectAsState()
+            
+            // Load current user on first composition
+            LaunchedEffect(Unit) {
+                profileViewModel.loadCurrentUser()
+            }
+            
             ProfileScreen(
                 onBack = {
                     navigationController.navigateBack()
                 },
                 onEditUserName = {
                     navController.navigate(Screen.EditUsername.route)
-                },
-                onEditProfile = {
-                    navController.navigate(Screen.EditProfile.route)
                 },
                 onPasswordUpdate = {
                     navController.navigate(Screen.ChangePassword.route)
@@ -517,13 +524,42 @@ fun MainNavGraph(
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
                 },
-                onDeleteAccount = { },
-                onHomeClick = {
-                    navController.navigate(Screen.EventList.route) {
-                        popUpTo(Screen.EventList.route) { inclusive = true }
+                onDeleteAccount = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(0) { inclusive = true }
                     }
                 },
-                onAddEventClick = { },
+                navController = navController,
+                onHomeClick = {
+                    // Navigate to home based on user role
+                    val homeScreen = when (currentUser?.role) {
+                        UserRole.ORGANIZER -> Screen.OrganizerEventManagement.route
+                        UserRole.ADMIN -> Screen.AdminEventManagement.route
+                        else -> Screen.EventList.route // PARTICIPANT
+                    }
+                    navController.navigate(homeScreen) {
+                        popUpTo(homeScreen) { inclusive = true }
+                    }
+                },
+                onAddEventClick = {
+                    // Navigate based on user role
+                    when (currentUser?.role) {
+                        UserRole.ORGANIZER -> {
+                            navController.navigate(Screen.CreateEvent.route)
+                        }
+                        UserRole.ADMIN -> {
+                            navController.navigate(Screen.AdminEventManagement.route) {
+                                launchSingleTop = true
+                            }
+                        }
+                        else -> {
+                            // PARTICIPANT - navigate to event list
+                            navController.navigate(Screen.EventList.route) {
+                                launchSingleTop = true
+                            }
+                        }
+                    }
+                },
                 onProfileClick = { }
             )
         }
@@ -540,7 +576,10 @@ fun MainNavGraph(
             val eventId = backStackEntry.arguments?.getString("eventId") ?: ""
             CreateReservationScreen(
                 eventId = eventId,
-                onBack = { navController.popBackStack() },
+                onBack = {
+                    // Navigate back to Event Details screen (previous screen in stack)
+                    navController.popBackStack()
+                },
                 onReservationConfirmed = { reservationId ->
                     println("DEBUG: Navigating from Reservation to Payment: $reservationId")
                     navController.navigate(Screen.Payment.createRoute(reservationId))
@@ -591,14 +630,16 @@ fun MainNavGraph(
                 onViewReceipt = { orderData ->
                     // OrderData has orderId property
                     navController.navigate(Screen.Receipt.createRoute(orderData.orderId))
-                }
+                },
+                navController = navController
             )
         }
 
         // Organizer Payment Management Screen
         composable(Screen.OrganizerPaymentManagement.route) {
             OrganizerPaymentManagementScreen(
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                navController = navController
             )
         }
 
@@ -617,6 +658,8 @@ fun MainNavGraph(
                     putExtra("RESERVATION_ID", reservationId)
                 }
                 context.startActivity(intent)
+                // Pop this launcher route so back button from PaymentActivity goes to CreateReservation
+                navController.popBackStack()
             }
 
             // Show a loading indicator while the activity is being launched
@@ -645,7 +688,11 @@ fun MainNavGraph(
                     navController.navigate(Screen.EventList.route) {
                         popUpTo(Screen.EventList.route) { inclusive = true }
                     }
-                }
+                },
+                onProfileClick = {
+                    navController.navigate(Screen.Profile.route)
+                },
+                navController = navController
             )
         }
 
@@ -657,13 +704,17 @@ fun MainNavGraph(
             )
         ) { backStackEntry ->
             val paymentId = backStackEntry.arguments?.getString("paymentId") ?: ""
-            ReceiptScreen(
-                onBack = { navController.popBackStack() },
-                onDownloadReceipt = { /* Handle download if needed or let screen handle */ },
-                onRequestRefund = {
-                    navController.navigate(Screen.RefundRequest.createRoute(paymentId))
+            // ReceiptScreen requires ViewModel - redirect to ReceiptActivity instead
+            val context = LocalContext.current
+            LaunchedEffect(paymentId) {
+                val intent = android.content.Intent(context, com.example.sera_application.presentation.ui.payment.ReceiptActivity::class.java).apply {
+                    putExtra("TRANSACTION_ID", paymentId)
                 }
-            )
+                context.startActivity(intent)
+            }
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
         }
 
         // Refund Request Screen
@@ -674,13 +725,18 @@ fun MainNavGraph(
             )
         ) { backStackEntry ->
             val paymentId = backStackEntry.arguments?.getString("paymentId") ?: ""
-            // TODO: Pass paymentId to RefundRequestScreen via ViewModel if needed
-            RefundRequestScreen(
-                onBack = { navController.popBackStack() },
-                onSubmitSuccess = {
-                    navigationController.navigateBack()
+            val context = LocalContext.current
+            LaunchedEffect(paymentId) {
+                if (paymentId.isNotEmpty()) {
+                    val intent = android.content.Intent(context, com.example.sera_application.presentation.ui.payment.RefundRequestActivity::class.java).apply {
+                        putExtra("PAYMENT_ID", paymentId)
+                    }
+                    context.startActivity(intent)
                 }
-            )
+            }
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
         }
         }
     }

@@ -1,5 +1,6 @@
 package com.example.sera_application.presentation.ui.auth
 
+
 import android.R.attr.enabled
 import android.widget.Toast
 import androidx.compose.foundation.Image
@@ -41,6 +42,7 @@ import com.example.sera_application.domain.model.User
 import com.example.sera_application.presentation.viewmodel.auth.LoginViewModel
 import com.example.sera_application.presentation.viewmodel.auth.LoginState
 
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
@@ -55,11 +57,23 @@ fun LoginScreen(
     var passwordVisible by rememberSaveable  { mutableStateOf(false) }
     var rememberMe by rememberSaveable  { mutableStateOf(false) }
 
+
     var showForgotPasswordDialog by rememberSaveable { mutableStateOf(false) }
     var resetEmail by rememberSaveable  { mutableStateOf("") }
 
+
     val loginState by viewModel.loginState.collectAsState()
     val context = LocalContext.current
+
+    // Load saved credentials on first composition
+    LaunchedEffect(Unit) {
+        if (viewModel.hasSavedCredentials()) {
+            val (savedEmail, savedPassword) = viewModel.getSavedCredentials()
+            savedEmail?.let { email = it }
+            savedPassword?.let { password = it }
+            rememberMe = true
+        }
+    }
 
     // Handle login state changes
     LaunchedEffect(loginState) {
@@ -70,14 +84,17 @@ fun LoginScreen(
                 viewModel.resetState()
             }
 
+
             is LoginState.Error -> {
                 Toast.makeText(context, state.message, Toast.LENGTH_LONG).show()
                 viewModel.resetState()
             }
 
+
             else -> {}
         }
     }
+
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -114,6 +131,7 @@ fun LoginScreen(
         ) {
             Spacer(modifier = Modifier.height(32.dp))
 
+
             // TARUMT Logo
             Image(
                 painter = painterResource(id = R.drawable.tarumt_logo_transparent),
@@ -124,7 +142,9 @@ fun LoginScreen(
                 contentScale = ContentScale.Fit
             )
 
+
             Spacer(modifier = Modifier.height(24.dp))
+
 
             // Welcome Back Message
             Text(
@@ -135,7 +155,9 @@ fun LoginScreen(
                 textAlign = TextAlign.Center
             )
 
+
             Spacer(modifier = Modifier.height(16.dp))
+
 
             // System Description
             Text(
@@ -147,7 +169,9 @@ fun LoginScreen(
                 modifier = Modifier.padding(horizontal = 8.dp)
             )
 
+
             Spacer(modifier = Modifier.height(40.dp))
+
 
             // Email Field
             OutlinedTextField(
@@ -165,7 +189,9 @@ fun LoginScreen(
                 enabled = loginState !is LoginState.Loading
             )
 
+
             Spacer(modifier = Modifier.height(16.dp))
+
 
             // Password Field
             OutlinedTextField(
@@ -202,7 +228,9 @@ fun LoginScreen(
                 enabled = loginState !is LoginState.Loading
             )
 
+
             Spacer(modifier = Modifier.height(8.dp))
+
 
             // Forgot Password and Remember Me Row
             Row(
@@ -230,6 +258,7 @@ fun LoginScreen(
                     )
                 }
 
+
                 // Forgot Password Link
                 TextButton(
                     onClick = {
@@ -248,12 +277,14 @@ fun LoginScreen(
                 }
             }
 
+
             Spacer(modifier = Modifier.height(32.dp))
+
 
             // Login Button
             Button(
                 onClick = {
-                    viewModel.login(email, password)
+                    viewModel.login(email, password, rememberMe)
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -279,7 +310,9 @@ fun LoginScreen(
                 }
             }
 
+
             Spacer(modifier = Modifier.height(24.dp))
+
 
             // Sign Up Link
             Row(
@@ -306,9 +339,11 @@ fun LoginScreen(
                 }
             }
 
+
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
+
 
 // Forgot Password Dialog
     if (showForgotPasswordDialog) {
@@ -316,10 +351,16 @@ fun LoginScreen(
             onDismissRequest = {
                 showForgotPasswordDialog = false
                 resetEmail = ""
+                viewModel.resetState()
             },
             icon = {
                 Icon(
-                    painter = painterResource(id = android.R.drawable.ic_dialog_email),
+                    painter = painterResource(
+                        id = if (loginState is LoginState.VerificationEmailSent)
+                            android.R.drawable.ic_dialog_info
+                        else
+                            android.R.drawable.ic_dialog_email
+                    ),
                     contentDescription = null,
                     tint = Color(0xFF1976D2),
                     modifier = Modifier.size(48.dp)
@@ -327,7 +368,10 @@ fun LoginScreen(
             },
             title = {
                 Text(
-                    text = "Reset Password",
+                    text = if (loginState is LoginState.VerificationEmailSent)
+                        "Email Sent"
+                    else
+                        "Reset Password",
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center
                 )
@@ -337,60 +381,96 @@ fun LoginScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text(
-                        text = "Enter your email address and we'll send you a link to reset your password.",
-                        fontSize = 14.sp,
-                        color = Color(0xFF757575),
-                        textAlign = TextAlign.Center,
-                        lineHeight = 18.sp
-                    )
+                    if (loginState is LoginState.VerificationEmailSent) {
+                        Text(
+                            text = "A reset link has been sent to your email address ($resetEmail). Please check your inbox and follow the instructions.",
+                            fontSize = 14.sp,
+                            color = Color.Black,
+                            textAlign = TextAlign.Center,
+                            lineHeight = 20.sp
+                        )
+                    } else {
+                        Text(
+                            text = "Enter your email address and we'll send you a link to reset your password.",
+                            fontSize = 14.sp,
+                            color = Color(0xFF757575),
+                            textAlign = TextAlign.Center,
+                            lineHeight = 18.sp
+                        )
 
-                    OutlinedTextField(
-                        value = resetEmail,
-                        onValueChange = { resetEmail = it },
-                        label = { Text("Email") },
-                        placeholder = { Text("example@email.com") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFF1976D2),
-                            unfocusedBorderColor = Color(0xFFBDBDBD)
-                        ),
-                        shape = RoundedCornerShape(8.dp)
-                    )
+
+                        OutlinedTextField(
+                            value = resetEmail,
+                            onValueChange = { resetEmail = it },
+                            label = { Text("Email") },
+                            placeholder = { Text("example@email.com") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF1976D2),
+                                unfocusedBorderColor = Color(0xFFBDBDBD)
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            enabled = loginState !is LoginState.Loading
+                        )
+                    }
                 }
             },
             confirmButton = {
-                Button(
-                    onClick = {
-                        if (resetEmail.isNotBlank()) {
-                            viewModel.sendPasswordResetEmail(resetEmail.trim())
+                if (loginState is LoginState.VerificationEmailSent) {
+                    Button(
+                        onClick = {
+                            showForgotPasswordDialog = false
+                            resetEmail = ""
+                            viewModel.resetState()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2))
+                    ) {
+                        Text("Confirm")
+                    }
+                } else {
+                    Button(
+                        onClick = {
+                            if (resetEmail.isNotBlank()) {
+                                viewModel.sendPasswordResetEmail(resetEmail.trim())
+                            } else {
+                                Toast.makeText(context, "Please enter your email", Toast.LENGTH_SHORT)
+                                    .show()
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2)),
+                        enabled = loginState !is LoginState.Loading
+                    ) {
+                        if (loginState is LoginState.Loading) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp
+                            )
                         } else {
-                            Toast.makeText(context, "Please enter your email", Toast.LENGTH_SHORT)
-                                .show()
+                            Text("Send Reset Link")
                         }
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF1976D2)
-                    )
-                ) {
-                    Text("Send Reset Link")
+                    }
                 }
             },
             dismissButton = {
-                TextButton(
-                    onClick = {
-                        showForgotPasswordDialog = false
-                        resetEmail = ""
+                if (loginState !is LoginState.VerificationEmailSent) {
+                    TextButton(
+                        onClick = {
+                            showForgotPasswordDialog = false
+                            resetEmail = ""
+                        },
+                        enabled = loginState !is LoginState.Loading
+                    ) {
+                        Text("Cancel", color = Color(0xFF757575))
                     }
-                ) {
-                    Text("Cancel", color = Color(0xFF757575))
                 }
             }
         )
     }
 }
+
 
 @Preview(showBackground = true)
 @Composable

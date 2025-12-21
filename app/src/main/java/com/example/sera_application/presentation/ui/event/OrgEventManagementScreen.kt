@@ -70,6 +70,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.sera_application.presentation.ui.components.SafeImageLoader
 import com.example.sera_application.domain.model.enums.EventCategory
 import com.example.sera_application.presentation.viewmodel.event.OrganizerEventManagementViewModel
+import com.example.sera_application.utils.bottomNavigationBar
+import com.example.sera_application.domain.model.enums.UserRole
+import com.example.sera_application.presentation.viewmodel.user.ProfileViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,12 +83,22 @@ fun OrganizerEventManagementScreen(
     onDeleteEventClick: (String) -> Unit = {},
     onHomeClick: () -> Unit = {},
     onProfileClick: () -> Unit = {},
+    navController: androidx.navigation.NavController? = null,
     viewModel: OrganizerEventManagementViewModel = hiltViewModel()
 ) {
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var showDeleteConfirmDialog by remember { mutableStateOf<String?>(null) } // Double confirm
 
     val uiState by viewModel.uiState.collectAsState()
+    
+    // Get current user for role-based navigation
+    val profileViewModel: ProfileViewModel = hiltViewModel()
+    val currentUser by profileViewModel.user.collectAsState()
+    
+    // Load current user
+    LaunchedEffect(Unit) {
+        profileViewModel.loadCurrentUser()
+    }
 
     // Load all data when the screen is first composed
     LaunchedEffect(Unit) {
@@ -188,47 +201,11 @@ fun OrganizerEventManagementScreen(
             )
         },
         bottomBar = {
-            NavigationBar(
-                containerColor = Color.White
-            ) {
-                // CHANGE: Home button - weight to push items to sides
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
-                    label = { Text("Home", fontSize = 12.sp) },
-                    selected = true,
-                    onClick = onHomeClick
-                )
-
-                NavigationBarItem(
-                    icon = {
-                        Box(
-                            modifier = Modifier
-                                .size(56.dp)
-                                .background(
-                                    color = Color.DarkGray,
-                                    shape = RoundedCornerShape(50)
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = "Add Event",
-                                tint = Color.White,
-                                modifier = Modifier.size(32.dp)
-                            )
-                        }
-                    },
-                    label = { }, // Empty label for center button
-                    selected = false,
-                    onClick = onAddEventClick
-                )
-
-                // CHANGE: Profile/Me button
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
-                    label = { Text("Me", fontSize = 12.sp) },
-                    selected = false,
-                    onClick = onProfileClick
+            navController?.let { nav ->
+                bottomNavigationBar(
+                    navController = nav,
+                    currentRoute = nav.currentBackStackEntry?.destination?.route,
+                    userRole = currentUser?.role ?: UserRole.ORGANIZER
                 )
             }
         }

@@ -1,5 +1,8 @@
 package com.example.sera_application.presentation.ui.user
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -29,6 +32,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.sera_application.domain.model.enums.UserRole
 import com.example.sera_application.presentation.viewmodel.user.ProfileViewModel
 import com.example.sera_application.presentation.ui.components.SafeProfileImageLoader
+import com.example.sera_application.utils.bottomNavigationBar
 
 data class ProfileMenuItem(
     val title: String,
@@ -44,7 +48,6 @@ fun ProfileScreen(
     onBack: () -> Unit = {},
     // Pass through actions that initiate navigation or require inputs
     onEditUserName: () -> Unit = {},
-    onEditProfile: () -> Unit = {},
     onPasswordUpdate: () -> Unit = {},
     onOrderHistory: () -> Unit = {},
     onPaymentHistory: () -> Unit = {},
@@ -58,15 +61,24 @@ fun ProfileScreen(
     onDeleteAccount: () -> Unit = {},
     onHomeClick: () -> Unit = {},
     onAddEventClick: () -> Unit = {},
-    onProfileClick: () -> Unit = {}
+    onProfileClick: () -> Unit = {},
+    navController: androidx.navigation.NavController? = null
 ) {
     val user by viewModel.user.collectAsState()
     val currentUser = user
     val isLoading by viewModel.isLoading.collectAsState()
     val isLoggedOut by viewModel.isLoggedOut.collectAsState()
     val isAccountDeleted by viewModel.isAccountDeleted.collectAsState()
+    val error by viewModel.error.collectAsState()
     
-    var showDeleteDialog by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let { viewModel.onImageSelected(it) }
+    }
+    
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var deleteConfirmationText by remember { mutableStateOf("") }
     var showLogoutConfirmDialog by remember { mutableStateOf(false) }
     // Refresh user data when entering screen
     LaunchedEffect(Unit) {
@@ -135,23 +147,25 @@ fun ProfileScreen(
             )
         },
         bottomBar = {
-            // Only show bottom navigation for PARTICIPANT and ORGANIZER, not ADMIN
-            if (currentUser?.role != UserRole.ADMIN) {
-                NavigationBar(
-                    containerColor = Color.White
+            navController?.let { nav ->
+                bottomNavigationBar(
+                    navController = nav,
+                    currentRoute = nav.currentBackStackEntry?.destination?.route,
+                    userRole = currentUser?.role
+                )
+            }
+        },
+        snackbarHost = {
+            if (error != null) {
+                Snackbar(
+                    modifier = Modifier.padding(16.dp),
+                    action = {
+                        TextButton(onClick = { viewModel.clearError() }) {
+                            Text("Dismiss")
+                        }
+                    }
                 ) {
-                    NavigationBarItem(
-                        icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
-                        label = { Text("Home") },
-                        selected = false,
-                        onClick = onHomeClick
-                    )
-                    NavigationBarItem(
-                        icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
-                        label = { Text("Me") },
-                        selected = true,
-                        onClick = onProfileClick
-                    )
+                    Text(error ?: "")
                 }
             }
         }
@@ -175,8 +189,7 @@ fun ProfileScreen(
                     userName = currentUser.fullName,
                     profileImageUrl = currentUser.profileImagePath,
                     onImageClick = {
-                        // Navigate to EditProfileScreen to change profile picture
-                        onEditProfile()
+                        imagePickerLauncher.launch("image/*")
                     }
                 )
 
@@ -203,22 +216,51 @@ fun ProfileScreen(
 
             if (showDeleteDialog) {
                 AlertDialog(
-                    onDismissRequest = { showDeleteDialog = false },
-                    title = { Text("Delete Account") },
-                    text = { Text("Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently removed.") },
+                    onDismissRequest = { 
+                        showDeleteDialog = false 
+                        deleteConfirmationText = ""
+                    },
+                    icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = Color.Red) },
+                    title = { Text("Delete Account", fontWeight = FontWeight.Bold) },
+                    text = {
+                        Column {
+                            Text("This action is permanent and cannot be undone. All your data including reservations and profile info will be deleted.")
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text("Please type \"DELETE\" to confirm:", style = MaterialTheme.typography.bodySmall)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = deleteConfirmationText,
+                                onValueChange = { deleteConfirmationText = it },
+                                placeholder = { Text("DELETE") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = Color.Red,
+                                    unfocusedBorderColor = Color.Gray
+                                )
+                            )
+                        }
+                    },
                     confirmButton = {
-                        TextButton(
+                        Button(
                             onClick = {
-                                currentUser?.userId?.let { uid ->
-                                    viewModel.deleteAccount(uid)
+                                if (deleteConfirmationText == "DELETE") {
+                                    viewModel.deleteAccount()
+                                    showDeleteDialog = false
+                                    deleteConfirmationText = ""
                                 }
-                            }
+                            },
+                            enabled = deleteConfirmationText == "DELETE",
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
                         ) {
-                            Text("Delete", color = Color.Red)
+                            Text("Delete My Account", color = Color.White)
                         }
                     },
                     dismissButton = {
-                        TextButton(onClick = { showDeleteDialog = false }) {
+                        TextButton(onClick = { 
+                            showDeleteDialog = false 
+                            deleteConfirmationText = ""
+                        }) {
                             Text("Cancel")
                         }
                     }
@@ -367,144 +409,6 @@ private fun MenuItemRow(
     }
 }
 
-@Composable
-private fun BottomNavigationBar(
-    userRole: UserRole,
-    onHomeClick: () -> Unit,
-    onAddEventClick: () -> Unit,
-    onProfileClick: () -> Unit
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = Color.White,
-        shadowElevation = 8.dp
-    ) {
-        when (userRole) {
-            UserRole.PARTICIPANT -> {
-                // Participant: Home | Me
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    BottomNavItem(
-                        icon = Icons.Default.Home,
-                        label = "Home",
-                        isSelected = false,
-                        onClick = onHomeClick
-                    )
-                    BottomNavItem(
-                        icon = Icons.Default.Person,
-                        label = "Me",
-                        isSelected = true,
-                        onClick = onProfileClick
-                    )
-                }
-            }
-
-            UserRole.ORGANIZER -> {
-                // Organizer: Home | Add Event (+) | Me
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    BottomNavItem(
-                        icon = Icons.Default.Home,
-                        label = "Home",
-                        isSelected = false,
-                        onClick = onHomeClick
-                    )
-                    FloatingActionButton(
-                        onClick = onAddEventClick,
-                        modifier = Modifier.size(56.dp),
-                        containerColor = Color.Black,
-                        contentColor = Color.White
-                    ) {
-                        Icon(
-                            Icons.Default.Add,
-                            contentDescription = "Add Event",
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                    BottomNavItem(
-                        icon = Icons.Default.Person,
-                        label = "Me",
-                        isSelected = true,
-                        onClick = onProfileClick
-                    )
-                }
-            }
-
-            UserRole.ADMIN -> {
-                // Admin: Home | Event | Registration | Me
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    BottomNavItem(
-                        icon = Icons.Default.Home,
-                        label = "Home",
-                        isSelected = false,
-                        onClick = onHomeClick
-                    )
-                    BottomNavItem(
-                        icon = Icons.Default.Event,
-                        label = "Event",
-                        isSelected = false,
-                        onClick = onAddEventClick
-                    )
-                    BottomNavItem(
-                        icon = Icons.Default.Assignment,
-                        label = "Registration",
-                        isSelected = false,
-                        onClick = {}
-                    )
-                    BottomNavItem(
-                        icon = Icons.Default.Person,
-                        label = "Me",
-                        isSelected = true,
-                        onClick = onProfileClick
-                    )
-                }
-            }
-        }
-    }
-}
-@Composable
-private fun BottomNavItem(
-    icon: ImageVector,
-    label: String,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .clickable(onClick = onClick)
-            .padding(vertical = 8.dp)
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            tint = if (isSelected) Color(0xFF1976D2) else Color(0xFF757575),
-            modifier = Modifier.size(24.dp)
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = label,
-            fontSize = 12.sp,
-            color = if (isSelected) Color(0xFF1976D2) else Color(0xFF757575)
-        )
-    }
-}
 data class MenuItemsGroup(
     val firstGroup: List<ProfileMenuItem>,
     val secondGroup: List<ProfileMenuItem>

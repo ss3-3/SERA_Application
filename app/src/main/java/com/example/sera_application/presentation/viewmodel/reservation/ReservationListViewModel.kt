@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.sera_application.domain.model.ReservationWithDetails
 import com.example.sera_application.domain.usecase.event.GetEventByIdUseCase
 import com.example.sera_application.domain.usecase.reservation.GetUserReservationsUseCase
+import com.example.sera_application.domain.usecase.payment.GetPaymentByReservationIdUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,7 +19,8 @@ import javax.inject.Inject
 @HiltViewModel
 class ReservationListViewModel @Inject constructor(
     private val getUserReservationsUseCase: GetUserReservationsUseCase,
-    private val getEventByIdUseCase: GetEventByIdUseCase
+    private val getEventByIdUseCase: GetEventByIdUseCase,
+    private val getPaymentByReservationIdUseCase: GetPaymentByReservationIdUseCase
 ) : ViewModel() {
 
     private val _reservations = MutableStateFlow<List<ReservationWithDetails>>(emptyList())
@@ -42,13 +44,14 @@ class ReservationListViewModel @Inject constructor(
         getUserReservationsUseCase(userId)
             .onEach { reservationList ->
                 // Fetch event details for each reservation
-                val enrichedList = reservationList.map { reservation ->
-                    try {
-                        val event = getEventByIdUseCase(reservation.eventId)
-                        ReservationWithDetails(reservation, event)
-                    } catch (e: Exception) {
-                        ReservationWithDetails(reservation, null)
-                    }
+                android.util.Log.d("ReservationListVM", "Processing ${reservationList.size} reservations")
+                val enrichedList = mutableListOf<ReservationWithDetails>()
+                for (reservation in reservationList) {
+                    val event = getEventByIdUseCase(reservation.eventId)
+                    val payment = getPaymentByReservationIdUseCase(reservation.reservationId)
+                    val paymentId = payment?.paymentId
+                    android.util.Log.d("ReservationListVM", "ResId: ${reservation.reservationId}, PaymentId: $paymentId")
+                    enrichedList.add(ReservationWithDetails(reservation, event, paymentId))
                 }
                 
                 _reservations.value = enrichedList

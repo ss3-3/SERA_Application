@@ -42,7 +42,7 @@ class PayPalRepository(
                 basicAuth = getBasicAuthHeader(),
                 grantType = "client_credentials"
             )
-            
+
             if (response.isSuccessful && response.body() != null) {
                 accessToken = response.body()!!.accessToken
                 Log.d(TAG, "Authentication successful")
@@ -61,14 +61,21 @@ class PayPalRepository(
     suspend fun createOrder(
         amount: String,
         currencyCode: String = "MYR",
-        description: String = "Event Ticket Purchase"
+        description: String = "Event Ticket Purchase",
+        reservationId: String = ""
     ): Result<PayPalOrderResponse> = withContext(Dispatchers.IO) {
         try {
             if (accessToken == null) {
                 return@withContext Result.failure(Exception("Not authenticated"))
             }
 
-            Log.d(TAG, "Creating order: Amount=$amount $currencyCode")
+            Log.d(TAG, "Creating order: Amount=$amount $currencyCode, ReservationId=$reservationId")
+
+            val returnUrl = if (reservationId.isNotEmpty()) {
+                "sera://paypal.return?reservationId=$reservationId"
+            } else {
+                "sera://paypal.return"
+            }
 
             val orderRequest = PayPalOrderRequest(
                 intent = "CAPTURE",
@@ -82,7 +89,7 @@ class PayPalRepository(
                     )
                 ),
                 applicationContext = ApplicationContext(
-                    returnUrl = "sera://paypal.return",
+                    returnUrl = returnUrl,
                     cancelUrl = "sera://paypal.cancel"
                 )
             )
