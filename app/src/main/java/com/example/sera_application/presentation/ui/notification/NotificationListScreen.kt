@@ -1,6 +1,7 @@
 package com.example.sera_application.presentation.ui.notification
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -16,55 +17,35 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.sera_application.domain.model.Notification
+import com.example.sera_application.domain.model.enums.NotificationType as DomainNotificationType
+import com.example.sera_application.presentation.viewmodel.notification.NotificationViewModel
+import java.text.SimpleDateFormat
+import java.util.*
 
-/**
- * Notification types for different events
- */
-enum class NotificationType(val icon: ImageVector) {
-    RESERVATION_CONFIRMED(Icons.Default.CheckCircle),
-    PAYMENT_SUCCESS(Icons.Default.Payment),
-    EVENT_UPDATE(Icons.Default.Event),
-    EVENT_REMINDER(Icons.Default.Notifications),
-    EVENT_CANCELLED(Icons.Default.Cancel)
-}
-
-/**
- * Notification data model for UI
- */
-data class NotificationItem(
-    val id: String,
-    val type: NotificationType,
-    val title: String,
-    val message: String,
-    val timestamp: String,     // e.g., "Just now", "2 hours ago"
-    val isRead: Boolean = false
-)
-
-/**
- * Notification List Screen
- * Full-page notification list for participants
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotificationListScreen(
+    userId: String,
     onBackClick: () -> Unit = {},
-    onNotificationDelete: (String) -> Unit = {},
-    onNotificationClick: (NotificationItem) -> Unit = {}
+    onNavigateToEvent: (String) -> Unit = {},
+    viewModel: NotificationViewModel = hiltViewModel()
 ) {
-    // TODO: Get notifications from ViewModel
-    var notifications by remember {
-        mutableStateOf(getSampleNotifications())
-    }
+    val notifications by viewModel.notifications.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val error by viewModel.error.collectAsState()
 
-    val unreadCount = notifications.count { !it.isRead }
+    LaunchedEffect(userId) {
+        viewModel.loadNotifications(userId)
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Notification", fontSize = 18.sp, fontWeight = FontWeight.SemiBold) },
+                title = { Text("Notifications", fontSize = 18.sp, fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -84,26 +65,32 @@ fun NotificationListScreen(
                 .background(Color(0xFFF5F5F5))
                 .padding(padding)
         ) {
-            // New Notification Header
-            if (unreadCount > 0) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = Color.White,
-                    shadowElevation = 2.dp
+            if (isLoading) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = "New Notification($unreadCount)",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.Black,
-                        modifier = Modifier.padding(16.dp)
-                    )
+                    CircularProgressIndicator()
                 }
-            }
-
-            // Notification List
-            if (notifications.isEmpty()) {
-                // Empty State
+            } else if (error != null) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = error ?: "Error loading notifications",
+                            color = Color.Red
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(onClick = { viewModel.loadNotifications(userId) }) {
+                            Text("Retry")
+                        }
+                    }
+                }
+            } else if (notifications.isEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -126,6 +113,22 @@ fun NotificationListScreen(
                     }
                 }
             } else {
+                val unreadCount = notifications.count { !it.isRead }
+                if (unreadCount > 0) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = Color.White,
+                        shadowElevation = 2.dp
+                    ) {
+                        Text(
+                            text = "New Notifications ($unreadCount)",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.Black,
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    }
+                }
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(vertical = 8.dp)
@@ -133,15 +136,12 @@ fun NotificationListScreen(
                     items(notifications) { notification ->
                         NotificationCard(
                             notification = notification,
-                            onDelete = {
-                                onNotificationDelete(notification.id)
-                                notifications = notifications.filter { it.id != notification.id }
-                            },
                             onClick = {
-                                onNotificationClick(notification)
-                                // Mark as read
-                                notifications = notifications.map {
-                                    if (it.id == notification.id) it.copy(isRead = true) else it
+                                if (!notification.isRead) {
+                                    viewModel.markAsRead(notification.id)
+                                }
+                                notification.relatedEventId?.let { eventId ->
+                                    onNavigateToEvent(eventId)
                                 }
                             }
                         )
@@ -152,21 +152,16 @@ fun NotificationListScreen(
     }
 }
 
-/**
- * Individual Notification Card
- */
 @Composable
 private fun NotificationCard(
-    notification: NotificationItem,
-    onDelete: () -> Unit,
+    notification: Notification,
     onClick: () -> Unit
 ) {
-    var showDeleteDialog by remember { mutableStateOf(false) }
-
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp),
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (notification.isRead) Color.White else Color(0xFFF0F8FF)
@@ -180,7 +175,6 @@ private fun NotificationCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Notification Icon
             Box(
                 modifier = Modifier
                     .size(48.dp)
@@ -189,7 +183,7 @@ private fun NotificationCard(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = notification.type.icon,
+                    imageVector = getNotificationIcon(notification.type),
                     contentDescription = null,
                     tint = getNotificationIconColor(notification.type),
                     modifier = Modifier.size(24.dp)
@@ -198,7 +192,6 @@ private fun NotificationCard(
 
             Spacer(modifier = Modifier.width(12.dp))
 
-            // Notification Content
             Column(
                 modifier = Modifier.weight(1f)
             ) {
@@ -221,137 +214,45 @@ private fun NotificationCard(
                 Spacer(modifier = Modifier.height(6.dp))
 
                 Text(
-                    text = notification.timestamp,
+                    text = formatTimestamp(notification.createdAt),
                     fontSize = 11.sp,
                     color = Color.Gray
                 )
             }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            // Delete Button
-            IconButton(
-                onClick = { showDeleteDialog = true },
-                modifier = Modifier.size(32.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "Delete",
-                    tint = Color.Gray,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
         }
     }
-
-    // Delete Confirmation Dialog
-    if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Delete Notification") },
-            text = { Text("Are you sure you want to delete this notification?") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        onDelete()
-                        showDeleteDialog = false
-                    }
-                ) {
-                    Text("Delete", color = Color.Red)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
 }
 
-/**
- * Get icon color based on notification type
- */
-private fun getNotificationIconColor(type: NotificationType): Color {
+private fun getNotificationIcon(type: DomainNotificationType): ImageVector {
     return when (type) {
-        NotificationType.RESERVATION_CONFIRMED -> Color(0xFF4CAF50)
-        NotificationType.PAYMENT_SUCCESS -> Color(0xFF2196F3)
-        NotificationType.EVENT_UPDATE -> Color(0xFFFF9800)
-        NotificationType.EVENT_REMINDER -> Color(0xFF9C27B0)
-        NotificationType.EVENT_CANCELLED -> Color(0xFFF44336)
+        DomainNotificationType.EVENT_UPDATE -> Icons.Default.Event
+        DomainNotificationType.RESERVATION_UPDATE -> Icons.Default.CheckCircle
+        DomainNotificationType.PAYMENT_UPDATE -> Icons.Default.Payment
+        DomainNotificationType.SYSTEM -> Icons.Default.Info
     }
 }
 
-/**
- * Sample data for testing
- * TODO: Replace with ViewModel data
- */
-private fun getSampleNotifications(): List<NotificationItem> {
-    return listOf(
-        NotificationItem(
-            id = "1",
-            type = NotificationType.RESERVATION_CONFIRMED,
-            title = "Reservation Confirmed!",
-            message = "Your reservation for MUSIC FIESTA 6.0 has been confirmed!",
-            timestamp = "Just now",
-            isRead = false
-        ),
-        NotificationItem(
-            id = "2",
-            type = NotificationType.RESERVATION_CONFIRMED,
-            title = "Reservation Confirmed!",
-            message = "Your reservation for GOTAR Festival has been confirmed!",
-            timestamp = "2 hours ago",
-            isRead = false
-        ),
-        NotificationItem(
-            id = "3",
-            type = NotificationType.PAYMENT_SUCCESS,
-            title = "Payment Successful!",
-            message = "Your payment for MUSIC FIESTA 6.0 has been processed successfully!",
-            timestamp = "5 hours ago",
-            isRead = false
-        ),
-        NotificationItem(
-            id = "4",
-            type = NotificationType.PAYMENT_SUCCESS,
-            title = "Payment Successful!",
-            message = "Your payment for VOICHESTRA has been processed successfully!",
-            timestamp = "1 day ago",
-            isRead = false
-        ),
-        NotificationItem(
-            id = "5",
-            type = NotificationType.EVENT_REMINDER,
-            title = "Coming Soon!",
-            message = "MUSIC FIESTA 6.0 is happening tomorrow at 7:00 PM!",
-            timestamp = "2 days ago",
-            isRead = false
-        )
-    )
+private fun getNotificationIconColor(type: DomainNotificationType): Color {
+    return when (type) {
+        DomainNotificationType.EVENT_UPDATE -> Color(0xFFFF9800)
+        DomainNotificationType.RESERVATION_UPDATE -> Color(0xFF4CAF50)
+        DomainNotificationType.PAYMENT_UPDATE -> Color(0xFF2196F3)
+        DomainNotificationType.SYSTEM -> Color(0xFF9C27B0)
+    }
 }
 
-// ==================== PREVIEW ====================
+private fun formatTimestamp(timestamp: Long): String {
+    val now = System.currentTimeMillis()
+    val diff = now - timestamp
 
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-private fun NotificationListScreenPreview() {
-    NotificationListScreen()
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun NotificationCardPreview() {
-    NotificationCard(
-        notification = NotificationItem(
-            id = "1",
-            type = NotificationType.RESERVATION_CONFIRMED,
-            title = "Reservation Confirmed!",
-            message = "Your reservation for MUSIC FIESTA 6.0 has been confirmed!",
-            timestamp = "Just now",
-            isRead = false
-        ),
-        onDelete = {},
-        onClick = {}
-    )
+    return when {
+        diff < 60_000 -> "Just now"
+        diff < 3_600_000 -> "${diff / 60_000} minutes ago"
+        diff < 86_400_000 -> "${diff / 3_600_000} hours ago"
+        diff < 604_800_000 -> "${diff / 86_400_000} days ago"
+        else -> {
+            val sdf = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+            sdf.format(Date(timestamp))
+        }
+    }
 }

@@ -3,53 +3,61 @@ package com.example.sera_application.data.repository
 import android.content.Context
 import android.net.Uri
 import com.example.sera_application.domain.repository.ImageRepository
-import com.google.firebase.storage.FirebaseStorage
+import com.example.sera_application.utils.file.LocalFileManager
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileInputStream
 import javax.inject.Inject
 
 /**
  * Implementation of ImageRepository.
- * Uses Firebase Storage for remote image storage.
+ * Uses LocalFileManager for local file storage operations.
+ * 
+ * All file I/O is delegated to LocalFileManager to maintain Clean Architecture.
  */
 class ImageRepositoryImpl @Inject constructor(
-    @ApplicationContext private val context: Context,
-    private val storage: FirebaseStorage
+    @ApplicationContext private val context: Context
 ) : ImageRepository {
 
-    private val storageRef = storage.reference
+    private val localFileManager = LocalFileManager(context)
 
-    override suspend fun saveImage(localUri: String, fileName: String): String {
-        return try {
-            val fileUri = Uri.parse(localUri)
-            val imageRef = storageRef.child("images/$fileName")
-            
-            val uploadTask = imageRef.putFile(fileUri).await()
-            val downloadUrl = uploadTask.storage.downloadUrl.await()
-            
-            downloadUrl.toString()
-        } catch (e: Exception) {
-            throw Exception("Failed to save image: ${e.message}", e)
+    override suspend fun saveImage(uri: Uri, fileName: String): String {
+        return withContext(Dispatchers.IO) {
+            try {
+                localFileManager.saveImageFromUri(uri, fileName)
+            } catch (e: Exception) {
+                // Return empty string on failure (as per requirements)
+                ""
+            }
         }
     }
 
     override suspend fun deleteImage(path: String): Boolean {
-        return try {
-            val imageRef = storage.getReferenceFromUrl(path)
-            imageRef.delete().await()
-            true
-        } catch (e: Exception) {
-            false
+        return withContext(Dispatchers.IO) {
+            try {
+                localFileManager.deleteImage(path)
+            } catch (e: Exception) {
+                false
+            }
         }
     }
 
     override suspend fun loadImage(path: String): ByteArray? {
-        return try {
-            val imageRef = storage.getReferenceFromUrl(path)
-            val maxDownloadSize = 10 * 1024 * 1024L // 10MB
-            imageRef.getBytes(maxDownloadSize).await()
-        } catch (e: Exception) {
-            null
+        return withContext(Dispatchers.IO) {
+            try {
+                val file = File(path)
+                if (file.exists() && file.isFile) {
+                    FileInputStream(file).use { input ->
+                        input.readBytes()
+                    }
+                } else {
+                    null
+                }
+            } catch (e: Exception) {
+                null
+            }
         }
     }
 }

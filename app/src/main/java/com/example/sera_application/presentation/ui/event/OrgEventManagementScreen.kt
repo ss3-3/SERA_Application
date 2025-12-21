@@ -67,6 +67,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.sera_application.presentation.ui.components.SafeImageLoader
 import com.example.sera_application.domain.model.enums.EventCategory
 import com.example.sera_application.presentation.viewmodel.event.OrganizerEventManagementViewModel
 
@@ -341,49 +342,16 @@ private fun OrganizerEventBanner(
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        val context = LocalContext.current
-
-        val imageRes = remember(event.bannerUrl) {
-            if (!event.bannerUrl.isNullOrBlank()) {
-                context.resources.getIdentifier(
-                    event.bannerUrl,
-                    "drawable",
-                    context.packageName
-                )
-            } else 0
-        }
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            if (imageRes != 0) {
-                Image(
-                    painter = painterResource(id = imageRes),
-                    contentDescription = event.name,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-            } else {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(Color(0xFF1A237E), Color(0xFF0D47A1))
-                            )
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = event.name,
-                        color = Color.White,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(16.dp)
-                    )
-                }
-            }
+            SafeImageLoader(
+                imagePath = event.bannerUrl,
+                contentDescription = event.name,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
         }
     }
 }

@@ -34,6 +34,13 @@ data class Event(
     val normalZonePrice: Double,
 
     // Media
+    /**
+     * Local file path to the event's banner/image.
+     * - Format: Absolute path string (e.g., "/data/user/0/com.example.app/files/images/event_123.jpg")
+     * - Can be null, empty, or placeholder string during Phase 1 (before LocalFileManager integration)
+     * - In Phase 2, will be populated by LocalFileManager when image is saved locally
+     * - UI should handle null/empty by showing default placeholder image
+     */
     val imagePath: String? = null,
 
     // Timestamps

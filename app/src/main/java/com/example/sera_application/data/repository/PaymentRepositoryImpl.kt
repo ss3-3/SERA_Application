@@ -3,53 +3,27 @@ package com.example.sera_application.data.repository
 import com.example.sera_application.data.local.dao.PaymentDao
 import com.example.sera_application.data.mapper.PaymentMapper
 import com.example.sera_application.data.remote.datasource.PaymentRemoteDataSource
-import com.example.sera_application.data.remote.paypal.repository.PayPalRepository
+import com.example.sera_application.data.remote.datasource.PayPalRemoteDataSource
+import com.example.sera_application.data.remote.paypal.PayPalOrderResult
 import com.example.sera_application.domain.model.Payment
 import com.example.sera_application.domain.model.enums.PaymentStatus
 import com.example.sera_application.domain.repository.PaymentRepository
+import com.example.sera_application.domain.usecase.payment.PayPalOrderCreationResult
 import javax.inject.Inject
 
-/**
- * Implementation of PaymentRepository.
- * Coordinates payment operations between remote datasources, local database, and domain layer.
- */
 class PaymentRepositoryImpl @Inject constructor(
     private val paymentRemoteDataSource: PaymentRemoteDataSource,
-    private val payPalRepository: PayPalRepository,
+    private val payPalRemoteDataSource: PayPalRemoteDataSource,
     private val paymentDao: PaymentDao,
     private val mapper: PaymentMapper
 ) : PaymentRepository {
 
     override suspend fun processPayment(payment: Payment): Boolean {
         return try {
-            // Step 1: Create PayPal order via backend
-            val orderResult = payPalRepository.createOrder(
-                amount = payment.amount.toString(),
-                currencyCode = "MYR" // Default currency
-            )
-
-            if (orderResult.isSuccess) {
-                    // Step 2: Payment order created, but not yet captured
-                    // For now, save as PENDING payment record
-                    // Actual capture happens after user approves in PayPal
-                    val pendingPayment = payment.copy(
-                        paymentId = "",
-                        status = PaymentStatus.PENDING
-                    )
-
-                    val paymentId = paymentRemoteDataSource.savePayment(pendingPayment)
-
-                    // Step 3: Cache locally
-                    val savedPayment = payment.copy(
-                        paymentId = paymentId,
-                        status = PaymentStatus.PENDING
-                    )
-                    paymentDao.insertPayment(mapper.toEntity(savedPayment))
-
-                    true
-            } else {
-                 false
-            }
+            val paymentId = paymentRemoteDataSource.savePayment(payment)
+            val savedPayment = payment.copy(paymentId = paymentId)
+            paymentDao.insertPayment(mapper.toEntity(savedPayment))
+            true
         } catch (e: Exception) {
             false
         }
@@ -69,6 +43,46 @@ class PaymentRepositoryImpl @Inject constructor(
             }
         } catch (e: Exception) {
             null
+        }
+    }
+
+    override suspend fun createPayPalOrder(
+        amount: Double,
+        currency: String
+    ): Result<PayPalOrderCreationResult> {
+        return try {
+            val orderResult = payPalRemoteDataSource.createOrder(amount, currency)
+            when (orderResult) {
+                is PayPalOrderResult.Success -> {
+                    Result.success(
+                        PayPalOrderCreationResult(
+                            orderId = orderResult.orderId,
+                            approvalUrl = orderResult.approvalUrl
+                        )
+                    )
+                }
+                is PayPalOrderResult.Error -> {
+                    Result.failure(Exception(orderResult.error))
+                }
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun capturePayPalOrder(orderId: String): Result<Unit> {
+        return try {
+            val captureResult = payPalRemoteDataSource.captureOrder(orderId)
+            when (captureResult) {
+                is com.example.sera_application.data.remote.paypal.PayPalCaptureResult.Success -> {
+                    Result.success(Unit)
+                }
+                is com.example.sera_application.data.remote.paypal.PayPalCaptureResult.Error -> {
+                    Result.failure(Exception(captureResult.error))
+                }
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 
@@ -92,14 +106,12 @@ class PaymentRepositoryImpl @Inject constructor(
     override suspend fun refundPayment(paymentId: String): Boolean {
         return try {
             val payment = getPaymentById(paymentId)
-            if (payment != null) {
-                // Update payment status to REFUND_PENDING
+            if (payment != null && payment.status == PaymentStatus.SUCCESS) {
                 paymentRemoteDataSource.updatePaymentStatus(
                     paymentId = paymentId,
                     status = PaymentStatus.REFUND_PENDING.name
                 )
 
-                // Update local cache
                 paymentDao.updatePaymentStatus(paymentId, PaymentStatus.REFUND_PENDING.name)
                 true
             } else {

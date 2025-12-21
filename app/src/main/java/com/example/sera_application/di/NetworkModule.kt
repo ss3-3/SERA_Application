@@ -16,6 +16,7 @@ import com.example.sera_application.data.remote.firebase.FirebaseReservationData
 import com.example.sera_application.data.remote.firebase.FirebaseUserDataSource
 import com.example.sera_application.data.remote.paypal.PayPalDataSourceImpl
 import com.example.sera_application.data.remote.paypal.api.PayPalBackendApi
+import com.example.sera_application.data.remote.paypal.repository.PayPalRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
@@ -110,6 +111,18 @@ abstract class NetworkModule {
         @Singleton
         fun providePayPalBackendApi(retrofit: Retrofit): PayPalBackendApi {
             return retrofit.create(PayPalBackendApi::class.java)
+        }
+
+        @Provides
+        @Singleton
+        fun providePayPalRepository(): PayPalRepository {
+            // TODO: Move these credentials to BuildConfig or a secure configuration
+            // For now, using sandbox credentials
+            return PayPalRepository(
+                clientId = "AQTPtN2werWX-j1tUfqQwifM0cfqviYHUVl9exM5fj4Ac2-kYXpqyjuaWw9mya3Tiwe2ppXGYyHNcBAP",
+                clientSecret = "EN02FWz7AC_SwRw6FuprITB4AT_XdM2ZMV2p1VSaBY7TJr-gONuIupplRCxQURSxBrMcPDmjxeUDfQf9",
+                isSandbox = true
+            )
         }
 
         // Firebase Remote Datasources

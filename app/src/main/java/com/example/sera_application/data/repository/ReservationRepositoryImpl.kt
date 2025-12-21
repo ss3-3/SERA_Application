@@ -6,6 +6,9 @@ import com.example.sera_application.data.remote.datasource.ReservationRemoteData
 import com.example.sera_application.domain.model.EventReservation
 import com.example.sera_application.domain.model.enums.ReservationStatus
 import com.example.sera_application.domain.repository.ReservationRepository
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.onEach
 import javax.inject.Inject
 
 /**
@@ -18,59 +21,72 @@ class ReservationRepositoryImpl @Inject constructor(
     private val mapper: ReservationMapper
 ) : ReservationRepository {
 
-    override suspend fun createReservation(reservation: EventReservation): String? {
-        val reservationId = remoteDataSource.createReservation(reservation)
-        
-        // Cache locally
-        val createdReservation = reservation.copy(reservationId = reservationId)
-        reservationDao.insertReservation(mapper.toEntity(createdReservation))
-        
-        return reservationId.ifEmpty { null }
-    }
-
-    override suspend fun cancelReservation(reservationId: String): Boolean {
+    override suspend fun createReservation(reservation: EventReservation): Result<String> {
         return try {
-            remoteDataSource.cancelReservation(reservationId)
-            
-            // Update local cache
-            reservationDao.updateReservationStatus(reservationId, ReservationStatus.CANCELLED.name)
-            true
+            val result = remoteDataSource.createReservation(reservation)
+            result.fold(
+                onSuccess = { reservationId ->
+                    // Cache locally
+                    val createdReservation = reservation.copy(reservationId = reservationId)
+                    reservationDao.insertReservation(mapper.toEntity(createdReservation))
+                    Result.success(reservationId)
+                },
+                onFailure = { exception ->
+                    Result.failure(exception)
+                }
+            )
         } catch (e: Exception) {
-            false
+            Result.failure(e)
         }
     }
 
-    override suspend fun getUserReservations(userId: String): List<EventReservation> {
+    override suspend fun cancelReservation(reservationId: String): Result<Unit> {
         return try {
-            val remoteReservations = remoteDataSource.getReservationsByUser(userId)
-            
-            // Cache locally
-            if (remoteReservations.isNotEmpty()) {
-                reservationDao.insertReservations(mapper.toEntityList(remoteReservations))
-            }
-            
-            remoteReservations
+            val result = remoteDataSource.cancelReservation(reservationId)
+            result.fold(
+                onSuccess = {
+                    // Update local cache
+                    reservationDao.updateReservationStatus(reservationId, ReservationStatus.CANCELLED.name)
+                },
+                onFailure = { exception ->
+                    return Result.failure(exception)
+                }
+            )
+            Result.success(Unit)
         } catch (e: Exception) {
-            // Fallback to local cache
-            val localEntities = reservationDao.getReservationsByUser(userId)
-            mapper.toDomainList(localEntities)
+            Result.failure(e)
         }
     }
 
-    override suspend fun getEventReservations(eventId: String): List<EventReservation> {
-        return try {
-            val remoteReservations = remoteDataSource.getReservationsByEvent(eventId)
-            
-            // Cache locally
-            if (remoteReservations.isNotEmpty()) {
-                reservationDao.insertReservations(mapper.toEntityList(remoteReservations))
+    override fun getUserReservations(userId: String): Flow<List<EventReservation>> {
+        return flow {
+            remoteDataSource.fetchUserReservations(userId).collect { reservations ->
+                // Cache locally when data arrives
+                if (reservations.isNotEmpty()) {
+                    try {
+                        reservationDao.insertReservations(mapper.toEntityList(reservations))
+                    } catch (e: Exception) {
+                        // Log error but don't fail the flow
+                    }
+                }
+                emit(reservations)
             }
-            
-            remoteReservations
-        } catch (e: Exception) {
-            // Fallback to local cache
-            val localEntities = reservationDao.getReservationsByEvent(eventId)
-            mapper.toDomainList(localEntities)
+        }
+    }
+
+    override fun getEventReservations(eventId: String): Flow<List<EventReservation>> {
+        return flow {
+            remoteDataSource.fetchEventReservations(eventId).collect { reservations ->
+                // Cache locally when data arrives
+                if (reservations.isNotEmpty()) {
+                    try {
+                        reservationDao.insertReservations(mapper.toEntityList(reservations))
+                    } catch (e: Exception) {
+                        // Log error but don't fail the flow
+                    }
+                }
+                emit(reservations)
+            }
         }
     }
 
@@ -111,28 +127,24 @@ class ReservationRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun updateReservationStatus(reservationId: String, status: String): Boolean {
+    override suspend fun updateReservationStatus(
+        reservationId: String,
+        status: ReservationStatus
+    ): Result<Unit> {
         return try {
-            val reservation = reservationDao.getReservationById(reservationId)
-            if (reservation != null) {
-                // Update remote if exists
-                val updatedReservation = mapper.toDomain(reservation).copy(
-                    status = try {
-                        ReservationStatus.valueOf(status)
-                    } catch (e: IllegalArgumentException) {
-                        ReservationStatus.PENDING
-                    }
-                )
-                remoteDataSource.updateReservationStatus(reservationId, status)
-                
-                // Update local
-                reservationDao.updateReservationStatus(reservationId, status)
-                true
-            } else {
-                false
-            }
+            val result = remoteDataSource.updateReservationStatus(reservationId, status)
+            result.fold(
+                onSuccess = {
+                    // Update local cache
+                    reservationDao.updateReservationStatus(reservationId, status.name)
+                },
+                onFailure = { exception ->
+                    return Result.failure(exception)
+                }
+            )
+            Result.success(Unit)
         } catch (e: Exception) {
-            false
+            Result.failure(e)
         }
     }
 }

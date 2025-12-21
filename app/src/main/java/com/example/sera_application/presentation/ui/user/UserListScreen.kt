@@ -32,13 +32,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavController
 import com.example.sera_application.domain.model.User
 import com.example.sera_application.presentation.viewmodel.user.UserListViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserListScreen(
-    onBack: () -> Unit,
+    navController: NavController,
     viewModel: UserListViewModel = hiltViewModel()
 ) {
     val users by viewModel.users.collectAsState()

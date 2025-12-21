@@ -11,7 +11,6 @@ import androidx.activity.viewModels
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -22,6 +21,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,19 +52,15 @@ class PaymentActivity : ComponentActivity() {
     @Inject
     lateinit var paymentRemoteDataSource: PaymentRemoteDataSource
     
-    private lateinit var paypalRepository: PayPalRepository
+    @Inject
+    lateinit var paypalRepository: PayPalRepository
+    
     private var pendingOrderId: String? = null
     private val isProcessingPayment = mutableStateOf(false)
     private val viewModel: PaymentScreenViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        paypalRepository = PayPalRepository(
-            clientId = "AQTPtN2werWX-j1tUfqQwifM0cfqviYHUVl9exM5fj4Ac2-kYXpqyjuaWw9mya3Tiwe2ppXGYyHNcBAP",
-            clientSecret = "EN02FWz7AC_SwRw6FuprITB4AT_XdM2ZMV2p1VSaBY7TJr-gONuIupplRCxQURSxBrMcPDmjxeUDfQf9",
-            isSandbox = true
-        )
 
         val reservationId = intent.getStringExtra("RESERVATION_ID") ?: ""
         
@@ -487,7 +483,7 @@ fun EventDetailsCard(event: Event?, reservation: EventReservation?) {
 }
 
 @Composable
-fun EventDetailRow(label: String, value: String) {
+fun EventDetailRow(label: String, value: Any) {
     Row(
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -498,7 +494,7 @@ fun EventDetailRow(label: String, value: String) {
             modifier = Modifier.width(70.dp)
         )
         Text(
-            text = value,
+            text = value.toString(),
             fontSize = 14.sp,
             color = Color.Black
         )

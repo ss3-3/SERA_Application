@@ -8,11 +8,15 @@ interface UserRepository {
 
     suspend fun getAllUsers(): List<User>
 
+    suspend fun getPendingOrganizers(): List<User>
+
     suspend fun updateUser(user: User): Boolean
 
     suspend fun deleteUser(userId: String): Boolean
 
     suspend fun approveOrganizer(userId: String): Boolean
+
+    suspend fun rejectOrganizer(userId: String): Boolean
 
     suspend fun suspendUser(userId: String): Boolean
 }

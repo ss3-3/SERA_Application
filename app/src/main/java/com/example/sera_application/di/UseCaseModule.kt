@@ -22,7 +22,7 @@ import dagger.hilt.components.SingletonComponent
  *                UpdateReservationStatusUseCase
  * - Payment: ProcessPaymentUseCase, GetPaymentByIdUseCase, GetPaymentHistoryUseCase,
  *            ValidatePaymentUseCase, RefundPaymentUseCase
- * - Notification: SendNotificationUseCase
+ * - Notification: SendNotificationUseCase, GetUserNotificationsUseCase, MarkNotificationAsReadUseCase
  * - Image: SaveImageUseCase, LoadImageUseCase, DeleteImageUseCase
  */
 @Module

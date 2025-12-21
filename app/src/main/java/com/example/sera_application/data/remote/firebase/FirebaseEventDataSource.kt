@@ -122,7 +122,7 @@ class FirebaseEventDataSource(
                 availableSeats = (data["availableSeats"] as? Number)?.toInt() ?: 0,
                 rockZonePrice = (data["rockZonePrice"] as? Number)?.toDouble() ?: 0.0,
                 normalZonePrice = (data["normalZonePrice"] as? Number)?.toDouble() ?: 0.0,
-                imagePath = data["imagePath"]?.toString(),
+                imagePath = data["imagePath"]?.toString()?.takeIf { it.isNotBlank() },
                 createdAt = timestampToLong("createdAt"),
                 updatedAt = timestampToLong("updatedAt")
             )

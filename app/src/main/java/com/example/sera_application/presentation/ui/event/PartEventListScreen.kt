@@ -77,6 +77,10 @@ import com.example.sera_application.presentation.viewmodel.event.EventListViewMo
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.runtime.collectAsState
 import com.example.sera_application.utils.DateTimeFormatterUtil
+import com.example.sera_application.presentation.ui.components.SafeImageLoader
+import com.example.sera_application.utils.permissions.rememberNotificationPermissionState
+import android.widget.Toast
+import android.os.Build
 
 // UI-specific model for displaying events
 data class EventDisplayModel(
@@ -140,6 +144,7 @@ fun EventListScreen(
     modifier: Modifier = Modifier,
     onEventClick: (String) -> Unit = {}, // Pass event ID
     onProfileClick: () -> Unit = {},
+    onNotificationClick: () -> Unit = {},
     viewModel: EventListViewModel = hiltViewModel()
 ) {
     var searchQuery by rememberSaveable { mutableStateOf("") }
@@ -153,6 +158,50 @@ fun EventListScreen(
     }
 
     val events = uiState.events.map { EventDisplayModel.fromDomain(it) }
+    
+    // Notification permission handling for user-initiated clicks
+    var shouldNavigateToNotifications by remember { mutableStateOf(false) }
+    
+    val (hasNotificationPermission, requestNotificationPermission, showRationale) = rememberNotificationPermissionState(
+        onPermissionGranted = {
+            // Permission granted - navigate if user clicked notification icon
+            if (shouldNavigateToNotifications) {
+                shouldNavigateToNotifications = false
+                onNotificationClick()
+            }
+        },
+        onPermissionDenied = {
+            shouldNavigateToNotifications = false
+            // Show message that permission is needed
+            Toast.makeText(
+                LocalContext.current,
+                "Notification permission is required to view notifications. Please enable it in app settings.",
+                Toast.LENGTH_LONG
+            ).show()
+        },
+        showRationale = true
+    )
+    
+    // Request permission on first load if not granted (proactive request)
+    // Only request once, don't navigate after granting
+    LaunchedEffect(Unit) {
+        if (!hasNotificationPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // Small delay to let UI settle before showing permission dialog
+            kotlinx.coroutines.delay(1000)
+            // Request permission without navigation callback
+            if (!hasNotificationPermission) {
+                requestNotificationPermission()
+            }
+        }
+    }
+    
+    // Handle navigation after permission is granted from proactive request
+    LaunchedEffect(hasNotificationPermission) {
+        // Reset flag when permission state changes
+        if (hasNotificationPermission) {
+            shouldNavigateToNotifications = false
+        }
+    }
 
     val filteredEvents = events.filter { event ->
         val matchesSearch = event.name.contains(searchQuery, ignoreCase = true) ||
@@ -238,8 +287,18 @@ fun EventListScreen(
 
                         Spacer(modifier = Modifier.width(8.dp))
 
-                        // Notification (future: connect to notification screen)
-                        IconButton(onClick = { /* handle notification click */ }) {
+                        // Notification
+                        IconButton(
+                            onClick = {
+                                if (hasNotificationPermission) {
+                                    onNotificationClick()
+                                } else {
+                                    // Set flag to navigate after permission is granted
+                                    shouldNavigateToNotifications = true
+                                    requestNotificationPermission()
+                                }
+                            }
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.Notifications,
                                 contentDescription = "Notifications",
@@ -485,37 +544,12 @@ private fun EventCard(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                // Load actual image from bannerUrl
-                val context = LocalContext.current
-                val imageRes = remember(event.bannerUrl) {
-                    if (event.bannerUrl != null && event.bannerUrl.isNotBlank()) {
-                        context.resources.getIdentifier(
-                            event.bannerUrl,
-                            "drawable",
-                            context.packageName
-                        )
-                    } else {
-                        0
-                    }
-                }
-
-                if (imageRes != 0) {
-                    Image(
-                        painter = painterResource(id = imageRes),
-                        contentDescription = event.name,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    Text(
-                        text = event.name,
-                        color = Color.White,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(8.dp)
-                    )
-                }
+                SafeImageLoader(
+                    imagePath = event.bannerUrl,
+                    contentDescription = event.name,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
             }
 
             // Event Info

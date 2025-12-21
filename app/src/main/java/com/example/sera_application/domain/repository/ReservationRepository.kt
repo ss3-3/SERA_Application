@@ -1,16 +1,18 @@
 package com.example.sera_application.domain.repository
 
 import com.example.sera_application.domain.model.EventReservation
+import com.example.sera_application.domain.model.enums.ReservationStatus
+import kotlinx.coroutines.flow.Flow
 
 interface ReservationRepository {
 
-    suspend fun createReservation(reservation: EventReservation): String?
+    suspend fun createReservation(reservation: EventReservation): Result<String> // Returns reservationId
 
-    suspend fun cancelReservation(reservationId: String): Boolean
+    suspend fun cancelReservation(reservationId: String): Result<Unit>
 
-    suspend fun getUserReservations(userId: String): List<EventReservation>
+    fun getUserReservations(userId: String): Flow<List<EventReservation>>
 
-    suspend fun getEventReservations(eventId: String): List<EventReservation>
+    fun getEventReservations(eventId: String): Flow<List<EventReservation>>
 
     suspend fun getAllReservations(): List<EventReservation>
 
@@ -18,6 +20,6 @@ interface ReservationRepository {
 
     suspend fun updateReservationStatus(
         reservationId: String,
-        status: String
-    ): Boolean
+        status: ReservationStatus
+    ): Result<Unit>
 }

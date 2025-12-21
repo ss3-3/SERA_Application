@@ -4,39 +4,16 @@ import com.example.sera_application.domain.model.Notification
 import com.example.sera_application.domain.model.enums.NotificationType
 
 interface NotificationRepository {
-    /**
-     * Send a notification to a specific user.
-     * This may trigger:
-     * - Firebase Cloud Messaging (remote)
-     * - Local notification display
-     * - Optional local persistence (history)
-     */
     suspend fun sendNotification(
         userId: String,
         title: String,
         message: String,
         type: NotificationType,
-        referenceId: String? = null
+        relatedEventId: String? = null,
+        relatedReservationId: String? = null
     ): Result<Unit>
 
-    /**
-     * Get all notifications for a user (history).
-     */
-    suspend fun getNotificationsByUser(
-        userId: String
-    ): Result<List<Notification>>
+    suspend fun getUserNotifications(userId: String): Result<List<Notification>>
 
-    /**
-     * Mark a notification as read.
-     */
-    suspend fun markAsRead(
-        notificationId: String
-    ): Result<Unit>
-
-    /**
-     * Clear all notifications for a user (optional).
-     */
-    suspend fun clearAll(
-        userId: String
-    ): Result<Unit>
+    suspend fun markAsRead(notificationId: String): Result<Unit>
 }

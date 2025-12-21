@@ -1,5 +1,7 @@
 package com.example.sera_application.data.remote.firebase
 
+import com.example.sera_application.data.mapper.PaymentFirestoreMapper
+import com.example.sera_application.data.mapper.PaymentFirestoreMapper.toPayment
 import com.example.sera_application.data.remote.datasource.PaymentRemoteDataSource
 import com.example.sera_application.domain.model.Payment
 import com.google.firebase.firestore.FirebaseFirestore
@@ -18,7 +20,8 @@ class FirebasePaymentDataSource(
             paymentsRef.document(payment.paymentId)
         }
         val paymentWithId = payment.copy(paymentId = docRef.id)
-        docRef.set(paymentWithId).await()
+        val paymentMap = PaymentFirestoreMapper.paymentToFirestoreMap(paymentWithId)
+        docRef.set(paymentMap).await()
         return docRef.id
     }
 
@@ -29,13 +32,13 @@ class FirebasePaymentDataSource(
             .await()
             .documents
             .firstOrNull()
-            ?.toObject(Payment::class.java)
+            ?.toPayment()
     }
 
     override suspend fun getPaymentById(paymentId: String): Payment? {
         val document = paymentsRef.document(paymentId).get().await()
         return if (document.exists()) {
-            document.toObject(Payment::class.java)
+            document.toPayment()
         } else {
             null
         }
@@ -46,7 +49,7 @@ class FirebasePaymentDataSource(
             .whereEqualTo("userId", userId)
             .get()
             .await()
-        return snapshot.documents.mapNotNull { it.toObject(Payment::class.java) }
+        return snapshot.documents.mapNotNull { it.toPayment() }
     }
 
     override suspend fun updatePaymentStatus(paymentId: String, status: String) {

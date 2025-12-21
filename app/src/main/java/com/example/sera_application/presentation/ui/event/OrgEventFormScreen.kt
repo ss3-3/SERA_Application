@@ -26,6 +26,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.example.sera_application.presentation.viewmodel.event.EventFormViewModel
+import com.example.sera_application.presentation.ui.components.SafeImageLoader
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -63,7 +64,8 @@ fun EventFormScreen(
     initialEventData: EventFormData? = null,
     onBackClick: () -> Unit = {},
     onSubmitClick: (EventFormData) -> Unit = {},
-    onImageSelected: ((Uri) -> Unit)? = null
+    onImageSelected: ((Uri) -> Unit)? = null,
+    currentImagePath: String? = null // Image path from ViewModel after saving
 ) {
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
 
@@ -253,51 +255,49 @@ fun EventFormScreen(
                         .clickable { imagePicker.launch("image/*") },
                     contentAlignment = Alignment.Center
                 ) {
-                    val imagePath = initialEventData?.imagePath
-                    val context = LocalContext.current
+                    // Prefer currentImagePath (from ViewModel after saving) over initialEventData
+                    val imagePath = currentImagePath ?: initialEventData?.imagePath
 
-                    val imageModel: Any? = remember(imagePath, selectedImageUri) {
-                        if (selectedImageUri != null) {
-                            selectedImageUri
-                        } else if (!imagePath.isNullOrBlank()) {
-                            val drawableId = context.resources.getIdentifier(
-                                imagePath,
-                                "drawable",
-                                context.packageName
+                    when {
+                        selectedImageUri != null -> {
+                            // Newly selected image from picker - show immediately
+                            AsyncImage(
+                                model = selectedImageUri,
+                                contentDescription = "Event Image",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
                             )
-                            if (drawableId != 0) {
-                                drawableId // It's a drawable resource ID
-                            } else if (imagePath.startsWith("/")) {
-                                File(imagePath) // It's a local file path
-                            } else {
-                                imagePath // Assume it's a URL
-                            }
-                        } else {
-                            null
                         }
-                    }
-
-                    if (imageModel != null) {
-                        AsyncImage(
-                            model = imageModel,
-                            contentDescription = "Event Image",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
-                    } else {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                imageVector = Icons.Default.Image,
-                                contentDescription = "Upload Image",
-                                modifier = Modifier.size(48.dp),
-                                tint = Color.Gray
+                        !imagePath.isNullOrBlank() -> {
+                            // Use safe loader for existing imagePath (handles null/empty/invalid)
+                            SafeImageLoader(
+                                imagePath = imagePath,
+                                contentDescription = "Event Image",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Tap to upload image",
-                                fontSize = 14.sp,
-                                color = Color.Gray
-                            )
+                        }
+                        else -> {
+                            // Show upload placeholder if no image
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(
+                                        imageVector = Icons.Default.Image,
+                                        contentDescription = "Upload Image",
+                                        modifier = Modifier.size(48.dp),
+                                        tint = Color.Gray
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "Tap to upload image",
+                                        fontSize = 14.sp,
+                                        color = Color.Gray
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -679,7 +679,7 @@ fun EventFormScreen(
                                     rockZonePrice = rockZonePrice.toDoubleOrNull() ?: 0.0,
                                     normalZonePrice = normalZonePrice.toDoubleOrNull() ?: 0.0,
                                     description = eventDescription,
-                                    imagePath = initialEventData?.imagePath
+                                    imagePath = currentImagePath ?: initialEventData?.imagePath
                                 )
                                 onSubmitClick(formData)
                             }

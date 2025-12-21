@@ -3,6 +3,7 @@ package com.example.sera_application
 import android.app.Application
 import android.util.Log
 import com.example.sera_application.data.util.FirebaseEventInitializer
+import com.example.sera_application.utils.notifications.NotificationHelper
 import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
@@ -18,6 +19,9 @@ class SeraApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+
+        // Create notification channel early
+        NotificationHelper.createNotificationChannel(this)
 
         // Optional: Initialize predefined events in Firebase
         // Set to true to automatically create 4 predefined events on app startup

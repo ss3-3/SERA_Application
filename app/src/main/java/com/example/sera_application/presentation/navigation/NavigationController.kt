@@ -21,7 +21,16 @@ interface NavigationController {
     fun navigateToOrganizerDashboard()
 
     // Admin Functions Navigation
-    fun navigateToAdminApproval()
+    fun navigateToAdminApproval(eventId: String)
+    fun navigateToAdminUserManagement()
+    fun navigateToEditUsername()
+    fun navigateToChangePassword()
+    fun navigateToUserReservationHistory()
+    fun navigateToPaymentHistory()
+    fun navigateToOrganizerPaymentManagement()
+    fun navigateToReservationManagement()
+    fun navigateToCreateReservation(eventId: String)
+    fun navigateToRefundRequest(paymentId: String)
 
     // Payment Navigation
     fun navigateToPayment(reservationId: String)

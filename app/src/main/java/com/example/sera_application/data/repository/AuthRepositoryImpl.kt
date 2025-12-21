@@ -62,16 +62,31 @@ class AuthRepositoryImpl @Inject constructor(
         return try {
             val userId = authRemoteDataSource.register(email, password, fullName, role)
 
+            val userRole = try {
+                UserRole.valueOf(role.uppercase())
+            } catch(e: Exception) {
+                UserRole.PARTICIPANT
+            }
+            
+            val isApproved = when (userRole) {
+                UserRole.PARTICIPANT -> true
+                UserRole.ORGANIZER -> false
+                UserRole.ADMIN -> true
+            }
+            
+            val accountStatus = when (userRole) {
+                UserRole.PARTICIPANT -> "ACTIVE"
+                UserRole.ORGANIZER -> "PENDING"
+                UserRole.ADMIN -> "ACTIVE"
+            }
+            
             val newUser = User(
                 userId = userId,
                 fullName = fullName,
                 email = email,
-                role = try {
-                    UserRole.valueOf(role.uppercase())
-                } catch(e: Exception) {
-                    UserRole.PARTICIPANT
-                },
-                accountStatus = "PENDING_VERIFICATION",
+                role = userRole,
+                accountStatus = accountStatus,
+                isApproved = isApproved,
                 createdAt = System.currentTimeMillis(),
                 updatedAt = System.currentTimeMillis()
             )

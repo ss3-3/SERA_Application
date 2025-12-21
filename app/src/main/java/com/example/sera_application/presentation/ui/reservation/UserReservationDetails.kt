@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -26,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.size
 import com.example.sera_application.utils.DateTimeFormatterUtil
 import com.example.sera_application.utils.DateTimeFormatterUtil.formatTimeRange
 
@@ -65,6 +67,31 @@ fun UserReservationDetailScreen(
 
     val reservationVal = uiState.reservation
     val eventVal = uiState.event
+    
+    // Handle cancel reservation
+    val handleCancelReservation: () -> Unit = {
+        if (reservationId.isNotBlank()) {
+            viewModel.cancelReservation(reservationId)
+        }
+    }
+    
+    // Show error message if any
+    val context = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(uiState.error) {
+        uiState.error?.let {
+            android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
+    
+    // Navigate back after successful cancellation
+    LaunchedEffect(uiState.reservation?.status) {
+        val reservation = uiState.reservation
+        if (reservation != null && 
+            reservation.status == com.example.sera_application.domain.model.enums.ReservationStatus.CANCELLED &&
+            !uiState.isCancelling) {
+            onCancelReservation()
+        }
+    }
 
     if (uiState.isLoading) {
          Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -150,7 +177,7 @@ fun UserReservationDetailScreen(
 
                 // Cancel Reservation Button
                 Button(
-                    onClick = onCancelReservation,
+                    onClick = handleCancelReservation,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 8.dp),
@@ -159,15 +186,23 @@ fun UserReservationDetailScreen(
                         containerColor = Color(0xFFE3F2FD), // Light blue
                         contentColor = Color(0xFF1976D2) // Dark blue text
                     ),
-                    enabled = uiModel.status == com.example.sera_application.domain.model.enums.ReservationStatus.CONFIRMED ||
-                            uiModel.status == com.example.sera_application.domain.model.enums.ReservationStatus.PENDING
+                    enabled = !uiState.isCancelling && 
+                            (uiModel.status == com.example.sera_application.domain.model.enums.ReservationStatus.CONFIRMED ||
+                            uiModel.status == com.example.sera_application.domain.model.enums.ReservationStatus.PENDING)
                 ) {
-                    Text(
-                        "Cancel Reservation",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    )
+                    if (uiState.isCancelling) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(
+                            "Cancel Reservation",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+                    }
                 }
             }
         }

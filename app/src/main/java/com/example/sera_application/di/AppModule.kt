@@ -1,5 +1,7 @@
 package com.example.sera_application.di
 
+import android.app.Application
+import android.content.Context
 import com.example.sera_application.data.mapper.EventMapper
 import com.example.sera_application.data.mapper.EventMapperImpl
 import com.example.sera_application.data.mapper.UserMapper
@@ -25,5 +27,9 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object AppModule {
     // Application Context is automatically provided by Hilt
-    
+    @Provides
+    @Singleton
+    fun provideContext(
+        application: Application
+    ): Context = application.applicationContext
 }

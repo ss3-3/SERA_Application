@@ -10,7 +10,9 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.*
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -21,13 +23,17 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavController
+import com.example.sera_application.presentation.viewmodel.user.EditProfileViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChangePasswordScreen(
     modifier: Modifier = Modifier,
-    onBack: () -> Unit = {},
-    onConfirm: (String, String, String) -> Unit = {olePassword, newPassword, confirmPassword -> } // oldPassword, newPassword, confirmPassword
+    navController: NavController,
+    viewModel: EditProfileViewModel = hiltViewModel()
 ) {
     var oldPassword by rememberSaveable { mutableStateOf("") }
     var newPassword by rememberSaveable { mutableStateOf("") }
@@ -40,6 +46,25 @@ fun ChangePasswordScreen(
     var showConfirmationDialog by remember { mutableStateOf(false) }
 
     var passwordError by remember { mutableStateOf<String?>(null) }
+
+    val isLoading by viewModel.isLoading.collectAsState()
+    val passwordUpdateSuccess by viewModel.passwordUpdateSuccess.collectAsState()
+    val error by viewModel.error.collectAsState()
+
+    // Handle success navigation
+    LaunchedEffect(passwordUpdateSuccess) {
+        if (passwordUpdateSuccess) {
+            navController.popBackStack()
+        }
+    }
+
+    // Handle error display
+    LaunchedEffect(error) {
+        error?.let {
+            passwordError = it
+            viewModel.clearError()
+        }
+    }
 
     val scrollState = rememberScrollState()
 
@@ -56,7 +81,7 @@ fun ChangePasswordScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = { navController.popBackStack() }) {
                         Icon(
                             Icons.Default.ArrowBack,
                             contentDescription = "Back",
@@ -251,7 +276,10 @@ fun ChangePasswordScreen(
                             containerColor = Color(0xFF1976D2),
                             contentColor = Color.White
                         ),
-                        enabled = oldPassword.isNotBlank() && newPassword.isNotBlank() && confirmPassword.isNotBlank()
+                        enabled = oldPassword.isNotBlank() && 
+                                  newPassword.isNotBlank() && 
+                                  confirmPassword.isNotBlank() &&
+                                  !isLoading
                     ) {
                         Text(
                             text = "Confirm",
@@ -284,7 +312,10 @@ fun ChangePasswordScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        onConfirm(oldPassword, newPassword, confirmPassword)
+                        viewModel.updatePassword(
+                            currentPassword = oldPassword,
+                            newPassword = newPassword
+                        )
                         showConfirmationDialog = false
                     },
                     colors = ButtonDefaults.buttonColors(
@@ -311,6 +342,9 @@ fun ChangePasswordScreen(
 @Composable
 private fun ChangePasswordScreenPreview() {
     MaterialTheme {
-        ChangePasswordScreen()
+        // Preview doesn't need NavController - just show the UI
+        Box(modifier = Modifier.fillMaxSize()) {
+            Text("Change Password Screen Preview")
+        }
     }
 }

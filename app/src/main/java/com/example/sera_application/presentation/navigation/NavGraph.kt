@@ -8,9 +8,11 @@ import androidx.compose.ui.platform.LocalContext
 import com.example.sera_application.presentation.ui.user.UserListScreen
 import com.example.sera_application.presentation.ui.reservation.ReservationListScreen
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -23,6 +25,8 @@ import androidx.navigation.navArgument
 import com.example.sera_application.domain.model.enums.UserRole
 import com.example.sera_application.presentation.ui.auth.LoginScreen
 import com.example.sera_application.presentation.ui.auth.SignUpScreen
+import com.example.sera_application.presentation.ui.auth.OrganizerWaitingApprovalScreen
+import com.example.sera_application.presentation.ui.notification.NotificationListScreen
 import com.example.sera_application.presentation.ui.event.EventDetailsScreen
 import com.example.sera_application.presentation.ui.event.OrganizerEventManagementScreen
 import com.example.sera_application.presentation.ui.reservation.CreateReservationScreen
@@ -34,8 +38,10 @@ import com.example.sera_application.presentation.ui.user.ChangePasswordScreen
 import com.example.sera_application.presentation.ui.user.EditUsernameScreen
 import com.example.sera_application.presentation.ui.user.ProfileScreen
 import com.example.sera_application.presentation.ui.event.*
+import com.example.sera_application.presentation.ui.payment.PaymentActivity
 import com.example.sera_application.presentation.ui.payment.*
 import com.example.sera_application.presentation.viewmodel.event.EventFormViewModel
+import com.example.sera_application.presentation.navigation.asNavigationController
 
 fun NavHostController.navigateToReservationDetails(reservationId: String) {
     navigate(Screen.ReservationDetails.createRoute(reservationId))
@@ -46,24 +52,37 @@ fun MainNavGraph(
     navController: NavHostController = rememberNavController(),
     startDestination: String = Screen.Login.route
 ) {
-    NavHost(
-        navController = navController,
-        startDestination = startDestination
-    ) {
+    val navigationController = remember(navController) {
+        navController.asNavigationController()
+    }
+    
+    CompositionLocalProvider(LocalNavigationController provides navigationController) {
+        NavHost(
+            navController = navController,
+            startDestination = startDestination
+        ) {
         // Auth Screens
         composable(Screen.Login.route) {
             LoginScreen(
                 onLoginSuccess = { user ->
-                    // Determine the home screen based on the user's role
-                    val homeScreen = when (user.role) {
-                        UserRole.ORGANIZER -> Screen.OrganizerEventManagement.route
-                        UserRole.ADMIN -> Screen.AdminEventManagement.route
-                        else -> Screen.EventList.route // Default for PARTICIPANT
-                    }
+                    // Check if organizer is approved before navigating
+                    if (user.role == UserRole.ORGANIZER && !user.isApproved) {
+                        // Navigate to waiting approval screen
+                        navController.navigate(Screen.OrganizerWaitingApproval.route) {
+                            popUpTo(Screen.Login.route) { inclusive = true }
+                        }
+                    } else {
+                        // Determine the home screen based on the user's role
+                        val homeScreen = when (user.role) {
+                            UserRole.ORGANIZER -> Screen.OrganizerEventManagement.route
+                            UserRole.ADMIN -> Screen.AdminEventManagement.route
+                            else -> Screen.EventList.route // Default for PARTICIPANT
+                        }
 
-                    // Navigate to the correct home screen and clear the back stack
-                    navController.navigate(homeScreen) {
-                        popUpTo(Screen.Login.route) { inclusive = true }
+                        // Navigate to the correct home screen and clear the back stack
+                        navController.navigate(homeScreen) {
+                            popUpTo(Screen.Login.route) { inclusive = true }
+                        }
                     }
                 },
                 onForgotPasswordClick = {
@@ -79,22 +98,46 @@ fun MainNavGraph(
             SignUpScreen(
                 onRegisterSuccess = { user ->
                     // Navigate back to login or auto-login
-                    navController.popBackStack()
+                    navigationController.navigateBack()
                 },
                 onLoginClick = {
-                    navController.popBackStack()
+                    navigationController.navigateBack()
+                }
+            )
+        }
+
+        // Organizer Waiting Approval Screen
+        composable(Screen.OrganizerWaitingApproval.route) {
+            OrganizerWaitingApprovalScreen(
+                onLogout = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.Login.route) { inclusive = true }
+                    }
                 }
             )
         }
 
         // Event List Screen (Participant)
         composable(Screen.EventList.route) {
+            val profileViewModel: com.example.sera_application.presentation.viewmodel.user.ProfileViewModel = hiltViewModel()
+            val currentUser by profileViewModel.user.collectAsState()
+            
+            // Load current user on first composition
+            LaunchedEffect(Unit) {
+                profileViewModel.loadCurrentUser()
+            }
+            
             EventListScreen(
                 onEventClick = { eventId ->
                     navController.navigate(Screen.EventDetails.createRoute(eventId))
                 },
                 onProfileClick = {
                     navController.navigate(Screen.Profile.route)
+                },
+                onNotificationClick = {
+                    currentUser?.userId?.let { userId ->
+                        navController.navigate(Screen.Notifications.createRoute(userId))
+                    }
                 }
             )
         }
@@ -145,7 +188,7 @@ fun MainNavGraph(
             // Handle success navigation
             LaunchedEffect(uiState.isSuccess) {
                 if (uiState.isSuccess) {
-                    navController.popBackStack()
+                    navigationController.navigateBack()
                 }
             }
 
@@ -164,7 +207,8 @@ fun MainNavGraph(
                 },
                 onImageSelected = { uri ->
                     viewModel.onImageSelected(uri)
-                }
+                },
+                currentImagePath = uiState.imagePath
             )
         }
 
@@ -189,7 +233,7 @@ fun MainNavGraph(
             // Handle success navigation
             LaunchedEffect(uiState.isSuccess) {
                 if (uiState.isSuccess) {
-                    navController.popBackStack()
+                    navigationController.navigateBack()
                 }
             }
 
@@ -213,7 +257,8 @@ fun MainNavGraph(
                 },
                 onImageSelected = { uri ->
                     viewModel.onImageSelected(uri)
-                }
+                },
+                currentImagePath = uiState.imagePath
             )
         }
 
@@ -249,11 +294,11 @@ fun MainNavGraph(
                 onBackClick = { navController.popBackStack() },
                 onApproveClick = {
                     // TODO: Handle approval via ViewModel
-                    navController.popBackStack()
+                    navigationController.navigateBack()
                 },
                 onRejectClick = {
                     // TODO: Handle rejection via ViewModel
-                    navController.popBackStack()
+                    navigationController.navigateBack()
                 },
                 onCancelClick = { navController.popBackStack() }
             )
@@ -273,7 +318,7 @@ fun MainNavGraph(
             ReservationDetailScreen(
                 reservationId = reservationId,
                 onBack = {
-                    navController.popBackStack()
+                    navigationController.navigateBack()
                 }
             )
         }
@@ -282,7 +327,7 @@ fun MainNavGraph(
         composable(Screen.ReservationManagement.route) {
             ReservationManagementScreen(
                 onBack = {
-                    navController.popBackStack()
+                    navigationController.navigateBack()
                 },
                 onViewReservation = { reservationId ->
                     navController.navigate(Screen.ReservationDetails.createRoute(reservationId))
@@ -297,7 +342,7 @@ fun MainNavGraph(
         composable(Screen.UserReservationHistory.route) {
             MyReservationScreen(
                 onBack = {
-                    navController.popBackStack()
+                    navigationController.navigateBack()
                 },
                 onViewDetails = { reservation ->
                     navController.navigate("user_reservation_detail/${reservation.reservationId}")
@@ -322,11 +367,39 @@ fun MainNavGraph(
             UserReservationDetailScreen(
                 reservationId = reservationId,
                 onBack = {
-                    navController.popBackStack()
+                    navigationController.navigateBack()
                 },
                 onCancelReservation = {
                     // TODO: Handle cancel reservation from detail screen
-                    navController.popBackStack()
+                    navigationController.navigateBack()
+                }
+            )
+        }
+
+        // Edit Profile Screen
+        composable(Screen.EditProfile.route) {
+            val viewModel: com.example.sera_application.presentation.viewmodel.user.EditProfileViewModel = hiltViewModel()
+            com.example.sera_application.presentation.ui.user.EditProfileScreen(
+                navController = navController,
+                viewModel = viewModel
+            )
+        }
+
+        // Notification Screen
+        composable(
+            route = Screen.Notifications.route,
+            arguments = listOf(
+                navArgument("userId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val userId = backStackEntry.arguments?.getString("userId") ?: ""
+            NotificationListScreen(
+                userId = userId,
+                onBackClick = {
+                    navigationController.navigateBack()
+                },
+                onNavigateToEvent = { eventId ->
+                    navController.navigate(Screen.EventDetails.createRoute(eventId))
                 }
             )
         }
@@ -352,7 +425,7 @@ fun MainNavGraph(
             // Handle success navigation
             LaunchedEffect(updateSuccess) {
                 if (updateSuccess) {
-                    navController.popBackStack()
+                    navigationController.navigateBack()
                 }
             }
 
@@ -362,7 +435,7 @@ fun MainNavGraph(
                     EditUsernameScreen(
                         currentUsername = currentUser.fullName,
                         onBack = {
-                            navController.popBackStack()
+                            navigationController.navigateBack()
                         },
                         onConfirm = { newName ->
                             viewModel.updateUser(currentUser.copy(fullName = newName, updatedAt = System.currentTimeMillis()))
@@ -390,42 +463,32 @@ fun MainNavGraph(
 
 // Change Password Screen
         composable(Screen.ChangePassword.route) {
-            val viewModel: com.example.sera_application.presentation.viewmodel.user.EditProfileViewModel = hiltViewModel()
+            val viewModel: com.example.sera_application.presentation.viewmodel.user.EditProfileViewModel =
+                hiltViewModel()
             val passwordUpdateSuccess by viewModel.passwordUpdateSuccess.collectAsState()
 
 
             LaunchedEffect(passwordUpdateSuccess) {
                 if (passwordUpdateSuccess) {
-                    navController.popBackStack()
+                    navigationController.navigateBack()
                 }
             }
 
 
-            ChangePasswordScreen(
-                onBack = {
-                    navController.popBackStack()
-                },
-                onConfirm = { oldPassword, newPassword, confirmPassword ->
-                    // confirmPassword check is already done in UI, but good to double check or just ignore
-                    if (newPassword == confirmPassword) {
-                        viewModel.updatePassword(
-                            currentPassword = oldPassword,
-                            newPassword = newPassword
-                        )
-                    }
-                }
-            )
+            ChangePasswordScreen(navController = navController)
+
         }
-
-
         // Profile Screen
         composable(Screen.Profile.route) {
             ProfileScreen(
                 onBack = {
-                    navController.popBackStack()
+                    navigationController.navigateBack()
                 },
                 onEditUserName = {
                     navController.navigate(Screen.EditUsername.route)
+                },
+                onEditProfile = {
+                    navController.navigate(Screen.EditProfile.route)
                 },
                 onPasswordUpdate = {
                     navController.navigate(Screen.ChangePassword.route)
@@ -489,18 +552,14 @@ fun MainNavGraph(
 //        composable(Screen.EventList.route) {
 //            EventListScreen(
 //                onBack = {
-//                    navController.popBackStack()
+//                    navigationController.navigateBack()
 //                }
 //            )
 //        }
 
         // User List Screen
         composable(Screen.UserList.route) {
-            UserListScreen(
-                onBack = {
-                    navController.popBackStack()
-                }
-            )
+            UserListScreen(navController)
         }
 
         // Reservation List Screen
@@ -516,25 +575,21 @@ fun MainNavGraph(
             ReservationListScreen(
                 userId = userId,
                 onBack = {
-                    navController.popBackStack()
+                    navigationController.navigateBack()
                 }
             )
         }
 
         // Admin User Management Screen
         composable(Screen.AdminUserManagement.route) {
-            com.example.sera_application.presentation.ui.user.AdminUserManagementScreen(
-                onBack = {
-                    navController.popBackStack()
-                }
-            )
+            com.example.sera_application.presentation.ui.user.AdminUserManagementScreen(navController)
         }
 
         // Payment History Screen (User)
         composable(Screen.PaymentHistory.route) {
             PaymentHistoryScreen(
-                onBack = { navController.popBackStack() },
                 onViewReceipt = { orderData ->
+                    // OrderData has orderId property
                     navController.navigate(Screen.Receipt.createRoute(orderData.orderId))
                 }
             )
@@ -556,14 +611,14 @@ fun MainNavGraph(
         ) { backStackEntry ->
             val context = LocalContext.current
             val reservationId = backStackEntry.arguments?.getString("reservationId") ?: ""
-            
+
             LaunchedEffect(reservationId) {
                 val intent = Intent(context, PaymentActivity::class.java).apply {
                     putExtra("RESERVATION_ID", reservationId)
                 }
                 context.startActivity(intent)
             }
-            
+
             // Show a loading indicator while the activity is being launched
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -618,13 +673,15 @@ fun MainNavGraph(
                 navArgument("paymentId") { type = NavType.StringType }
             )
         ) { backStackEntry ->
-            // Note: RefundRequestScreen might need paymentId via ViewModel or argument
+            val paymentId = backStackEntry.arguments?.getString("paymentId") ?: ""
+            // TODO: Pass paymentId to RefundRequestScreen via ViewModel if needed
             RefundRequestScreen(
                 onBack = { navController.popBackStack() },
                 onSubmitSuccess = {
-                    navController.popBackStack()
+                    navigationController.navigateBack()
                 }
             )
+        }
         }
     }
 }

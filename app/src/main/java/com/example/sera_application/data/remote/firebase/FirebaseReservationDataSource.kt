@@ -2,46 +2,80 @@ package com.example.sera_application.data.remote.firebase
 
 import com.example.sera_application.data.remote.datasource.ReservationRemoteDataSource
 import com.example.sera_application.domain.model.EventReservation
+import com.example.sera_application.domain.model.enums.ReservationStatus
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
+import javax.inject.Inject
 
-class FirebaseReservationDataSource(
+class FirebaseReservationDataSource @Inject constructor(
     private val firestore: FirebaseFirestore
 ) : ReservationRemoteDataSource {
 
     private val reservationsRef = firestore.collection("reservations")
 
-    override suspend fun createReservation(reservation: EventReservation): String {
-        val docRef = if (reservation.reservationId.isBlank()) {
-            reservationsRef.document()
-        } else {
-            reservationsRef.document(reservation.reservationId)
+    override suspend fun createReservation(reservation: EventReservation): Result<String> {
+        return try {
+            val docRef = if (reservation.reservationId.isBlank()) {
+                reservationsRef.document()
+            } else {
+                reservationsRef.document(reservation.reservationId)
+            }
+            val reservationWithId = reservation.copy(reservationId = docRef.id)
+            docRef.set(reservationToMap(reservationWithId)).await()
+            Result.success(docRef.id)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
-        val reservationWithId = reservation.copy(reservationId = docRef.id)
-        docRef.set(reservationToMap(reservationWithId)).await()
-        return docRef.id
     }
 
-    override suspend fun cancelReservation(reservationId: String) {
-        reservationsRef.document(reservationId)
-            .update("status", com.example.sera_application.domain.model.enums.ReservationStatus.CANCELLED.name)
-            .await()
+    override suspend fun cancelReservation(reservationId: String): Result<Unit> {
+        return try {
+            reservationsRef.document(reservationId)
+                .update("status", ReservationStatus.CANCELLED.name)
+                .await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
-    override suspend fun getReservationsByUser(userId: String): List<EventReservation> {
-        val snapshot = reservationsRef
-            .whereEqualTo("userId", userId)
-            .get()
-            .await()
-        return snapshot.documents.mapNotNull { it.toReservation() }
+    override fun fetchUserReservations(userId: String): Flow<List<EventReservation>> {
+        return callbackFlow {
+            val listener = reservationsRef
+                .whereEqualTo("userId", userId)
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null) {
+                        trySend(emptyList())
+                        return@addSnapshotListener
+                    }
+                    
+                    val reservations = snapshot?.documents?.mapNotNull { it.toReservation() } ?: emptyList()
+                    trySend(reservations)
+                }
+            
+            awaitClose { listener.remove() }
+        }
     }
 
-    override suspend fun getReservationsByEvent(eventId: String): List<EventReservation> {
-        val snapshot = reservationsRef
-            .whereEqualTo("eventId", eventId)
-            .get()
-            .await()
-        return snapshot.documents.mapNotNull { it.toReservation() }
+    override fun fetchEventReservations(eventId: String): Flow<List<EventReservation>> {
+        return callbackFlow {
+            val listener = reservationsRef
+                .whereEqualTo("eventId", eventId)
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null) {
+                        trySend(emptyList())
+                        return@addSnapshotListener
+                    }
+                    
+                    val reservations = snapshot?.documents?.mapNotNull { it.toReservation() } ?: emptyList()
+                    trySend(reservations)
+                }
+            
+            awaitClose { listener.remove() }
+        }
     }
 
     override suspend fun getAllReservations(): List<EventReservation> {
@@ -54,10 +88,15 @@ class FirebaseReservationDataSource(
         return snapshot.toReservation()
     }
 
-    override suspend fun updateReservationStatus(reservationId: String, status: String) {
-        reservationsRef.document(reservationId)
-            .update("status", status)
-            .await()
+    override suspend fun updateReservationStatus(reservationId: String, status: ReservationStatus): Result<Unit> {
+        return try {
+            reservationsRef.document(reservationId)
+                .update("status", status.name)
+                .await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     private fun reservationToMap(reservation: EventReservation): Map<String, Any?> {

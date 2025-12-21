@@ -1,10 +1,11 @@
 package com.example.sera_application.data.remote.firebase
 
+import com.example.sera_application.data.mapper.NotificationMapper
+import com.example.sera_application.data.mapper.toNotification
 import com.example.sera_application.data.remote.datasource.NotificationRemoteDataSource
 import com.example.sera_application.domain.model.Notification
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
-import kotlin.jvm.java
 
 class FirebaseNotificationDataSource(
     private val firestore: FirebaseFirestore
@@ -19,7 +20,8 @@ class FirebaseNotificationDataSource(
             notificationsRef.document(notification.id)
         }
         val notificationWithId = notification.copy(id = docRef.id)
-        docRef.set(notificationWithId).await()
+        val notificationMap = NotificationMapper.notificationToFirestoreMap(notificationWithId)
+        docRef.set(notificationMap).await()
         return docRef.id
     }
 
@@ -29,7 +31,7 @@ class FirebaseNotificationDataSource(
             .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
             .get()
             .await()
-        return snapshot.documents.mapNotNull { it.toObject(Notification::class.java) }
+        return snapshot.documents.mapNotNull { it.toNotification() }
     }
 
     override suspend fun markNotificationAsRead(notificationId: String) {

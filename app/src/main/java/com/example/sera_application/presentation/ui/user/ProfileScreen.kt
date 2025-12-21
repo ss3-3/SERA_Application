@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.sera_application.domain.model.enums.UserRole
 import com.example.sera_application.presentation.viewmodel.user.ProfileViewModel
+import com.example.sera_application.presentation.ui.components.SafeProfileImageLoader
 
 data class ProfileMenuItem(
     val title: String,
@@ -43,6 +44,7 @@ fun ProfileScreen(
     onBack: () -> Unit = {},
     // Pass through actions that initiate navigation or require inputs
     onEditUserName: () -> Unit = {},
+    onEditProfile: () -> Unit = {},
     onPasswordUpdate: () -> Unit = {},
     onOrderHistory: () -> Unit = {},
     onPaymentHistory: () -> Unit = {},
@@ -133,13 +135,24 @@ fun ProfileScreen(
             )
         },
         bottomBar = {
-            if (currentUser != null) {
-                BottomNavigationBar(
-                    userRole = currentUser.role,
-                    onHomeClick = onHomeClick,
-                    onAddEventClick = onAddEventClick,
-                    onProfileClick = onProfileClick
-                )
+            // Only show bottom navigation for PARTICIPANT and ORGANIZER, not ADMIN
+            if (currentUser?.role != UserRole.ADMIN) {
+                NavigationBar(
+                    containerColor = Color.White
+                ) {
+                    NavigationBarItem(
+                        icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
+                        label = { Text("Home") },
+                        selected = false,
+                        onClick = onHomeClick
+                    )
+                    NavigationBarItem(
+                        icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
+                        label = { Text("Me") },
+                        selected = true,
+                        onClick = onProfileClick
+                    )
+                }
             }
         }
     ) { padding ->
@@ -160,7 +173,11 @@ fun ProfileScreen(
                 // Profile Picture Section
                 ProfilePictureSection(
                     userName = currentUser.fullName,
-                    profileImageUrl = currentUser.profileImagePath
+                    profileImageUrl = currentUser.profileImagePath,
+                    onImageClick = {
+                        // Navigate to EditProfileScreen to change profile picture
+                        onEditProfile()
+                    }
                 )
 
                 Spacer(modifier = Modifier.height(32.dp))
@@ -261,36 +278,27 @@ fun ProfileScreen(
 @Composable
 private fun ProfilePictureSection(
     userName: String,
-    profileImageUrl: String?
+    profileImageUrl: String?,
+    onImageClick: () -> Unit = {}
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Profile Picture
+        // Profile Picture - Clickable to edit
         Box(
             modifier = Modifier
                 .size(120.dp)
                 .clip(CircleShape)
-                .background(Color.White),
+                .background(Color.White)
+                .clickable(onClick = onImageClick),
             contentAlignment = Alignment.Center
         ) {
-            if (profileImageUrl != null) {
-                // TODO: Load image from URL using Coil
-                 Icon(
-                    Icons.Default.Person,
-                    contentDescription = "Profile Picture",
-                    modifier = Modifier.size(80.dp),
-                    tint = Color(0xFF757575)
-                )
-            } else {
-                Icon(
-                    Icons.Default.Person,
-                    contentDescription = "Profile Picture",
-                    modifier = Modifier.size(80.dp),
-                    tint = Color(0xFF757575)
-                )
-            }
+            SafeProfileImageLoader(
+                imagePath = profileImageUrl,
+                contentDescription = "Profile Picture",
+                modifier = Modifier.fillMaxSize()
+            )
         }
 
         Spacer(modifier = Modifier.height(16.dp))

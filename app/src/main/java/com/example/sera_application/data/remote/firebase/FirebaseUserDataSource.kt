@@ -31,6 +31,30 @@ class FirebaseUserDataSource(
         return snapshot.documents.mapNotNull { it.toObject(User::class.java) }
     }
 
+    override suspend fun getPendingOrganizers(): List<User> {
+        val snapshot = usersRef
+            .whereEqualTo("role", "ORGANIZER")
+            .whereEqualTo("isApproved", false)
+            .get()
+            .await()
+        return snapshot.documents.mapNotNull { it.toObject(User::class.java) }
+    }
+
+    override suspend fun updateApprovalStatus(userId: String, isApproved: Boolean) {
+        usersRef.document(userId)
+            .update("isApproved", isApproved)
+            .await()
+        if (isApproved) {
+            usersRef.document(userId)
+                .update("accountStatus", "ACTIVE")
+                .await()
+        } else {
+            usersRef.document(userId)
+                .update("accountStatus", "REJECTED")
+                .await()
+        }
+    }
+
     override suspend fun deleteUser(userId: String) {
         usersRef.document(userId).delete().await()
     }

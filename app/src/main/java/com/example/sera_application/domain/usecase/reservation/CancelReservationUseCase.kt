@@ -6,13 +6,11 @@ import javax.inject.Inject
 class CancelReservationUseCase @Inject constructor(
     private val reservationRepository: ReservationRepository
 ) {
-    suspend operator fun invoke(reservationId: String): Boolean {
-        if (reservationId.isBlank()) return false
-
-        return try {
-            reservationRepository.cancelReservation(reservationId)
-        } catch (e: Exception) {
-            false
+    suspend operator fun invoke(reservationId: String): Result<Unit> {
+        if (reservationId.isBlank()) {
+            return Result.failure(IllegalArgumentException("Reservation ID cannot be blank"))
         }
+
+        return reservationRepository.cancelReservation(reservationId)
     }
 }

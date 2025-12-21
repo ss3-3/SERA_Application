@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.sp
 import com.example.sera_application.R
 import com.example.sera_application.domain.model.enums.EventStatus
 import coil.compose.AsyncImage
+import com.example.sera_application.presentation.ui.components.SafeImageLoader
 
 // Data Model
 data class TicketZone(
@@ -59,16 +60,26 @@ fun CreateReservationScreen(
     eventId: String, // Pass eventId instead of raw data
     onBack: () -> Unit = {},
     onReservationConfirmed: (String) -> Unit = {},
-    viewModel: com.example.sera_application.presentation.viewmodel.reservation.CreateReservationViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+    viewModel: com.example.sera_application.presentation.viewmodel.reservation.ReservationFormViewModel = androidx.hilt.navigation.compose.hiltViewModel()
 ) {
     // Load event data
     LaunchedEffect(eventId) {
         viewModel.loadEvent(eventId)
     }
 
-    val event by viewModel.event.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-    val error by viewModel.error.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
+    val event = uiState.event
+    val isLoading = uiState.isLoading
+    val error = uiState.error
+
+    // Navigate on success
+    LaunchedEffect(uiState.isSuccess, uiState.reservationId) {
+        if (uiState.isSuccess && uiState.reservationId != null) {
+            val reservationId = uiState.reservationId!!
+            viewModel.clearSuccessState()
+            onReservationConfirmed(reservationId)
+        }
+    }
 
     // Default values or loading state
     val eventName = event?.name ?: "Loading..."
@@ -97,18 +108,19 @@ fun CreateReservationScreen(
     var quantities by remember(zones) { mutableStateOf(zones.associate { it.name to 0 }) }
 
     val context = LocalContext.current
+    
+    // Show error message if any
+    LaunchedEffect(error) {
+        error?.let {
+            android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
+    
     // Purchase handler wrapper
     val onPurchase: (Map<String, Int>) -> Unit = { selectedQuantities ->
         viewModel.createReservation(
             eventId = eventId,
-            quantities = selectedQuantities,
-            onSuccess = { reservationId ->
-                android.widget.Toast.makeText(context, "DIAGNOSTIC Success: $reservationId", android.widget.Toast.LENGTH_SHORT).show()
-                onReservationConfirmed(reservationId)
-            },
-            onError = { errorMsg ->
-                android.widget.Toast.makeText(context, "DIAGNOSTIC Error: $errorMsg", android.widget.Toast.LENGTH_LONG).show()
-            }
+            quantities = selectedQuantities
         )
     }
 
@@ -131,48 +143,14 @@ fun CreateReservationScreen(
     )
     Box(modifier = modifier.fillMaxSize()) {
         Box(modifier = Modifier.height(240.dp)) {
-            val context = LocalContext.current
-            val imagePath = event?.imagePath
-            val imageRes = remember(imagePath) {
-                if (!imagePath.isNullOrBlank()) {
-                    context.resources.getIdentifier(
-                        imagePath,
-                        "drawable",
-                        context.packageName
-                    )
-                } else 0
-            }
-
-            if (imageRes != 0) {
-                Image(
-                    painter = painterResource(id = imageRes),
-                    contentDescription = "Event Banner",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(250.dp),
-                    contentScale = ContentScale.Crop
-                )
-            } else if (!imagePath.isNullOrEmpty()) {
-                AsyncImage(
-                    model = imagePath,
-                    contentDescription = "Event Banner",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(250.dp),
-                    contentScale = ContentScale.Crop,
-                    placeholder = painterResource(id = R.drawable.ic_launcher_foreground),
-                    error = painterResource(id = R.drawable.ic_launcher_foreground)
-                )
-            } else {
-                Image(
-                    painter = painterResource(id = R.drawable.ic_launcher_foreground),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(250.dp),
-                    contentScale = ContentScale.Crop
-                )
-            }
+            SafeImageLoader(
+                imagePath = event?.imagePath,
+                contentDescription = "Event Banner",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(250.dp),
+                contentScale = ContentScale.Crop
+            )
             // Transparent circular back button
             IconButton(
                 onClick = onBack,

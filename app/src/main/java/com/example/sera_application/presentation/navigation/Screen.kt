@@ -39,6 +39,7 @@ sealed class Screen(val route: String) {
 
     object EditUsername : Screen("edit_username")
     object ChangePassword : Screen("change_password")
+    object EditProfile : Screen("edit_profile")
     // User Reservation History
     object UserReservationHistory : Screen("user_reservation_history")
 
@@ -69,5 +70,13 @@ sealed class Screen(val route: String) {
     }
     object RefundRequest : Screen("refund_request/{paymentId}") {
         fun createRoute(paymentId: String) = "refund_request/$paymentId"
+    }
+    
+    // Organizer Waiting Screen
+    object OrganizerWaitingApproval : Screen("organizer_waiting_approval")
+    
+    // Notification Screen
+    object Notifications : Screen("notifications/{userId}") {
+        fun createRoute(userId: String) = "notifications/$userId"
     }
 }

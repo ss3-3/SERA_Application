@@ -4,10 +4,6 @@ import com.example.sera_application.domain.model.enums.NotificationType
 import com.example.sera_application.domain.repository.NotificationRepository
 import javax.inject.Inject
 
-/**
- * Use case for sending notifications to users
- * Handles notification delivery through FCM and local storage
- */
 class SendNotificationUseCase @Inject constructor(
     private val notificationRepository: NotificationRepository
 ) {
@@ -16,9 +12,9 @@ class SendNotificationUseCase @Inject constructor(
         title: String,
         message: String,
         type: NotificationType,
-        referenceId: String? = null
+        relatedEventId: String? = null,
+        relatedReservationId: String? = null
     ): Result<Unit> {
-        // Validate input
         if (userId.isBlank()) {
             return Result.failure(Exception("User ID cannot be empty"))
         }
@@ -31,16 +27,13 @@ class SendNotificationUseCase @Inject constructor(
             return Result.failure(Exception("Notification message cannot be empty"))
         }
 
-        return try {
-            notificationRepository.sendNotification(
-                userId = userId,
-                title = title,
-                message = message,
-                type = type,
-                referenceId = referenceId
-            )
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+        return notificationRepository.sendNotification(
+            userId = userId,
+            title = title,
+            message = message,
+            type = type,
+            relatedEventId = relatedEventId,
+            relatedReservationId = relatedReservationId
+        )
     }
 }

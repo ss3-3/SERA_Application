@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import com.example.sera_application.presentation.viewmodel.event.AdminEventApprovalViewModel
 import com.example.sera_application.utils.DateTimeFormatterUtil
+import com.example.sera_application.presentation.ui.components.SafeImageLoader
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -198,40 +199,18 @@ fun AdminEventApprovalScreen(
             ) {
                 // Event Banner
                 item {
-                    val context = LocalContext.current
-                    val imageRes = remember(event.bannerUrl) {
-                        if (event.bannerUrl != null && event.bannerUrl.isNotBlank()) {
-                            context.resources.getIdentifier(
-                                event.bannerUrl,
-                                "drawable",
-                                context.packageName
-                            )
-                        } else {
-                            0
-                        }
-                    }
-
-                    if (imageRes != 0) {
-                        Image(
-                            painter = painterResource(id = imageRes),
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color(0xFF1A1A2E)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        SafeImageLoader(
+                            imagePath = event.bannerUrl,
                             contentDescription = event.name,
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop
                         )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color(0xFF1A1A2E)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = event.name.take(12),
-                                color = Color.White,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
                     }
                 }
 

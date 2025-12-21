@@ -3,13 +3,13 @@ package com.example.sera_application.presentation.viewmodel.event
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.sera_application.data.local.image.LocalImageManager
 import com.example.sera_application.domain.model.Event
 import com.example.sera_application.domain.model.enums.EventCategory
 import com.example.sera_application.domain.model.enums.EventStatus
 import com.example.sera_application.domain.usecase.event.CreateEventUseCase
 import com.example.sera_application.domain.usecase.event.GetEventByIdUseCase
 import com.example.sera_application.domain.usecase.event.UpdateEventUseCase
+import com.example.sera_application.domain.usecase.image.SaveImageUseCase
 import com.example.sera_application.presentation.ui.event.EventFormData
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -39,7 +39,7 @@ class EventFormViewModel @Inject constructor(
     private val createEventUseCase: CreateEventUseCase,
     private val getEventByIdUseCase: GetEventByIdUseCase,
     private val updateEventUseCase: UpdateEventUseCase,
-    private val localImageManager: LocalImageManager,
+    private val saveImageUseCase: SaveImageUseCase,
     private val auth: FirebaseAuth
 ) : ViewModel() {
 
@@ -102,13 +102,44 @@ class EventFormViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Handles image selection from gallery picker.
+     * Saves the image using SaveImageUseCase and updates UI state with the image path.
+     * 
+     * @param uri The Uri of the selected image
+     */
     fun onImageSelected(uri: Uri) {
         viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             try {
-                val path = localImageManager.saveEventImage(uri)
-                _uiState.update { it.copy(imagePath = path) }
+                // Generate unique file name for event image
+                val fileName = "event_${UUID.randomUUID()}.jpg"
+                
+                // Save image using use case
+                val imagePath = saveImageUseCase(uri, fileName)
+                
+                if (imagePath != null) {
+                    _uiState.update { 
+                        it.copy(
+                            imagePath = imagePath,
+                            isLoading = false
+                        ) 
+                    }
+                } else {
+                    _uiState.update { 
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = "Failed to save image. Please try again."
+                        ) 
+                    }
+                }
             } catch (e: Exception) {
-                _uiState.update { it.copy(errorMessage = "Image upload failed") }
+                _uiState.update { 
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = "Image save failed: ${e.message ?: "Unknown error"}"
+                    ) 
+                }
             }
         }
     }

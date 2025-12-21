@@ -5,6 +5,7 @@ import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -29,6 +30,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.sera_application.presentation.viewmodel.reservation.ReservationListViewModel
+import com.example.sera_application.presentation.viewmodel.user.ProfileViewModel
 import com.example.sera_application.utils.DateTimeFormatterUtil
 
 enum class ReservationTab(val label: String) {
@@ -61,21 +65,27 @@ fun MyReservationScreen(
     onBack: () -> Unit = {},
     onViewDetails: (ReservationUiModel) -> Unit = {},
     onCancelReservation: (ReservationUiModel) -> Unit = {},
-    viewModel: com.example.sera_application.presentation.viewmodel.reservation.ReservationListViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+    viewModel: ReservationListViewModel = hiltViewModel(),
+    profileViewModel: ProfileViewModel = hiltViewModel()
 ) {
     var selectedTab by remember { mutableStateOf(ReservationTab.UPCOMING) }
     
-    val currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
-    
-    LaunchedEffect(currentUserId) {
-        if (currentUserId != null) {
-            viewModel.fetchReservations(currentUserId)
+    val currentUser by profileViewModel.user.collectAsState()
+
+    // Load current user on first composition
+    LaunchedEffect(Unit) {
+        profileViewModel.loadCurrentUser()
+    }
+
+    // Fetch reservations when user is loaded
+    LaunchedEffect(currentUser?.userId) {
+        currentUser?.userId?.let { userId ->
+            viewModel.fetchReservations(userId)
         }
     }
 
     val reservationDetailsList by viewModel.reservations.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
-    val scrollState = rememberScrollState()
 
     // Map domain model to UI model
     val allReservations = remember(reservationDetailsList) {
@@ -90,11 +100,11 @@ fun MyReservationScreen(
                     ?: "Unknown Date",
                 // Logic to determine tab based on status or date
                 tab = when (details.reservation.status) {
-                     com.example.sera_application.domain.model.enums.ReservationStatus.CONFIRMED -> ReservationTab.UPCOMING
+                    com.example.sera_application.domain.model.enums.ReservationStatus.CONFIRMED -> ReservationTab.UPCOMING
                     com.example.sera_application.domain.model.enums.ReservationStatus.PENDING -> ReservationTab.UPCOMING
-                     com.example.sera_application.domain.model.enums.ReservationStatus.COMPLETED -> ReservationTab.COMPLETED
-                     com.example.sera_application.domain.model.enums.ReservationStatus.CANCELLED -> ReservationTab.CANCELLED
-                     else -> ReservationTab.UPCOMING
+                    com.example.sera_application.domain.model.enums.ReservationStatus.COMPLETED -> ReservationTab.COMPLETED
+                    com.example.sera_application.domain.model.enums.ReservationStatus.CANCELLED -> ReservationTab.CANCELLED
+                    else -> ReservationTab.UPCOMING
                 },
                 status = when(details.reservation.status) {
                     com.example.sera_application.domain.model.enums.ReservationStatus.CONFIRMED -> ReservationStatus.CONFIRMED
@@ -130,47 +140,49 @@ fun MyReservationScreen(
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color(0xFF2C2C2E) // Dark grey header
+                    containerColor = Color(0xFF2C2C2E)
                 )
-            )// Dark grey header
+            )
         },
         modifier = modifier.fillMaxSize()
     ) { padding ->
-        Column(
-            Modifier
+        // Using a single LazyColumn to avoid nesting scrollable components
+        LazyColumn(
+            modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .verticalScroll(scrollState)
-                .background(Color(0xFFF4F4F4))
+                .background(Color(0xFFF4F4F4)),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(bottom = 16.dp)
         ) {
-            ReservationTabs(
-                selectedTab = selectedTab,
-                onTabSelected = { selectedTab = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-            )
+            // Header / Tabs section
+            item {
+                ReservationTabs(
+                    selectedTab = selectedTab,
+                    onTabSelected = { selectedTab = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                )
+            }
 
             if (reservations.isEmpty()) {
-                Box(
-                    Modifier
-                        .fillMaxSize()
-                        .padding(16.dp),
-                    contentAlignment = Alignment.TopCenter
-                ) {
-                    Text("No reservations in this category.")
+                item {
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(top = 32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("No reservations in this category.")
+                    }
                 }
             } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(
-                        items = reservations,
-                        key = { it.reservationId }
-                    ) { item ->
+                items(
+                    items = reservations,
+                    key = { it.reservationId }
+                ) { item ->
+                    Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                         ReservationCard(
                             reservation = item,
                             onViewDetails = { onViewDetails(item) },

@@ -3,9 +3,9 @@ package com.example.sera_application.presentation.viewmodel.user
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.sera_application.domain.model.User
-import com.example.sera_application.domain.repository.AuthRepository
+import com.example.sera_application.domain.usecase.auth.DeleteAccountUseCase
+import com.example.sera_application.domain.usecase.auth.GetCurrentUserUseCase
 import com.example.sera_application.domain.usecase.auth.LogoutUseCase
-import com.example.sera_application.domain.usecase.user.DeleteAccountUseCase
 import com.example.sera_application.domain.usecase.user.GetUserProfileUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,10 +16,10 @@ import javax.inject.Inject
 
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
+    private val getCurrentUserUseCase: GetCurrentUserUseCase,
     private val getUserProfileUseCase: GetUserProfileUseCase,
-    private val deleteAccountUseCase: DeleteAccountUseCase,
     private val logoutUseCase: LogoutUseCase,
-    private val authRepository: AuthRepository
+    private val deleteAccountUseCase: DeleteAccountUseCase
 ) : ViewModel() {
 
     private val _user = MutableStateFlow<User?>(null)
@@ -28,36 +28,43 @@ class ProfileViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    private val _error = MutableStateFlow<String?>(null)
-    val error: StateFlow<String?> = _error.asStateFlow()
+    private val _isLoggedOut = MutableStateFlow(false)
+    val isLoggedOut: StateFlow<Boolean> = _isLoggedOut.asStateFlow()
 
     private val _isAccountDeleted = MutableStateFlow(false)
     val isAccountDeleted: StateFlow<Boolean> = _isAccountDeleted.asStateFlow()
 
-    fun loadUser(userId: String) {
+    fun loadCurrentUser() {
         viewModelScope.launch {
             _isLoading.value = true
-            _error.value = null
             try {
-                val fetchedUser = getUserProfileUseCase(userId)
-                _user.value = fetchedUser
+                val currentUser = getCurrentUserUseCase()
+                if (currentUser != null) {
+                    // Load full profile details
+                    val fullProfile = getUserProfileUseCase(currentUser.userId)
+                    _user.value = fullProfile ?: currentUser
+                } else {
+                    _user.value = null
+                }
             } catch (e: Exception) {
-                _error.value = e.message ?: "Failed to load profile"
+                _user.value = null
             } finally {
                 _isLoading.value = false
             }
         }
     }
 
-    fun loadCurrentUser() {
+    fun logout() {
         viewModelScope.launch {
             _isLoading.value = true
-            _error.value = null
             try {
-                val fetchedUser = authRepository.getCurrentUser()
-                _user.value = fetchedUser
+                val success = logoutUseCase()
+                if (success) {
+                    _user.value = null
+                    _isLoggedOut.value = true
+                }
             } catch (e: Exception) {
-                _error.value = e.message ?: "Failed to load current user"
+                // Handle error if needed
             } finally {
                 _isLoading.value = false
             }
@@ -67,32 +74,21 @@ class ProfileViewModel @Inject constructor(
     fun deleteAccount(userId: String) {
         viewModelScope.launch {
             _isLoading.value = true
-            _error.value = null
             try {
-                val success = deleteAccountUseCase(userId)
-                if (success) {
-                    _isAccountDeleted.value = true
-                } else {
-                    _error.value = "Failed to delete account"
-                }
+                val result = deleteAccountUseCase()
+                result.fold(
+                    onSuccess = {
+                        _user.value = null
+                        _isAccountDeleted.value = true
+                    },
+                    onFailure = {
+                        // Handle error if needed
+                    }
+                )
             } catch (e: Exception) {
-                _error.value = e.message ?: "Error deleting account"
+                // Handle error if needed
             } finally {
                 _isLoading.value = false
-            }
-        }
-    }
-
-    private val _isLoggedOut = MutableStateFlow(false)
-    val isLoggedOut: StateFlow<Boolean> = _isLoggedOut.asStateFlow()
-
-    fun logout() {
-        viewModelScope.launch {
-            try {
-                logoutUseCase()
-                _isLoggedOut.value = true
-            } catch (e: Exception) {
-                _error.value = e.message ?: "Logout failed"
             }
         }
     }

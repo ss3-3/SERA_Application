@@ -1,40 +1,49 @@
 package com.example.sera_application.data.mapper
 
-//import com.example.sera_application.data.local.entity.NotificationEntity
-////import com.example.sera_application.domain.model.Notification
-//
-///**
-// * Interface for Notification mapping operations
-// * Defines contract for converting between Entity (database) and Domain (business logic)
-// */
-//interface NotificationMapper {
-//
-//    /**
-//     * Convert NotificationEntity (database) to Notification (domain model)
-//     * @param entity The notification entity from database
-//     * @return Notification domain model
-//     */
-//    fun toDomain(entity: NotificationEntity): Notification
-//
-//    /**
-//     * Convert Notification (domain model) to NotificationEntity (database)
-//     * @param domain The notification domain model
-//     * @return NotificationEntity for database storage
-//     */
-//    fun toEntity(domain: Notification): NotificationEntity
-//
-//    /**
-//     * Convert list of NotificationEntity to list of Notification
-//     * @param entities List of notification entities from database
-//     * @return List of notification domain models
-//     */
-//    fun toDomainList(entities: List<NotificationEntity>): List<Notification>
-//
-//    /**
-//     * Convert list of Notification to list of NotificationEntity
-//     * @param domains List of notification domain models
-//     * @return List of notification entities for database storage
-//     */
-//    fun toEntityList(domains: List<Notification>): List<NotificationEntity>
-//}
-//
+import com.example.sera_application.domain.model.Notification
+import com.google.firebase.Timestamp
+import com.google.firebase.firestore.DocumentSnapshot
+
+object NotificationMapper {
+    fun notificationToFirestoreMap(notification: Notification): Map<String, Any?> {
+        return mapOf(
+            "id" to notification.id,
+            "userId" to notification.userId,
+            "title" to notification.title,
+            "message" to notification.message,
+            "type" to notification.type.name,
+            "relatedEventId" to notification.relatedEventId,
+            "relatedReservationId" to notification.relatedReservationId,
+            "isRead" to notification.isRead,
+            "createdAt" to Timestamp(notification.createdAt / 1000, ((notification.createdAt % 1000) * 1_000_000).toInt())
+        )
+    }
+}
+
+fun DocumentSnapshot.toNotification(): Notification? {
+    return try {
+        val data = this.data ?: return null
+        val timestamp = data["createdAt"] as? Timestamp
+        val createdAt = timestamp?.toDate()?.time ?: System.currentTimeMillis()
+
+        Notification(
+            id = this.id,
+            userId = data["userId"]?.toString() ?: "",
+            title = data["title"]?.toString() ?: "",
+            message = data["message"]?.toString() ?: "",
+            type = try {
+                com.example.sera_application.domain.model.enums.NotificationType.valueOf(
+                    data["type"]?.toString() ?: "SYSTEM"
+                )
+            } catch (e: IllegalArgumentException) {
+                com.example.sera_application.domain.model.enums.NotificationType.SYSTEM
+            },
+            relatedEventId = data["relatedEventId"]?.toString(),
+            relatedReservationId = data["relatedReservationId"]?.toString(),
+            isRead = data["isRead"] as? Boolean ?: false,
+            createdAt = createdAt
+        )
+    } catch (e: Exception) {
+        null
+    }
+}

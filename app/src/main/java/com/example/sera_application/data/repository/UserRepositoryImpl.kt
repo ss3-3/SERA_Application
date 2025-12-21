@@ -53,6 +53,14 @@ class UserRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun getPendingOrganizers(): List<User> {
+        return try {
+            remoteDataSource.getPendingOrganizers()
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
     override suspend fun updateUser(user: User): Boolean {
         return try {
             remoteDataSource.updateUserProfile(user)
@@ -81,13 +89,27 @@ class UserRepositoryImpl @Inject constructor(
 
     override suspend fun approveOrganizer(userId: String): Boolean {
         return try {
+            remoteDataSource.updateApprovalStatus(userId, true)
             val user = getUserById(userId)
             if (user != null) {
-                val updatedUser = user.copy(role = UserRole.ORGANIZER)
-                updateUser(updatedUser)
-            } else {
-                false
+                val updatedUser = user.copy(isApproved = true, accountStatus = "ACTIVE")
+                userDao.insertUser(mapper.toEntity(updatedUser))
             }
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    override suspend fun rejectOrganizer(userId: String): Boolean {
+        return try {
+            remoteDataSource.updateApprovalStatus(userId, false)
+            val user = getUserById(userId)
+            if (user != null) {
+                val updatedUser = user.copy(isApproved = false, accountStatus = "REJECTED")
+                userDao.insertUser(mapper.toEntity(updatedUser))
+            }
+            true
         } catch (e: Exception) {
             false
         }

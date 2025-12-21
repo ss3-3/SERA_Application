@@ -27,6 +27,7 @@ class UserMapperImpl @Inject constructor() : UserMapper {
             },
             profileImagePath = entity.profileImagePath,
             accountStatus = entity.accountStatus,
+            isApproved = entity.isApproved,
             createdAt = entity.createdAt,
             updatedAt = entity.updatedAt
         )
@@ -41,6 +42,7 @@ class UserMapperImpl @Inject constructor() : UserMapper {
             role = domain.role.name,
             profileImagePath = domain.profileImagePath,
             accountStatus = domain.accountStatus,
+            isApproved = domain.isApproved,
             createdAt = domain.createdAt,
             updatedAt = domain.updatedAt
         )

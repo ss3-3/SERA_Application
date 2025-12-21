@@ -13,7 +13,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import com.example.sera_application.presentation.model.ReceiptData
+import com.example.sera_application.utils.ReceiptData
 import javax.inject.Inject
 
 @HiltViewModel

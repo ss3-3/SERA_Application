@@ -2,9 +2,10 @@ package com.example.sera_application.presentation.viewmodel.payment
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.sera_application.data.remote.paypal.repository.PayPalRepository
 import com.example.sera_application.domain.model.Payment
 import com.example.sera_application.domain.model.enums.PaymentStatus
+import com.example.sera_application.domain.usecase.payment.CapturePayPalOrderUseCase
+import com.example.sera_application.domain.usecase.payment.CreatePayPalOrderUseCase
 import com.example.sera_application.domain.usecase.payment.ProcessPaymentUseCase
 import com.example.sera_application.domain.usecase.payment.ValidatePaymentUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -16,7 +17,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class PaymentProcessingViewModel @Inject constructor(
-    private val paypalRepository: PayPalRepository,
+    private val createPayPalOrderUseCase: CreatePayPalOrderUseCase,
+    private val capturePayPalOrderUseCase: CapturePayPalOrderUseCase,
     private val processPaymentUseCase: ProcessPaymentUseCase,
     private val validatePaymentUseCase: ValidatePaymentUseCase
 ) : ViewModel() {
@@ -62,31 +64,18 @@ class PaymentProcessingViewModel @Inject constructor(
                     return@launch
                 }
 
-                // Authenticate with PayPal
-                val authResult = paypalRepository.authenticate()
-                if (authResult.isFailure) {
-                    _paymentState.value = PaymentState.Failed(
-                        "Authentication failed: ${authResult.exceptionOrNull()?.message}"
-                    )
-                    return@launch
-                }
-
-                // Create PayPal order
-                val orderResult = paypalRepository.createOrder(amount, currency, description)
-                if (orderResult.isSuccess) {
-                    val order = orderResult.getOrNull()!!
-                    val approveLink = order.links.find { it.rel == "approve" }
-
-                    if (approveLink != null) {
-                        _paymentState.value = PaymentState.AwaitingApproval(approveLink.href)
-                    } else {
-                        _paymentState.value = PaymentState.Failed("Could not get approval URL")
+                // Create PayPal order using use case
+                val orderResult = createPayPalOrderUseCase(amountDouble, currency)
+                orderResult.fold(
+                    onSuccess = { orderCreationResult ->
+                        _paymentState.value = PaymentState.AwaitingApproval(orderCreationResult.approvalUrl)
+                    },
+                    onFailure = { exception ->
+                        _paymentState.value = PaymentState.Failed(
+                            exception.message ?: "Failed to create PayPal order"
+                        )
                     }
-                } else {
-                    _paymentState.value = PaymentState.Failed(
-                        "Order creation failed: ${orderResult.exceptionOrNull()?.message}"
-                    )
-                }
+                )
             } catch (e: Exception) {
                 _paymentState.value = PaymentState.Failed(e.message ?: "Unknown error")
             }
@@ -104,42 +93,44 @@ class PaymentProcessingViewModel @Inject constructor(
             _paymentState.value = PaymentState.Processing
 
             try {
-                val captureResult = paypalRepository.captureOrder(orderId)
+                // Capture PayPal order using use case
+                val captureResult = capturePayPalOrderUseCase(orderId)
 
-                if (captureResult.isSuccess) {
-                    val capture = captureResult.getOrNull()!!
-
-                    // Create payment object
-                    val payment = Payment(
-                        paymentId = capture.id,
-                        userId = userId,
-                        eventId = eventId,
-                        reservationId = reservationId,
-                        amount = amount,
-                        status = PaymentStatus.SUCCESS,
-                        createdAt = System.currentTimeMillis()
-                    )
-
-                    // Process payment using use case
-                    val success = processPaymentUseCase(payment)
-
-                    if (success) {
-                        _transactionDetails.value = TransactionDetails(
-                            transactionId = capture.id,
-                            amount = payment.amount,
-                            paymentMethod = "PayPal",
-                            date = "Nov 8, 2025",
-                            time = "7:00 PM"
+                captureResult.fold(
+                    onSuccess = {
+                        // Create payment object
+                        val payment = Payment(
+                            paymentId = orderId,
+                            userId = userId,
+                            eventId = eventId,
+                            reservationId = reservationId,
+                            amount = amount,
+                            status = PaymentStatus.SUCCESS,
+                            createdAt = System.currentTimeMillis()
                         )
-                        _paymentState.value = PaymentState.Success
-                    } else {
-                        _paymentState.value = PaymentState.Failed("Payment processing failed")
+
+                        // Process payment using use case
+                        val success = processPaymentUseCase(payment)
+
+                        if (success) {
+                            _transactionDetails.value = TransactionDetails(
+                                transactionId = orderId,
+                                amount = payment.amount,
+                                paymentMethod = "PayPal",
+                                date = "Nov 8, 2025",
+                                time = "7:00 PM"
+                            )
+                            _paymentState.value = PaymentState.Success
+                        } else {
+                            _paymentState.value = PaymentState.Failed("Payment processing failed")
+                        }
+                    },
+                    onFailure = { exception ->
+                        _paymentState.value = PaymentState.Failed(
+                            exception.message ?: "Failed to capture PayPal order"
+                        )
                     }
-                } else {
-                    _paymentState.value = PaymentState.Failed(
-                        captureResult.exceptionOrNull()?.message ?: "Capture failed"
-                    )
-                }
+                )
             } catch (e: Exception) {
                 _paymentState.value = PaymentState.Failed(e.message ?: "Unknown error")
             }

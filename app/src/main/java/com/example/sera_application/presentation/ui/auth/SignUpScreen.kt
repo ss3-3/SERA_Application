@@ -1,6 +1,5 @@
 package com.example.sera_application.presentation.ui.auth
 
-import android.R.attr.name
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -18,7 +17,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -49,10 +47,11 @@ fun SignUpScreen(
     onLoginClick: () -> Unit = {},
     viewModel: SignUpViewModel = hiltViewModel()
 ) {
-    var fullName by rememberSaveable  { mutableStateOf("") }
+    var fullName by rememberSaveable { mutableStateOf("") }
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var confirmPassword by rememberSaveable { mutableStateOf("") }
+    var selectedRole by rememberSaveable { mutableStateOf("PARTICIPANT") }
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
     var confirmPasswordVisible by rememberSaveable { mutableStateOf(false) }
     var showVerificationDialog by rememberSaveable { mutableStateOf(false) }
@@ -169,7 +168,7 @@ fun SignUpScreen(
         topBar = {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                color = Color(0xFF2C2C2E) // Dark grey status bar
+                color = Color(0xFF2C2C2E)
             ) {
                 Box(
                     modifier = Modifier
@@ -314,19 +313,19 @@ fun SignUpScreen(
                 label = { Text("Confirm Password") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                visualTransformation = if (passwordVisible)
+                visualTransformation = if (confirmPasswordVisible)
                     VisualTransformation.None
                 else
                     PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 trailingIcon = {
-                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                    IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
                         Icon(
-                            imageVector = if (passwordVisible)
+                            imageVector = if (confirmPasswordVisible)
                                 Icons.Filled.Visibility
                             else
                                 Icons.Filled.VisibilityOff,
-                            contentDescription = if (passwordVisible)
+                            contentDescription = if (confirmPasswordVisible)
                                 "Hide password"
                             else
                                 "Show password",
@@ -342,6 +341,86 @@ fun SignUpScreen(
                 enabled = signUpState !is SignUpState.Loading
             )
 
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Role Selection Section
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.Start
+            ) {
+                Text(
+                    text = "Select Role",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.Black,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+
+                // Participant Radio Button
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = selectedRole == "PARTICIPANT",
+                        onClick = { selectedRole = "PARTICIPANT" },
+                        colors = RadioButtonDefaults.colors(
+                            selectedColor = Color(0xFF1976D2),
+                            unselectedColor = Color(0xFFBDBDBD)
+                        ),
+                        enabled = signUpState !is SignUpState.Loading
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column {
+                        Text(
+                            text = "Participant",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.Black
+                        )
+                        Text(
+                            text = "Register and join events",
+                            fontSize = 12.sp,
+                            color = Color(0xFF757575)
+                        )
+                    }
+                }
+
+                // Organizer Radio Button
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = selectedRole == "ORGANIZER",
+                        onClick = { selectedRole = "ORGANIZER" },
+                        colors = RadioButtonDefaults.colors(
+                            selectedColor = Color(0xFF1976D2),
+                            unselectedColor = Color(0xFFBDBDBD)
+                        ),
+                        enabled = signUpState !is SignUpState.Loading
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column {
+                        Text(
+                            text = "Organizer",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.Black
+                        )
+                        Text(
+                            text = "Create and manage events",
+                            fontSize = 12.sp,
+                            color = Color(0xFF757575)
+                        )
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(32.dp))
 
             // Register Button
@@ -351,7 +430,7 @@ fun SignUpScreen(
                         Toast.makeText(context, "Passwords do not match", Toast.LENGTH_SHORT).show()
                         return@Button
                     }
-                    viewModel.register(fullName, email, password, confirmPassword)
+                    viewModel.register(fullName, email, password, selectedRole)
                 },
                 modifier = Modifier
                     .fillMaxWidth()

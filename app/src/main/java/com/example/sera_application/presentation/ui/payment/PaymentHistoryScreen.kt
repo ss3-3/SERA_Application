@@ -27,9 +27,11 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.lifecycleScope
 import com.example.sera_application.BottomNavigationBar
-import com.example.sera_application.utils.ReceiptData
-import com.example.sera_application.utils.PdfReceiptGenerator
+import com.example.sera_application.presentation.navigation.LocalNavigationController
+import com.example.sera_application.presentation.navigation.NavigationController
 import com.example.sera_application.ui.theme.SERA_ApplicationTheme
+import com.example.sera_application.utils.PdfReceiptGenerator
+import com.example.sera_application.utils.ReceiptData
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -40,7 +42,6 @@ class PaymentHistoryActivity : ComponentActivity() {
         setContent {
             SERA_ApplicationTheme {
                 PaymentHistoryScreen(
-                    onBack = { finish() },
                     onViewReceipt = { orderData ->
                         generateAndOpenPdf(orderData)
                     }
@@ -103,6 +104,10 @@ class PaymentHistoryActivity : ComponentActivity() {
     }
 }
 
+/**
+ * Data class representing order/payment information for display in PaymentHistoryScreen.
+ * This is used to pass order data between composables.
+ */
 data class OrderData(
     val eventName: String,
     val orderId: String,
@@ -140,8 +145,8 @@ fun FilterButton(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PaymentHistoryScreen(
-    onBack: () -> Unit,
-    onViewReceipt: (OrderData) -> Unit
+    onViewReceipt: (OrderData) -> Unit,
+    navigationController: NavigationController = LocalNavigationController.current
 ) {
     val context = LocalContext.current
     var searchQuery by rememberSaveable { mutableStateOf("") }
@@ -158,7 +163,7 @@ fun PaymentHistoryScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = { navigationController.navigateBack() }) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",

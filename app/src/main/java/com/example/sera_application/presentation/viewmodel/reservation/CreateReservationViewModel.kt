@@ -48,14 +48,16 @@ class CreateReservationViewModel @Inject constructor(
     fun createReservation(
         eventId: String,
         quantities: Map<String, Int>,
-        onSuccess: (String) -> Unit,
+        onSuccess: () -> Unit,
         onError: (String) -> Unit
     ) {
         viewModelScope.launch {
             _isLoading.value = true
+            _error.value = null
 
             val userId = FirebaseAuth.getInstance().currentUser?.uid
             if (userId == null) {
+                _error.value = "User not logged in"
                 onError("User not logged in")
                 _isLoading.value = false
                 return@launch
@@ -63,13 +65,15 @@ class CreateReservationViewModel @Inject constructor(
 
             val totalSeats = quantities.values.sum()
             if (totalSeats == 0) {
-                 onError("Please select at least one ticket")
-                 _isLoading.value = false
-                 return@launch
+                _error.value = "Please select at least one ticket"
+                onError("Please select at least one ticket")
+                _isLoading.value = false
+                return@launch
             }
 
             val currentEvent = _event.value
             if (currentEvent == null) {
+                _error.value = "Internal Error: Event data not loaded"
                 onError("Internal Error: Event data not loaded")
                 _isLoading.value = false
                 return@launch
@@ -96,20 +100,20 @@ class CreateReservationViewModel @Inject constructor(
                 createdAt = System.currentTimeMillis()
             )
 
-            try {
-                // Corrected call matching UseCase signature
-                val reservationId = createReservationUseCase(reservation)
-
-                if (reservationId != null) {
-                     onSuccess(reservationId)
-                } else {
-                     onError("Internal Error: Repository returned null ID")
+            val result = createReservationUseCase(reservation)
+            result.fold(
+                onSuccess = {
+                    _error.value = null
+                    onSuccess()
+                },
+                onFailure = { exception ->
+                    val errorMessage = exception.message ?: "Failed to create reservation"
+                    _error.value = errorMessage
+                    onError(errorMessage)
                 }
-            } catch (e: Exception) {
-                onError("Exception [${e.javaClass.simpleName}]: ${e.message ?: "No message"}")
-            } finally {
-                _isLoading.value = false
-            }
+            )
+            
+            _isLoading.value = false
         }
     }
 }

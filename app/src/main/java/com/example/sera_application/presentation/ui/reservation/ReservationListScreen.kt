@@ -88,6 +88,11 @@ fun ReservationListScreen(
     }
 }
 
+fun ReservationListViewModel.fetchReservations(
+    userId: String
+) {
+}
+
 @Composable
 fun ReservationItem(reservation: EventReservation) {
     Card(

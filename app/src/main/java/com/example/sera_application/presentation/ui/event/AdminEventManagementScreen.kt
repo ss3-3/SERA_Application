@@ -30,6 +30,7 @@ import androidx.compose.ui.res.painterResource
 import com.example.sera_application.domain.model.enums.EventStatus
 import com.example.sera_application.presentation.viewmodel.event.AdminEventManagementViewModel
 import com.example.sera_application.utils.DateTimeFormatterUtil
+import com.example.sera_application.presentation.ui.components.SafeImageLoader
 
 // UI model for admin event list
 data class AdminEventModel(
@@ -142,36 +143,6 @@ fun AdminEventManagementScreen(
                     containerColor = Color(0xFF1A1A1A)
                 )
             )
-        },
-        bottomBar = {
-            NavigationBar(
-                containerColor = Color.White
-            ) {
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
-                    label = { Text("Home") },
-                    selected = false,
-                    onClick = onHomeClick
-                )
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.Event, contentDescription = "Event") },
-                    label = { Text("Event") },
-                    selected = true,
-                    onClick = { }
-                )
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.BookOnline, contentDescription = "Reservation") },
-                    label = { Text("Reservation") },
-                    selected = false,
-                    onClick = onReservationClick
-                )
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
-                    label = { Text("Me") },
-                    selected = false,
-                    onClick = onProfileClick
-                )
-            }
         }
     ) { padding ->
         Column(
@@ -354,18 +325,6 @@ private fun AdminEventCard(
                 shape = RoundedCornerShape(12.dp),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
-                val context = LocalContext.current
-                val imageRes = remember(event.bannerUrl) {
-                    if (event.bannerUrl != null && event.bannerUrl.isNotBlank()) {
-                        context.resources.getIdentifier(
-                            event.bannerUrl,
-                            "drawable",
-                            context.packageName
-                        )
-                    } else {
-                        0
-                    }
-                }
                 // Event Banner
                 Box(
                     modifier = Modifier
@@ -374,23 +333,12 @@ private fun AdminEventCard(
                         .background(Color(0xFF1A1A2E)),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (imageRes != 0) {
-                        Image(
-                            painter = painterResource(id = imageRes),
-                            contentDescription = event.name,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
-                    } else {
-                        // fallback (same as before)
-                        Text(
-                            text = event.name.take(12),
-                            color = Color.White,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
+                    SafeImageLoader(
+                        imagePath = event.bannerUrl,
+                        contentDescription = event.name,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
                 }
             }
 

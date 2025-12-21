@@ -5,9 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.example.sera_application.domain.model.Event
 import com.example.sera_application.domain.model.EventReservation
 import com.example.sera_application.domain.model.User
-import com.example.sera_application.domain.repository.EventRepository
-import com.example.sera_application.domain.repository.ReservationRepository
-import com.example.sera_application.domain.repository.UserRepository
+import com.example.sera_application.domain.usecase.event.GetEventByIdUseCase
+import com.example.sera_application.domain.usecase.reservation.CancelReservationUseCase
+import com.example.sera_application.domain.usecase.reservation.GetReservationByIdUseCase
+import com.example.sera_application.domain.usecase.user.GetUserProfileUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,14 +21,16 @@ data class ReservationDetailState(
     val event: Event? = null,
     val participant: User? = null,
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val isCancelling: Boolean = false
 )
 
 @HiltViewModel
 class ReservationDetailsViewModel @Inject constructor(
-    private val reservationRepository: ReservationRepository,
-    private val eventRepository: EventRepository,
-    private val userRepository: UserRepository
+    private val getReservationByIdUseCase: GetReservationByIdUseCase,
+    private val getEventByIdUseCase: GetEventByIdUseCase,
+    private val getUserProfileUseCase: GetUserProfileUseCase,
+    private val cancelReservationUseCase: CancelReservationUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ReservationDetailState())
@@ -37,12 +40,21 @@ class ReservationDetailsViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
-                // Fetch reservation
-                val reservation = reservationRepository.getReservationById(reservationId)
+                // Fetch reservation using use case
+                val reservation = getReservationByIdUseCase(reservationId)
                 
                 if (reservation != null) {
-                    val event = eventRepository.getEventById(reservation.eventId)
-                    val participant = userRepository.getUserById(reservation.userId)
+                    val event = try {
+                        getEventByIdUseCase(reservation.eventId)
+                    } catch (e: Exception) {
+                        null
+                    }
+                    
+                    val participant = try {
+                        getUserProfileUseCase(reservation.userId)
+                    } catch (e: Exception) {
+                        null
+                    }
                     
                     _uiState.value = _uiState.value.copy(
                         reservation = reservation,
@@ -51,11 +63,38 @@ class ReservationDetailsViewModel @Inject constructor(
                         isLoading = false
                     )
                 } else {
-                    _uiState.value = _uiState.value.copy(isLoading = false, error = "Reservation not found")
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = "Reservation not found"
+                    )
                 }
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(isLoading = false, error = e.message ?: "Failed to load details")
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = e.message ?: "Failed to load details"
+                )
             }
+        }
+    }
+
+    fun cancelReservation(reservationId: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isCancelling = true, error = null)
+            
+            val result = cancelReservationUseCase(reservationId)
+            result.fold(
+                onSuccess = {
+                    // Reload reservation to get updated status
+                    loadReservation(reservationId)
+                    _uiState.value = _uiState.value.copy(isCancelling = false)
+                },
+                onFailure = { exception ->
+                    _uiState.value = _uiState.value.copy(
+                        isCancelling = false,
+                        error = exception.message ?: "Failed to cancel reservation"
+                    )
+                }
+            )
         }
     }
 }

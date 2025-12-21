@@ -13,6 +13,7 @@ data class UserEntity(
     val role: String, // Store as String, convert to/from UserRole enum
     val profileImagePath: String?,
     val accountStatus: String,
+    val isApproved: Boolean = true,
     val createdAt: Long,
     val updatedAt: Long
 )

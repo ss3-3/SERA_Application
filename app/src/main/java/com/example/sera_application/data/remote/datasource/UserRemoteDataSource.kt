@@ -10,5 +10,9 @@ interface UserRemoteDataSource {
     
     suspend fun getAllUsers(): List<User>
 
+    suspend fun getPendingOrganizers(): List<User>
+
+    suspend fun updateApprovalStatus(userId: String, isApproved: Boolean)
+
     suspend fun deleteUser(userId: String)
 }
