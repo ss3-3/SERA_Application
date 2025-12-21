@@ -44,8 +44,18 @@ fun NavHostController.navigateToReservationDetails(reservationId: String) {
 @Composable
 fun MainNavGraph(
     navController: NavHostController = rememberNavController(),
-    startDestination: String = Screen.Login.route
+    startDestination: String = Screen.Login.route,
+    targetDestination: String? = null
 ) {
+    LaunchedEffect(targetDestination) {
+        when (targetDestination) {
+            "profile" -> navController.navigate(Screen.Profile.route)
+            "event_list" -> navController.navigate(Screen.EventList.route) {
+                popUpTo(Screen.EventList.route) { inclusive = true }
+            }
+        }
+    }
+
     NavHost(
         navController = navController,
         startDestination = startDestination
@@ -477,7 +487,11 @@ fun MainNavGraph(
             val eventId = backStackEntry.arguments?.getString("eventId") ?: ""
             CreateReservationScreen(
                 eventId = eventId,
-                onBack = { navController.popBackStack() },
+                onBack = { 
+                    navController.navigate(Screen.EventDetails.createRoute(eventId)) {
+                        popUpTo(Screen.EventDetails.createRoute(eventId)) { inclusive = true }
+                    }
+                },
                 onReservationConfirmed = { reservationId ->
                     println("DEBUG: Navigating from Reservation to Payment: $reservationId")
                     navController.navigate(Screen.Payment.createRoute(reservationId))
@@ -590,6 +604,9 @@ fun MainNavGraph(
                     navController.navigate(Screen.EventList.route) {
                         popUpTo(Screen.EventList.route) { inclusive = true }
                     }
+                },
+                onProfileClick = {
+                    navController.navigate(Screen.Profile.route)
                 }
             )
         }
@@ -602,13 +619,23 @@ fun MainNavGraph(
             )
         ) { backStackEntry ->
             val paymentId = backStackEntry.arguments?.getString("paymentId") ?: ""
-            ReceiptScreen(
-                onBack = { navController.popBackStack() },
-                onDownloadReceipt = { /* Handle download if needed or let screen handle */ },
-                onRequestRefund = {
-                    navController.navigate(Screen.RefundRequest.createRoute(paymentId))
+            val context = LocalContext.current
+            
+            LaunchedEffect(paymentId) {
+                val intent = Intent(context, ReceiptActivity::class.java).apply {
+                    putExtra("TRANSACTION_ID", paymentId)
+                    // Note: RESERVATION_ID is not available here. 
+                    // If coming from history, ReceiptActivity/ViewModel needs to handle missing reservationId 
+                    // or fetch it via transactionId. For now, this fixes the build.
                 }
-            )
+                context.startActivity(intent)
+                // Pop this route since we moved to an Activity
+                navController.popBackStack()
+            }
+            
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
         }
 
         // Refund Request Screen
@@ -623,6 +650,14 @@ fun MainNavGraph(
                 onBack = { navController.popBackStack() },
                 onSubmitSuccess = {
                     navController.popBackStack()
+                },
+                onHomeClick = {
+                    navController.navigate(Screen.EventList.route) {
+                        popUpTo(Screen.EventList.route) { inclusive = true }
+                    }
+                },
+                onProfileClick = {
+                    navController.navigate(Screen.Profile.route)
                 }
             )
         }

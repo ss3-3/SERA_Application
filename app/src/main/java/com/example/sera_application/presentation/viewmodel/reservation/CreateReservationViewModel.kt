@@ -17,8 +17,9 @@ import javax.inject.Inject
 
 @HiltViewModel
 class CreateReservationViewModel @Inject constructor(
-    private val getEventByIdUseCase: GetEventByIdUseCase,
-    private val createReservationUseCase: CreateReservationUseCase
+    private val getEventByIdUseCase: com.example.sera_application.domain.usecase.event.GetEventByIdUseCase,
+    private val createReservationUseCase: com.example.sera_application.domain.usecase.reservation.CreateReservationUseCase,
+    private val updateAvailableSeatsUseCase: com.example.sera_application.domain.usecase.event.UpdateAvailableSeatsUseCase
 ) : ViewModel() {
 
     private val _event = MutableStateFlow<Event?>(null)
@@ -91,6 +92,8 @@ class CreateReservationViewModel @Inject constructor(
                 eventId = eventId,
                 userId = userId,
                 seats = totalSeats,
+                rockZoneSeats = quantities["Rock Zone"] ?: 0,
+                normalZoneSeats = quantities["Normal Zone"] ?: 0,
                 totalPrice = totalPrice,
                 status = ReservationStatus.PENDING,
                 createdAt = System.currentTimeMillis()
@@ -101,7 +104,17 @@ class CreateReservationViewModel @Inject constructor(
                 val reservationId = createReservationUseCase(reservation)
 
                 if (reservationId != null) {
-                     onSuccess(reservationId)
+                        // Deduct seats from event
+                        val rockDelta = -(quantities["Rock Zone"] ?: 0)
+                        val normalDelta = -(quantities["Normal Zone"] ?: 0)
+                        
+                        val success = updateAvailableSeatsUseCase(eventId, rockDelta, normalDelta)
+                        
+                        if (success) {
+                            onSuccess(reservationId)
+                        } else {
+                            onError("Reservation created, but seat count update failed. Please check Firestore security rules or data types.")
+                        }
                 } else {
                      onError("Internal Error: Repository returned null ID")
                 }

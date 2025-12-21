@@ -24,19 +24,23 @@ import androidx.compose.ui.unit.sp
 import android.widget.Toast
 import com.example.sera_application.BottomNavigationBar
 import com.example.sera_application.ui.theme.SERA_ApplicationTheme
+import com.example.sera_application.MainActivity
 import java.util.Locale
 
 @Composable
 fun PaymentStatusScreen(
     paymentId: String,
     onViewReceipt: (String) -> Unit,
-    onBackToHome: () -> Unit
+    onBackToHome: () -> Unit,
+    onProfileClick: () -> Unit
 ) {
     // For now, redirecting to Success screen with the provided paymentId
     // In a real app, you might fetch status from a ViewModel
     PaymentSuccessScreen(
         transactionId = paymentId,
-        amount = 70.0 // Default for mock
+        amount = 70.0, // Default for mock
+        onHomeClick = onBackToHome,
+        onProfileClick = onProfileClick
     )
 }
 
@@ -47,6 +51,7 @@ class PaymentStatusActivity : ComponentActivity() {
         val isSuccess = intent.getBooleanExtra("PAYMENT_SUCCESS", true)
         val transactionId = intent.getStringExtra("TRANSACTION_ID") ?: "1234-1234-1234"
         val amount = intent.getDoubleExtra("AMOUNT", 70.0)
+        val reservationId = intent.getStringExtra("RESERVATION_ID")
         val failureReason = intent.getStringExtra("FAILURE_REASON") ?: "Insufficient balance in your PayPal account."
 
         setContent {
@@ -54,12 +59,39 @@ class PaymentStatusActivity : ComponentActivity() {
                 if (isSuccess) {
                     PaymentSuccessScreen(
                         transactionId = transactionId,
-                        amount = amount
+                        amount = amount,
+                        reservationId = reservationId,
+                        onHomeClick = {
+                            val intent = Intent(this, MainActivity::class.java).apply {
+                                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                            }
+                            startActivity(intent)
+                        },
+                        onProfileClick = {
+                            val intent = Intent(this, MainActivity::class.java).apply {
+                                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                                putExtra("DESTINATION", "profile")
+                            }
+                            startActivity(intent)
+                        }
                     )
                 } else {
                     PaymentFailScreen(
                         failureReason = failureReason,
-                        orderDetails = "Order #1234 • 2 tickets • RM ${String.format(Locale.US, "%.2f", amount)}"
+                        orderDetails = "Order #1234 • 2 tickets • RM ${String.format(Locale.US, "%.2f", amount)}",
+                        onHomeClick = {
+                            val intent = Intent(this, MainActivity::class.java).apply {
+                                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                            }
+                            startActivity(intent)
+                        },
+                        onProfileClick = {
+                            val intent = Intent(this, MainActivity::class.java).apply {
+                                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                                putExtra("DESTINATION", "profile")
+                            }
+                            startActivity(intent)
+                        }
                     )
                 }
             }
@@ -70,13 +102,21 @@ class PaymentStatusActivity : ComponentActivity() {
 @Composable
 fun PaymentSuccessScreen(
     transactionId: String,
-    amount: Double
+    amount: Double,
+    reservationId: String? = null,
+    onHomeClick: () -> Unit,
+    onProfileClick: () -> Unit
 ) {
     val context = LocalContext.current
+    val currentDate = java.text.SimpleDateFormat("MMM d, yyyy", java.util.Locale.US).format(java.util.Date())
+    val currentTime = java.text.SimpleDateFormat("h:mm a", java.util.Locale.US).format(java.util.Date())
 
     Scaffold(
         bottomBar = {
-            BottomNavigationBar()
+            BottomNavigationBar(
+                onHomeClick = onHomeClick,
+                onMeClick = onProfileClick
+            )
         }
     ) { paddingValues ->
         Column(
@@ -152,10 +192,10 @@ fun PaymentSuccessScreen(
                     TransactionDetailRow("Payment Method", "PayPal")
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    TransactionDetailRow("Date", "Nov 8, 2025")
+                    TransactionDetailRow("Date", currentDate)
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    TransactionDetailRow("Time", "7:00 PM")
+                    TransactionDetailRow("Time", currentTime)
                 }
             }
 
@@ -163,7 +203,11 @@ fun PaymentSuccessScreen(
 
             Button(
                 onClick = {
-                    context.startActivity(Intent(context, ReceiptActivity::class.java))
+                    val intent = Intent(context, ReceiptActivity::class.java).apply {
+                        putExtra("TRANSACTION_ID", transactionId)
+                        putExtra("RESERVATION_ID", reservationId)
+                    }
+                    context.startActivity(intent)
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -189,13 +233,18 @@ fun PaymentSuccessScreen(
 @Composable
 fun PaymentFailScreen(
     failureReason: String,
-    orderDetails: String
+    orderDetails: String,
+    onHomeClick: () -> Unit,
+    onProfileClick: () -> Unit
 ) {
     val context = LocalContext.current
 
     Scaffold(
         bottomBar = {
-            BottomNavigationBar()
+            BottomNavigationBar(
+                onHomeClick = onHomeClick,
+                onMeClick = onProfileClick
+            )
         }
     ) { paddingValues ->
         Column(

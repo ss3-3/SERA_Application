@@ -29,4 +29,10 @@ interface EventRepository {
 //    suspend fun hasVenueTimeConflict(event: Event): Boolean
 
     suspend fun getApprovedEvents(): List<Event>
+
+    suspend fun updateAvailableSeats(
+        eventId: String,
+        rockZoneDelta: Int,
+        normalZoneDelta: Int
+    ): Boolean
 }

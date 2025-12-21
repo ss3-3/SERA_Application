@@ -66,6 +66,8 @@ class FirebaseReservationDataSource(
             "eventId" to reservation.eventId,
             "userId" to reservation.userId,
             "seats" to reservation.seats,
+            "rockZoneSeats" to reservation.rockZoneSeats,
+            "normalZoneSeats" to reservation.normalZoneSeats,
             "totalPrice" to reservation.totalPrice,
             "status" to reservation.status.name,
             "createdAt" to reservation.createdAt
@@ -83,6 +85,8 @@ class FirebaseReservationDataSource(
                 eventId = getString("eventId") ?: "",
                 userId = getString("userId") ?: "",
                 seats = getLong("seats")?.toInt() ?: 0,
+                rockZoneSeats = getLong("rockZoneSeats")?.toInt() ?: 0,
+                normalZoneSeats = getLong("normalZoneSeats")?.toInt() ?: 0,
                 totalPrice = getDouble("totalPrice") ?: 0.0,
                 status = status,
                 createdAt = getLong("createdAt") ?: System.currentTimeMillis()

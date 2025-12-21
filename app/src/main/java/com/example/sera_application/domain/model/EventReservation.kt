@@ -7,6 +7,8 @@ data class EventReservation(
     val eventId: String = "",
     val userId: String = "",
     val seats: Int = 0,
+    val rockZoneSeats: Int = 0,    // Added
+    val normalZoneSeats: Int = 0,  // Added
     val totalPrice: Double = 0.0,
     val status: ReservationStatus = ReservationStatus.PENDING,
     val createdAt: Long = System.currentTimeMillis()

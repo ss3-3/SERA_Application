@@ -52,6 +52,9 @@ class PaymentActivity : ComponentActivity() {
     @Inject
     lateinit var paymentRemoteDataSource: PaymentRemoteDataSource
     
+    @Inject
+    lateinit var updateReservationStatusUseCase: com.example.sera_application.domain.usecase.reservation.UpdateReservationStatusUseCase
+
     private lateinit var paypalRepository: PayPalRepository
     private var pendingOrderId: String? = null
     private val isProcessingPayment = mutableStateOf(false)
@@ -125,20 +128,37 @@ class PaymentActivity : ComponentActivity() {
                         Log.d("PaymentActivity", "  $param = ${data.getQueryParameter(param)}")
                     }
                     
-                    // Try multiple possible parameter names that PayPal might use
                     val orderId = data.getQueryParameter("token") 
                         ?: data.getQueryParameter("orderId")
                         ?: data.getQueryParameter("id")
                         ?: data.getQueryParameter("orderID")
+
+                    // Also extract our custom reservationId to avoid state loss
+                    val reservationId = data.getQueryParameter("reservationId")
                     
-                    if (orderId != null) {
-                        Log.d("PaymentActivity", "Attempting to capture order: $orderId")
-                        capturePayPalOrder(orderId)
-                    } else {
-                        // Log what parameters were actually received
-                        val receivedParams = queryParams.joinToString(", ")
-                        Log.e("PaymentActivity", "No order ID found in parameters: $receivedParams")
-                        showPaymentFailure("Invalid payment token - no order ID found in redirect URL")
+                    lifecycleScope.launch {
+                        if (reservationId != null && viewModel.reservation.value == null) {
+                            Log.d("PaymentActivity", "State lost. Reloading reservation: $reservationId")
+                            viewModel.loadReservationDetails(reservationId)
+                            
+                            // Simple wait loop to ensure data is loaded before proceeding to capture
+                            // This prevents the race condition where capture finishes before metadata reloads
+                            var checkCount = 0
+                            while (viewModel.reservation.value == null && checkCount < 10) {
+                                kotlinx.coroutines.delay(500)
+                                checkCount++
+                                Log.d("PaymentActivity", "Waiting for reservation data load... ${checkCount}")
+                            }
+                        }
+                        
+                        if (orderId != null) {
+                            Log.d("PaymentActivity", "Attempting to capture order: $orderId")
+                            capturePayPalOrder(orderId)
+                        } else {
+                            val receivedParams = queryParams.joinToString(", ")
+                            Log.e("PaymentActivity", "No order ID found in parameters: $receivedParams")
+                            showPaymentFailure("Invalid payment token - no order ID found in redirect URL")
+                        }
                     }
                 }
                 "paypal.cancel" -> {
@@ -170,52 +190,98 @@ class PaymentActivity : ComponentActivity() {
                 }
 
                 // Create order
+                val reservation = viewModel.reservation.value
+                val event = viewModel.event.value
+                
+                val amountStr = String.format("%.2f", reservation?.totalPrice ?: 70.0)
+                val eventDescription = "${event?.name ?: "Event"} - ${reservation?.seats ?: 0} Tickets"
+                val reservationId = reservation?.reservationId ?: ""
+
                 val orderResult = paypalRepository.createOrder(
-                    amount = "70.00",
+                    amount = amountStr,
                     currencyCode = "MYR",
-                    description = "MUSIC FIESTA 6.0 - 2 Tickets"
+                    description = eventDescription,
+                    reservationId = reservationId
                 )
 
                 if (orderResult.isSuccess) {
                     val order = orderResult.getOrNull()!!
                     pendingOrderId = order.id
+                    
+                    Log.d("PaymentActivity", "✅ Order created successfully: ${order.id}")
+                    Log.d("PaymentActivity", "Order status: ${order.status}")
+                    Log.d("PaymentActivity", "Number of links: ${order.links.size}")
+                    
+                    // Log all links for debugging
+                    order.links.forEachIndexed { index, link ->
+                        Log.d("PaymentActivity", "Link $index: rel='${link.rel}', href='${link.href}'")
+                    }
 
                     // Find the approve link
                     val approveLink = order.links.find { it.rel == "approve" }
 
                     if (approveLink != null) {
-                        Log.d("PaymentScreen", "Opening PayPal checkout URL: ${approveLink.href}")
+                        Log.d("PaymentActivity", "✅ Found approve link: ${approveLink.href}")
+                        Log.d("PaymentActivity", "Opening PayPal checkout URL...")
                         isProcessingPayment.value = false
                         
-                        // Open PayPal checkout page in Custom Tab
-                        val customTabsIntent = CustomTabsIntent.Builder()
-                            .setShowTitle(true)
-                            .build()
+                        try {
+                            // Open PayPal checkout page in Custom Tab
+                            val customTabsIntent = CustomTabsIntent.Builder()
+                                .setShowTitle(true)
+                                .build()
 
-                        customTabsIntent.launchUrl(this@PaymentActivity, Uri.parse(approveLink.href))
+                            customTabsIntent.launchUrl(this@PaymentActivity, Uri.parse(approveLink.href))
+                            Log.d("PaymentActivity", "✅ Custom Tab launched successfully")
+                        } catch (e: Exception) {
+                            Log.e("PaymentActivity", "❌ Error launching Custom Tab: ${e.message}", e)
+                            showPaymentFailure("Could not open PayPal checkout page: ${e.message}")
+                        }
                     } else {
                         isProcessingPayment.value = false
+                        Log.e("PaymentActivity", "❌ No approve link found in order response")
+                        Log.e("PaymentActivity", "Available link types: ${order.links.map { it.rel }}")
                         showPaymentFailure("Could not get PayPal checkout URL")
                     }
                 } else {
                     isProcessingPayment.value = false
+                    Log.e("PaymentActivity", "❌ Order creation failed: ${orderResult.exceptionOrNull()?.message}")
                     showPaymentFailure("Order creation failed: ${orderResult.exceptionOrNull()?.message}")
                 }
             } catch (e: Exception) {
                 isProcessingPayment.value = false
+                Log.e("PaymentActivity", "❌ Exception in startPayPalCheckout: ${e.message}", e)
                 showPaymentFailure("Error: ${e.message}")
             }
         }
     }
 
     private fun capturePayPalOrder(orderId: String) {
+        Log.d("PaymentActivity", "🔄 Starting capture process for order: $orderId")
         isProcessingPayment.value = true
         lifecycleScope.launch {
             try {
+                // Re-authenticate to ensure we have a valid access token
+                // The token from order creation may have expired
+                Log.d("PaymentActivity", "Re-authenticating with PayPal before capture...")
+                val authResult = paypalRepository.authenticate()
+                if (authResult.isFailure) {
+                    Log.e("PaymentActivity", "❌ Re-authentication failed: ${authResult.exceptionOrNull()?.message}")
+                    showPaymentFailure("Authentication failed: ${authResult.exceptionOrNull()?.message}")
+                    return@launch
+                }
+                Log.d("PaymentActivity", "✅ Re-authentication successful")
+                
+                Log.d("PaymentActivity", "Calling captureOrder API...")
                 val captureResult = paypalRepository.captureOrder(orderId)
+                
+                Log.d("PaymentActivity", "Capture result: isSuccess=${captureResult.isSuccess}")
 
                 if (captureResult.isSuccess) {
                     val capture = captureResult.getOrNull()!!
+                    Log.d("PaymentActivity", "✅ Payment captured successfully: ${capture.id}")
+                    Log.d("PaymentActivity", "Capture status: ${capture.status}")
+                    
                     val reservation = viewModel.reservation.value
                     
                     // Save payment to Firebase
@@ -235,28 +301,47 @@ class PaymentActivity : ComponentActivity() {
                             Log.d("PaymentActivity", "Attempting to save payment: $payment")
                             val savedPaymentId = paymentRemoteDataSource.savePayment(payment)
                             Log.d("PaymentActivity", "✅ Payment saved to Firebase successfully: $savedPaymentId")
+                            Toast.makeText(this@PaymentActivity, "Payment recorded successfully", Toast.LENGTH_SHORT).show()
                         } catch (e: Exception) {
                             Log.e("PaymentActivity", "❌ Error saving payment to Firebase: ${e.message}", e)
                             e.printStackTrace()
+                            // Show user-visible error
+                            Toast.makeText(
+                                this@PaymentActivity, 
+                                "Warning: Payment completed but record save failed. Please contact support if needed.", 
+                                Toast.LENGTH_LONG
+                            ).show()
                         }
                         
                         // Update reservation status to CONFIRMED
-                        // TODO: Add UpdateReservationStatusUseCase call here
+                        try {
+                            Log.d("PaymentActivity", "Updating reservation status to CONFIRMED: ${reservation.reservationId}")
+                            updateReservationStatusUseCase(reservation.reservationId, "CONFIRMED")
+                            Log.d("PaymentActivity", "✅ Reservation status updated successfully")
+                        } catch (e: Exception) {
+                            Log.e("PaymentActivity", "❌ Error updating reservation status: ${e.message}", e)
+                        }
                     }
 
                     // Navigate to success screen
+                    Log.d("PaymentActivity", "Navigating to success screen...")
                     val intent = Intent(this@PaymentActivity, PaymentStatusActivity::class.java).apply {
                         putExtra("PAYMENT_SUCCESS", true)
                         putExtra("TRANSACTION_ID", capture.id)
                         putExtra("AMOUNT", reservation?.totalPrice ?: 70.0)
+                        putExtra("RESERVATION_ID", reservation?.reservationId)
                     }
                     startActivity(intent)
                     finish()
                 } else {
                     // Navigate to failure screen
-                    showPaymentFailure(captureResult.exceptionOrNull()?.message ?: "Payment capture failed")
+                    val errorMessage = captureResult.exceptionOrNull()?.message ?: "Payment capture failed"
+                    Log.e("PaymentActivity", "❌ Capture failed: $errorMessage")
+                    showPaymentFailure(errorMessage)
                 }
             } catch (e: Exception) {
+                Log.e("PaymentActivity", "❌ Exception in capturePayPalOrder: ${e.message}", e)
+                e.printStackTrace()
                 showPaymentFailure(e.message ?: "Unknown error occurred")
             } finally {
                 isProcessingPayment.value = false

@@ -21,4 +21,10 @@ interface EventRemoteDataSource {
     suspend fun getEventListFromFirebase(): List<Event>
 
     suspend fun getPublicEvents(): List<Event>
+
+    suspend fun updateAvailableSeats(
+        eventId: String,
+        rockZoneDelta: Int,
+        normalZoneDelta: Int
+    )
 }

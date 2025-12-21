@@ -33,7 +33,21 @@ class RefundRequestActivity : ComponentActivity() {
             SERA_ApplicationTheme {
                 RefundRequestScreen(
                     onBack = { finish() },
-                    onSubmitSuccess = { finish() }
+                    onSubmitSuccess = { finish() },
+                    onHomeClick = {
+                        val intent = android.content.Intent(this, com.example.sera_application.MainActivity::class.java).apply {
+                            flags = android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP
+                            putExtra("DESTINATION", "event_list")
+                        }
+                        startActivity(intent)
+                    },
+                    onProfileClick = {
+                        val intent = android.content.Intent(this, com.example.sera_application.MainActivity::class.java).apply {
+                            flags = android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP
+                            putExtra("DESTINATION", "profile")
+                        }
+                        startActivity(intent)
+                    }
                 )
             }
         }
@@ -44,7 +58,9 @@ class RefundRequestActivity : ComponentActivity() {
 @Composable
 fun RefundRequestScreen(
     onBack: () -> Unit,
-    onSubmitSuccess: () -> Unit
+    onSubmitSuccess: () -> Unit,
+    onHomeClick: () -> Unit,
+    onProfileClick: () -> Unit
 ) {
     val context = LocalContext.current
     var showRefundReasonDialog by rememberSaveable { mutableStateOf(false) }
@@ -76,7 +92,10 @@ fun RefundRequestScreen(
             )
         },
         bottomBar = {
-            BottomNavigationBar()
+            BottomNavigationBar(
+                onHomeClick = onHomeClick,
+                onMeClick = onProfileClick
+            )
         }
     ) { paddingValues ->
         Column(

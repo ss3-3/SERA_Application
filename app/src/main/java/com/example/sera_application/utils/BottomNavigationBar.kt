@@ -19,7 +19,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
-fun BottomNavigationBar() {
+fun BottomNavigationBar(
+    onHomeClick: (() -> Unit)? = null,
+    onMeClick: (() -> Unit)? = null
+) {
     val context = LocalContext.current
 
     Surface(
@@ -37,7 +40,7 @@ fun BottomNavigationBar() {
                 label = "Home",
                 modifier = Modifier.weight(1f),
                 onClick = {
-                    Toast.makeText(context, "Navigate to Home", Toast.LENGTH_SHORT).show()
+                    onHomeClick?.invoke() ?: Toast.makeText(context, "Navigate to Home", Toast.LENGTH_SHORT).show()
                 }
             )
 
@@ -46,7 +49,7 @@ fun BottomNavigationBar() {
                 label = "Me",
                 modifier = Modifier.weight(1f),
                 onClick = {
-                    Toast.makeText(context, "Navigate to Profile", Toast.LENGTH_SHORT).show()
+                    onMeClick?.invoke() ?: Toast.makeText(context, "Navigate to Profile", Toast.LENGTH_SHORT).show()
                 }
             )
         }

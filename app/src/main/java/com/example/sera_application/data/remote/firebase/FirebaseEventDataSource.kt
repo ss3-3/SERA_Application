@@ -71,6 +71,40 @@ class FirebaseEventDataSource(
         return snapshot.documents.mapNotNull { it.toEvent() }
     }
 
+    override suspend fun updateAvailableSeats(
+        eventId: String,
+        rockZoneDelta: Int,
+        normalZoneDelta: Int
+    ) {
+        Log.d("FirebaseEventDataSource", "Updating seats for event: $eventId, rockDelta: $rockZoneDelta, normalDelta: $normalZoneDelta")
+        val updates = mutableMapOf<String, Any>()
+        
+        if (rockZoneDelta != 0) {
+            updates["rockZoneSeats"] = com.google.firebase.firestore.FieldValue.increment(rockZoneDelta.toLong())
+        }
+        
+        if (normalZoneDelta != 0) {
+            updates["normalZoneSeats"] = com.google.firebase.firestore.FieldValue.increment(normalZoneDelta.toLong())
+        }
+        
+        val totalDelta = rockZoneDelta + normalZoneDelta
+        if (totalDelta != 0) {
+            updates["availableSeats"] = com.google.firebase.firestore.FieldValue.increment(totalDelta.toLong())
+        }
+        
+        if (updates.isNotEmpty()) {
+            try {
+                eventsRef.document(eventId).update(updates).await()
+                Log.d("FirebaseEventDataSource", "Seats updated successfully in Firestore for event $eventId")
+            } catch (e: Exception) {
+                Log.e("FirebaseEventDataSource", "Failed to update seats for event $eventId", e)
+                throw e
+            }
+        } else {
+            Log.d("FirebaseEventDataSource", "No seat updates performed (deltas are zero)")
+        }
+    }
+
     private fun eventToFirestoreMap(event: Event): Map<String, Any?> {
         return mapOf(
             "eventId" to event.eventId,
