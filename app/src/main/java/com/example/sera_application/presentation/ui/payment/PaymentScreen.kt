@@ -112,20 +112,47 @@ class PaymentActivity : ComponentActivity() {
     private fun handleDeepLink(intent: Intent?) {
         val data = intent?.data
         if (data != null && data.scheme == "sera") {
+            // Log the full deep link URL for debugging
+            Log.d("PaymentActivity", "Deep link received: $data")
+            Log.d("PaymentActivity", "Deep link host: ${data.host}")
+            
             when (data.host) {
                 "paypal.return" -> {
-                    val token = data.getQueryParameter("token")
-                    if (token != null) {
-                        capturePayPalOrder(token)
+                    // Log all query parameters
+                    val queryParams = data.queryParameterNames
+                    Log.d("PaymentActivity", "Query parameters: $queryParams")
+                    queryParams.forEach { param ->
+                        Log.d("PaymentActivity", "  $param = ${data.getQueryParameter(param)}")
+                    }
+                    
+                    // Try multiple possible parameter names that PayPal might use
+                    val orderId = data.getQueryParameter("token") 
+                        ?: data.getQueryParameter("orderId")
+                        ?: data.getQueryParameter("id")
+                        ?: data.getQueryParameter("orderID")
+                    
+                    if (orderId != null) {
+                        Log.d("PaymentActivity", "Attempting to capture order: $orderId")
+                        capturePayPalOrder(orderId)
                     } else {
-                        // 没有 token = 出错了
-                        showPaymentFailure("Invalid payment token")
+                        // Log what parameters were actually received
+                        val receivedParams = queryParams.joinToString(", ")
+                        Log.e("PaymentActivity", "No order ID found in parameters: $receivedParams")
+                        showPaymentFailure("Invalid payment token - no order ID found in redirect URL")
                     }
                 }
                 "paypal.cancel" -> {
                     // 用户取消支付
+                    Log.d("PaymentActivity", "Payment cancelled by user")
                     showPaymentFailure("Payment was cancelled by user")
                 }
+                else -> {
+                    Log.w("PaymentActivity", "Unknown deep link host: ${data.host}")
+                }
+            }
+        } else {
+            if (data != null) {
+                Log.w("PaymentActivity", "Deep link with unexpected scheme: ${data.scheme}")
             }
         }
     }
@@ -475,7 +502,10 @@ fun EventDetailsCard(event: Event?, reservation: EventReservation?) {
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            EventDetailRow("Date", event?.date ?: "N/A")
+            EventDetailRow("Date", event?.date?.let { 
+                val format = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault())
+                format.format(java.util.Date(it))
+            } ?: "N/A")
             Spacer(modifier = Modifier.height(6.dp))
             EventDetailRow("Time", event?.timeRange ?: "N/A")
             Spacer(modifier = Modifier.height(6.dp))
