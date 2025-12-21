@@ -32,7 +32,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.sera_application.domain.model.enums.UserRole
 import com.example.sera_application.presentation.viewmodel.user.ProfileViewModel
 import com.example.sera_application.presentation.ui.components.SafeProfileImageLoader
-import com.example.sera_application.utils.bottomNavigationBar
+import com.example.sera_application.utils.BottomNavigationBar
 
 data class ProfileMenuItem(
     val title: String,
@@ -148,7 +148,7 @@ fun ProfileScreen(
         },
         bottomBar = {
             navController?.let { nav ->
-                bottomNavigationBar(
+                BottomNavigationBar(
                     navController = nav,
                     currentRoute = nav.currentBackStackEntry?.destination?.route,
                     userRole = currentUser?.role
@@ -223,7 +223,12 @@ fun ProfileScreen(
                     icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = Color.Red) },
                     title = { Text("Delete Account", fontWeight = FontWeight.Bold) },
                     text = {
-                        Column {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 300.dp) // Limit height for landscape
+                                .verticalScroll(rememberScrollState())
+                        ) {
                             Text("This action is permanent and cannot be undone. All your data including reservations and profile info will be deleted.")
                             Spacer(modifier = Modifier.height(16.dp))
                             Text("Please type \"DELETE\" to confirm:", style = MaterialTheme.typography.bodySmall)

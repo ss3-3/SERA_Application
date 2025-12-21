@@ -40,9 +40,12 @@ class NavigationControllerImpl(
 
     override fun navigateToLogin() {
         navController.navigate(Screen.Login.route) {
-            popUpTo(Screen.Login.route) {
+            // Pop everything up to (and including) SignUp screen
+            popUpTo(Screen.SignUp.route) {
                 inclusive = true
             }
+            // Ensure only one Login screen exists
+            launchSingleTop = true
         }
     }
 

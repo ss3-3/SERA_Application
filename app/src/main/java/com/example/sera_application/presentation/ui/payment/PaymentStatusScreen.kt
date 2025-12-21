@@ -26,7 +26,7 @@ import android.widget.Toast
 import com.example.sera_application.ui.theme.SERA_ApplicationTheme
 import com.example.sera_application.MainActivity
 import java.util.Locale
-import com.example.sera_application.utils.bottomNavigationBar
+import com.example.sera_application.utils.BottomNavigationBar
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.sera_application.presentation.viewmodel.user.ProfileViewModel
 import com.example.sera_application.domain.model.enums.UserRole
@@ -140,7 +140,7 @@ fun PaymentSuccessScreen(
     Scaffold(
         bottomBar = {
             navController?.let { nav ->
-                bottomNavigationBar(
+                BottomNavigationBar(
                     navController = nav,
                     currentRoute = nav.currentBackStackEntry?.destination?.route,
                     userRole = currentUser?.role ?: UserRole.PARTICIPANT
@@ -296,7 +296,7 @@ fun PaymentFailScreen(
     Scaffold(
         bottomBar = {
             navController?.let { nav ->
-                bottomNavigationBar(
+                BottomNavigationBar(
                     navController = nav,
                     currentRoute = nav.currentBackStackEntry?.destination?.route,
                     userRole = currentUser?.role ?: UserRole.PARTICIPANT

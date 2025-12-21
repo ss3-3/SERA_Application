@@ -1,5 +1,6 @@
 package com.example.sera_application.presentation.ui.reservation
 
+import android.util.Log
 import androidx.compose.foundation.background
 import com.example.sera_application.domain.model.enums.ReservationStatus
 import androidx.compose.foundation.horizontalScroll
@@ -21,6 +22,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.sera_application.utils.DateTimeFormatterUtil
 
 data class ReservationManagementUiModel(
@@ -46,15 +48,38 @@ fun ReservationManagementScreen(
     onBack: () -> Unit = {},
     onViewReservation: (String) -> Unit = {},
     onExportParticipantList: () -> Unit = {},
-    viewModel: com.example.sera_application.presentation.viewmodel.reservation.ReservationManagementViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+    viewModel: com.example.sera_application.presentation.viewmodel.reservation.ReservationManagementViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
+    profileViewModel: com.example.sera_application.presentation.viewmodel.user.ProfileViewModel = androidx.hilt.navigation.compose.hiltViewModel()
 ) {
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var selectedEventFilter by rememberSaveable  { mutableStateOf("All Events") }
     var selectedStatusFilter by rememberSaveable  { mutableStateOf(FilterStatus.ALL) }
     var showEventDropdown by rememberSaveable  { mutableStateOf(false) }
 
+    // Get current user
+    val currentUser by profileViewModel.user.collectAsState()
+    
+    // Load current user on first composition
+    LaunchedEffect(Unit) {
+        android.util.Log.d("ReservationManagement", "Loading current user...")
+        profileViewModel.loadCurrentUser()
+    }
+
+    // Load reservations when user is loaded
+    LaunchedEffect(currentUser?.userId) {
+        currentUser?.userId?.let { userId ->
+            android.util.Log.d("ReservationManagement", "Loading reservations for organizer: $userId")
+            android.util.Log.d("ReservationManagement", "User role: ${currentUser?.role}")
+            viewModel.loadOrganizerReservations(userId)
+        } ?: run {
+            android.util.Log.d("ReservationManagement", "Current user ID is null")
+        }
+    }
+
     val reservationList by viewModel.reservations.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    
+    android.util.Log.d("ReservationManagement", "Reservation list size: ${reservationList.size}, isLoading: $isLoading")
 
     // Map to UI model
     val allReservations = remember(reservationList) {
@@ -73,7 +98,9 @@ fun ReservationManagementScreen(
     
     // Dynamically get unique event names for filter
     val eventNames = remember(allReservations) {
-        listOf("All Events") + allReservations.map { it.eventName }.distinct()
+        val names = listOf("All Events") + allReservations.map { it.eventName }.distinct()
+        android.util.Log.d("ReservationManagement", "Event filter names: $names")
+        names
     }
 
     // Filter reservations based on search and filters
@@ -242,7 +269,7 @@ fun ReservationManagementScreen(
             }
 
             // Reservation List
-            if (filteredReservations.isEmpty()) {
+            if (isLoading) {
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -250,11 +277,36 @@ fun ReservationManagementScreen(
                         .padding(16.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        "No reservations found",
-                        fontSize = 16.sp,
-                        color = Color(0xFF757575)
+                    CircularProgressIndicator(
+                        color = Color(0xFF1976D2)
                     )
+                }
+            } else if (filteredReservations.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            "No reservations found",
+                            fontSize = 16.sp,
+                            color = Color(0xFF757575),
+                            fontWeight = FontWeight.Medium
+                        )
+                        if (currentUser != null) {
+                            Text(
+                                "Create an event to start receiving reservations",
+                                fontSize = 14.sp,
+                                color = Color(0xFF999999)
+                            )
+                        }
+                    }
                 }
             } else {
                 LazyColumn(

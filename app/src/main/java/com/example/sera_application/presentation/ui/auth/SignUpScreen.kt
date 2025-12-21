@@ -17,6 +17,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -54,8 +55,9 @@ fun SignUpScreen(
     var selectedRole by rememberSaveable { mutableStateOf("PARTICIPANT") }
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
     var confirmPasswordVisible by rememberSaveable { mutableStateOf(false) }
-    var showVerificationDialog by rememberSaveable { mutableStateOf(false) }
-    var registeredUser by rememberSaveable { mutableStateOf<User?>(null) }
+    var showVerificationDialog by remember { mutableStateOf(false) }  // Changed from rememberSaveable
+    var registeredUser by remember { mutableStateOf<User?>(null) }  // Changed from rememberSaveable
+    var shouldNavigateToLogin by remember { mutableStateOf(false) }
 
     val signUpState by viewModel.signUpState.collectAsState()
     val context = LocalContext.current
@@ -80,12 +82,21 @@ fun SignUpScreen(
         }
     }
 
+    // Handle navigation to login after dialog is dismissed
+    LaunchedEffect(shouldNavigateToLogin) {
+        if (shouldNavigateToLogin) {
+            kotlinx.coroutines.delay(100) // Small delay to ensure dialog is fully dismissed
+            onLoginClick()
+            shouldNavigateToLogin = false
+        }
+    }
+
     // Email Verification Dialog
     if (showVerificationDialog) {
         AlertDialog(
             onDismissRequest = {
                 showVerificationDialog = false
-                onLoginClick()
+                shouldNavigateToLogin = true
             },
             icon = {
                 Icon(
@@ -142,7 +153,7 @@ fun SignUpScreen(
                 Button(
                     onClick = {
                         showVerificationDialog = false
-                        onLoginClick()
+                        shouldNavigateToLogin = true
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF1976D2)

@@ -31,7 +31,7 @@ import com.example.sera_application.presentation.navigation.NavigationController
 import com.example.sera_application.ui.theme.SERA_ApplicationTheme
 import com.example.sera_application.utils.PdfReceiptGenerator
 import com.example.sera_application.utils.ReceiptData
-import com.example.sera_application.utils.bottomNavigationBar
+import com.example.sera_application.utils.BottomNavigationBar
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.sera_application.presentation.viewmodel.user.ProfileViewModel
 import com.example.sera_application.domain.model.enums.UserRole
@@ -206,7 +206,7 @@ fun PaymentHistoryScreen(
         },
         bottomBar = {
             navController?.let { nav ->
-                bottomNavigationBar(
+                BottomNavigationBar(
                     navController = nav,
                     currentRoute = nav.currentBackStackEntry?.destination?.route,
                     userRole = currentUser?.role ?: UserRole.PARTICIPANT

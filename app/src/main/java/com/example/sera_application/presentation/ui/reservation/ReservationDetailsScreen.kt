@@ -37,10 +37,12 @@ data class ReservationDetailUiModel(
     val status: ReservationStatus,
     val paymentMethod: String,
     val paymentAccount: String, // Masked account number like "1234-1234-1234"
-    val zoneName: String,
-    val quantity: Int,
+    val rockZoneSeats: Int,
+    val normalZoneSeats: Int,
+    val totalSeats: Int,
     val totalPrice: String,
-    val pricePerSeat: String
+    val rockZonePrice: String,
+    val normalZonePrice: String
 )
 
 
@@ -57,11 +59,11 @@ fun ReservationDetailScreen(
     }
 
     val uiState by viewModel.uiState.collectAsState()
-    
+
     val reservationVal = uiState.reservation
     val eventVal = uiState.event
     val participantVal = uiState.participant
-    
+
     if (uiState.isLoading) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
@@ -83,17 +85,24 @@ fun ReservationDetailScreen(
                          eventVal.endTime
                      )
                  } else "",
-                 seatNumbers = "${reservationVal.seats} Seats", // Placeholder
+                 seatNumbers = "${reservationVal.seats} Seats",
                 status = reservationVal.status,
-                paymentMethod = "Online Banking", // Placeholder
-                paymentAccount = "****-****-****-1234",
-                zoneName = "General",
-                quantity = reservationVal.seats,
+                paymentMethod = "PayPal",
+                paymentAccount = "****@****.com", // PayPal email masked
+                rockZoneSeats = reservationVal.rockZoneSeats,
+                normalZoneSeats = reservationVal.normalZoneSeats,
+                totalSeats = reservationVal.seats,
                 totalPrice = "RM %.2f".format(reservationVal.totalPrice),
-                pricePerSeat = if (reservationVal.seats > 0) "RM %.2f".format(reservationVal.totalPrice / reservationVal.seats) else "N/A"
+                // Calculate individual zone prices based on event pricing
+                rockZonePrice = if (reservationVal.rockZoneSeats > 0 && eventVal?.rockZonePrice != null) {
+                    "RM %.2f".format(eventVal.rockZonePrice * reservationVal.rockZoneSeats)
+                } else "RM 0.00",
+                normalZonePrice = if (reservationVal.normalZoneSeats > 0 && eventVal?.normalZonePrice != null) {
+                    "RM %.2f".format(eventVal.normalZonePrice * reservationVal.normalZoneSeats)
+                } else "RM 0.00"
             )
         }
-    
+
         Scaffold(
             topBar = {
                 CenterAlignedTopAppBar(
@@ -278,49 +287,97 @@ private fun SeatsCard(reservation: ReservationDetailUiModel) {
 
             HorizontalDivider(color = Color(0xFFE0E0E0))
 
+            // Rock Zone Section
+            if (reservation.rockZoneSeats > 0) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Rock Zone",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.Black
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            "${reservation.rockZoneSeats} seat${if (reservation.rockZoneSeats > 1) "s" else ""}",
+                            fontSize = 14.sp,
+                            color = Color(0xFF757575)
+                        )
+                    }
+                    Text(
+                        reservation.rockZonePrice,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.Black
+                    )
+                }
+
+                if (reservation.normalZoneSeats > 0) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            }
+
+            // Normal Zone Section
+            if (reservation.normalZoneSeats > 0) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Normal Zone",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.Black
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            "${reservation.normalZoneSeats} seat${if (reservation.normalZoneSeats > 1) "s" else ""}",
+                            fontSize = 14.sp,
+                            color = Color(0xFF757575)
+                        )
+                    }
+                    Text(
+                        reservation.normalZonePrice,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.Black
+                    )
+                }
+            }
+
+            // Total Section
+            HorizontalDivider(color = Color(0xFFE0E0E0), modifier = Modifier.padding(vertical = 8.dp))
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
+                Column {
                     Text(
-                        reservation.zoneName,
+                        "Total",
                         fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.Black
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        "${reservation.quantity} seat${if (reservation.quantity > 1) "s" else ""}",
-                        fontSize = 14.sp,
-                        color = Color(0xFF757575)
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        reservation.pricePerSeat,
-                        fontSize = 14.sp,
-                        color = Color(0xFF757575)
-                    )
-                }
-                Column(
-                    horizontalAlignment = Alignment.End,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Text(
-                        "Subtotal",
-                        fontSize = 14.sp,
-                        color = Color(0xFF757575),
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        reservation.totalPrice,
-                        fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.Black
                     )
+                    Text(
+                        "${reservation.totalSeats} seat${if (reservation.totalSeats > 1) "s" else ""}",
+                        fontSize = 14.sp,
+                        color = Color(0xFF757575)
+                    )
                 }
+                Text(
+                    reservation.totalPrice,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1976D2)
+                )
             }
         }
     }

@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,7 +19,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -36,8 +36,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
@@ -70,7 +68,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.sera_application.presentation.ui.components.SafeImageLoader
 import com.example.sera_application.domain.model.enums.EventCategory
 import com.example.sera_application.presentation.viewmodel.event.OrganizerEventManagementViewModel
-import com.example.sera_application.utils.bottomNavigationBar
+import com.example.sera_application.utils.BottomNavigationBar
 import com.example.sera_application.domain.model.enums.UserRole
 import com.example.sera_application.presentation.viewmodel.user.ProfileViewModel
 
@@ -202,7 +200,7 @@ fun OrganizerEventManagementScreen(
         },
         bottomBar = {
             navController?.let { nav ->
-                bottomNavigationBar(
+                BottomNavigationBar(
                     navController = nav,
                     currentRoute = nav.currentBackStackEntry?.destination?.route,
                     userRole = currentUser?.role ?: UserRole.ORGANIZER
@@ -319,16 +317,49 @@ private fun OrganizerEventBanner(
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
+        val context = LocalContext.current
+
+        val imageRes = remember(event.bannerUrl) {
+            if (!event.bannerUrl.isNullOrBlank()) {
+                context.resources.getIdentifier(
+                    event.bannerUrl,
+                    "drawable",
+                    context.packageName
+                )
+            } else 0
+        }
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            SafeImageLoader(
-                imagePath = event.bannerUrl,
-                contentDescription = event.name,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
+            if (imageRes != 0) {
+                Image(
+                    painter = painterResource(id = imageRes),
+                    contentDescription = event.name,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(Color(0xFF1A237E), Color(0xFF0D47A1))
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = event.name,
+                        color = Color.White,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+            }
         }
     }
 }
@@ -465,45 +496,49 @@ private fun OrganizerEventCard(
                 // Action Buttons Row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
+                    horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
 
-                    // EDIT Button
+                    // EDIT Button - Smaller and more compact
                     Button(
                         onClick = onEditClick,
-                        modifier = Modifier.height(32.dp).width(125.dp),
+                        modifier = Modifier
+                            .height(28.dp)
+                            .width(90.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color.Black,
                             contentColor = Color.White
                         ),
-                        shape = RoundedCornerShape(10.dp)
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                     ) {
                         Row(
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Edit,
                                 contentDescription = "Edit Icon",
-                                modifier = Modifier.size(14.dp),
+                                modifier = Modifier.size(12.dp),
                                 tint = Color.White
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "EDIT",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
+                                text = "Edit",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
                                 color = Color.White
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.width(12.dp)) // spacing between buttons
+                    Spacer(modifier = Modifier.width(8.dp)) // spacing between buttons
 
                     // Delete Button
                     IconButton(
                         onClick = onDeleteClick,
-                        modifier = Modifier.size(36.dp)
+                        modifier = Modifier.size(32.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Delete,

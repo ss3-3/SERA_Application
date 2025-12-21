@@ -8,7 +8,9 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -171,7 +173,10 @@ fun EventFormScreen(
 
         // --- DIALOGS ---
         if (showDatePicker) {
-            val datePickerState = rememberDatePickerState()
+            // Initialize with existing date in edit mode
+            val datePickerState = rememberDatePickerState(
+                initialSelectedDateMillis = eventDateMillis ?: System.currentTimeMillis()
+            )
             DatePickerDialog(
                 onDismissRequest = { showDatePicker = false },
                 confirmButton = {
@@ -197,11 +202,28 @@ fun EventFormScreen(
         }
 
         if (showStartTimePicker) {
-            val timePickerState = rememberTimePickerState()
+            // Initialize with existing time in edit mode
+            val currentCal = Calendar.getInstance()
+            if (initialEventData?.startTimeMillis != null) {
+                currentCal.timeInMillis = initialEventData.startTimeMillis
+            }
+            val timePickerState = rememberTimePickerState(
+                initialHour = currentCal.get(Calendar.HOUR_OF_DAY),
+                initialMinute = currentCal.get(Calendar.MINUTE)
+            )
             AlertDialog(
                 onDismissRequest = { showStartTimePicker = false },
                 title = { Text("Select Start Time") },
-                text = { TimePicker(state = timePickerState, modifier = Modifier.fillMaxWidth()) },
+                text = { 
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 400.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        TimePicker(state = timePickerState, modifier = Modifier.fillMaxWidth())
+                    }
+                },
                 confirmButton = {
                     TextButton(onClick = {
                         val cal = Calendar.getInstance()
@@ -212,16 +234,38 @@ fun EventFormScreen(
                     }) {
                         Text("OK")
                     }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showStartTimePicker = false }) {
+                        Text("Cancel")
+                    }
                 }
             )
         }
 
         if (showEndTimePicker) {
-            val timePickerState = rememberTimePickerState()
+            // Initialize with existing time in edit mode
+            val currentCal = Calendar.getInstance()
+            if (initialEventData?.endTimeMillis != null) {
+                currentCal.timeInMillis = initialEventData.endTimeMillis
+            }
+            val timePickerState = rememberTimePickerState(
+                initialHour = currentCal.get(Calendar.HOUR_OF_DAY),
+                initialMinute = currentCal.get(Calendar.MINUTE)
+            )
             AlertDialog(
                 onDismissRequest = { showEndTimePicker = false },
                 title = { Text("Select End Time") },
-                text = { TimePicker(state = timePickerState, modifier = Modifier.fillMaxWidth()) },
+                text = { 
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 400.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        TimePicker(state = timePickerState, modifier = Modifier.fillMaxWidth())
+                    }
+                },
                 confirmButton = {
                     TextButton(onClick = {
                         val cal = Calendar.getInstance()
@@ -231,6 +275,11 @@ fun EventFormScreen(
                         showEndTimePicker = false
                     }) {
                         Text("OK")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showEndTimePicker = false }) {
+                        Text("Cancel")
                     }
                 }
             )
@@ -332,20 +381,35 @@ fun EventFormScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         FormFieldLabel("Date", isRequired = true)
-                        OutlinedTextField(
-                            value = eventDateText,
-                            onValueChange = {},
-                            readOnly = true,
-                            placeholder = { Text("Select date", fontSize = 14.sp, color = Color.Gray) },
-                            modifier = Modifier.fillMaxWidth().clickable { showDatePicker = true },
-                            shape = RoundedCornerShape(8.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                unfocusedBorderColor = Color(0xFFE0E0E0),
-                                focusedBorderColor = Color(0xFF2196F3)
-                            ),
-                            trailingIcon = { Icon(Icons.Default.CalendarToday, "Select Date") },
-                            singleLine = true
-                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showDatePicker = true }
+                        ) {
+                            OutlinedTextField(
+                                value = eventDateText,
+                                onValueChange = {},
+                                readOnly = true,
+                                enabled = false,
+                                placeholder = { Text("Select date", fontSize = 14.sp, color = Color.Gray) },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    disabledBorderColor = Color(0xFFE0E0E0),
+                                    disabledTextColor = Color.Black,
+                                    disabledPlaceholderColor = Color.Gray,
+                                    disabledTrailingIconColor = Color.Gray
+                                ),
+                                trailingIcon = { 
+                                    Icon(
+                                        Icons.Default.CalendarToday, 
+                                        "Select Date",
+                                        tint = Color(0xFF2196F3)
+                                    ) 
+                                },
+                                singleLine = true
+                            )
+                        }
                     }
 
 //                    Column(modifier = Modifier.weight(1f)) {
@@ -376,38 +440,68 @@ fun EventFormScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         FormFieldLabel("Start Time", isRequired = true)
-                        OutlinedTextField(
-                            value = eventStartTime,
-                            onValueChange = {},
-                            readOnly = true,
-                            placeholder = { Text("Select time", fontSize = 14.sp, color = Color.Gray) },
-                            modifier = Modifier.fillMaxWidth().clickable { showStartTimePicker = true },
-                            shape = RoundedCornerShape(8.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                unfocusedBorderColor = Color(0xFFE0E0E0),
-                                focusedBorderColor = Color(0xFF2196F3)
-                            ),
-                            trailingIcon = { Icon(Icons.Default.AccessTime, "Select Time") },
-                            singleLine = true
-                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showStartTimePicker = true }
+                        ) {
+                            OutlinedTextField(
+                                value = eventStartTime,
+                                onValueChange = {},
+                                readOnly = true,
+                                enabled = false,
+                                placeholder = { Text("Select time", fontSize = 14.sp, color = Color.Gray) },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    disabledBorderColor = Color(0xFFE0E0E0),
+                                    disabledTextColor = Color.Black,
+                                    disabledPlaceholderColor = Color.Gray,
+                                    disabledTrailingIconColor = Color.Gray
+                                ),
+                                trailingIcon = { 
+                                    Icon(
+                                        Icons.Default.AccessTime, 
+                                        "Select Time",
+                                        tint = Color(0xFF2196F3)
+                                    ) 
+                                },
+                                singleLine = true
+                            )
+                        }
                     }
 
                     Column(modifier = Modifier.weight(1f)) {
                         FormFieldLabel("End Time", isRequired = true)
-                        OutlinedTextField(
-                            value = eventEndTime,
-                            onValueChange = {},
-                            readOnly = true,
-                            placeholder = { Text("Select time", fontSize = 14.sp, color = Color.Gray) },
-                            modifier = Modifier.fillMaxWidth().clickable { showEndTimePicker = true },
-                            shape = RoundedCornerShape(8.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                unfocusedBorderColor = Color(0xFFE0E0E0),
-                                focusedBorderColor = Color(0xFF2196F3)
-                            ),
-                            trailingIcon = { Icon(Icons.Default.AccessTime, "Select Time") },
-                            singleLine = true
-                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showEndTimePicker = true }
+                        ) {
+                            OutlinedTextField(
+                                value = eventEndTime,
+                                onValueChange = {},
+                                readOnly = true,
+                                enabled = false,
+                                placeholder = { Text("Select time", fontSize = 14.sp, color = Color.Gray) },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    disabledBorderColor = Color(0xFFE0E0E0),
+                                    disabledTextColor = Color.Black,
+                                    disabledPlaceholderColor = Color.Gray,
+                                    disabledTrailingIconColor = Color.Gray
+                                ),
+                                trailingIcon = { 
+                                    Icon(
+                                        Icons.Default.AccessTime, 
+                                        "Select Time",
+                                        tint = Color(0xFF2196F3)
+                                    ) 
+                                },
+                                singleLine = true
+                            )
+                        }
                     }
                 }
             }

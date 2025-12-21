@@ -508,7 +508,7 @@ fun MainNavGraph(
                     navController.navigate(Screen.PaymentHistory.route)
                 },
                 onReservationManagement = {
-                    navController.navigate(Screen.OrganizerPaymentManagement.route)
+                    navController.navigate(Screen.ReservationManagement.route)
                 },
                 onPaymentHistoryOrganizer = {
                     navController.navigate(Screen.OrganizerPaymentManagement.route)

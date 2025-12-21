@@ -34,7 +34,7 @@ import com.example.sera_application.presentation.navigation.Screen
  * - ADMIN: No bottom navigation bar (returns empty)
  */
 @Composable
-fun bottomNavigationBar(
+fun BottomNavigationBar(
     navController: NavController,
     currentRoute: String?,
     userRole: UserRole?

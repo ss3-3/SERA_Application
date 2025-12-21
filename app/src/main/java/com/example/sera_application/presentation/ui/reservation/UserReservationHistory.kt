@@ -11,7 +11,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -74,6 +77,7 @@ fun MyReservationScreen(
     var reservationToCancel by remember { mutableStateOf<ReservationUiModel?>(null) }
     
     val currentUser by profileViewModel.user.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     // Load current user on first composition
     LaunchedEffect(Unit) {
@@ -89,6 +93,31 @@ fun MyReservationScreen(
 
     val reservationDetailsList by viewModel.reservations.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val isCancelling by viewModel.isCancelling.collectAsState()
+    val cancelError by viewModel.error.collectAsState()
+    val cancelSuccess by viewModel.cancelSuccess.collectAsState()
+
+    // Show error snackbar
+    LaunchedEffect(cancelError) {
+        cancelError?.let { error ->
+            snackbarHostState.showSnackbar(
+                message = error,
+                duration = SnackbarDuration.Long
+            )
+            viewModel.clearError()
+        }
+    }
+
+    // Show success snackbar
+    LaunchedEffect(cancelSuccess) {
+        cancelSuccess?.let { message ->
+            snackbarHostState.showSnackbar(
+                message = message,
+                duration = SnackbarDuration.Long
+            )
+            viewModel.clearSuccess()
+        }
+    }
 
     // Map domain model to UI model
     val allReservations = remember(reservationDetailsList) {
@@ -148,41 +177,33 @@ fun MyReservationScreen(
                 )
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         modifier = modifier.fillMaxSize()
     ) { padding ->
         if (showCancelDialog && reservationToCancel != null) {
-            AlertDialog(
-                onDismissRequest = { showCancelDialog = false },
-                title = { Text("Cancel Reservation") },
-                text = { Text("Are you sure you want to cancel this reservation? This will initiate the refund request process.") },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            reservationToCancel?.let { onCancelReservation(it) }
-                            showCancelDialog = false
-                        },
-                        colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFE53935))
-                    ) {
-                        Text("Confirm")
+            EnhancedCancelDialog(
+                reservation = reservationToCancel!!,
+                isCancelling = isCancelling,
+                onDismiss = { showCancelDialog = false },
+                onConfirm = {
+                    currentUser?.userId?.let { userId ->
+                        viewModel.cancelReservation(reservationToCancel!!.reservationId, userId)
                     }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showCancelDialog = false }) {
-                        Text("No")
-                    }
+                    showCancelDialog = false
                 }
             )
         }
 
-        // Using a single LazyColumn to avoid nesting scrollable components
-        LazyColumn(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .background(Color(0xFFF4F4F4)),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(bottom = 16.dp)
-        ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Using a single LazyColumn to avoid nesting scrollable components
+            LazyColumn(
+                modifier = Modifier
+                    .padding(padding)
+                    .fillMaxSize()
+                    .background(Color(0xFFF4F4F4)),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(bottom = 16.dp)
+            ) {
             // Header / Tabs section
             item {
                 ReservationTabs(
@@ -219,6 +240,39 @@ fun MyReservationScreen(
                                 showCancelDialog = true
                             }
                         )
+                    }
+                }
+            }
+        }
+
+            // Loading overlay during cancellation
+            if (isCancelling) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.3f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color.White,
+                        shadowElevation = 8.dp
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(24.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 3.dp
+                            )
+                            Text(
+                                "Cancelling reservation...",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
                 }
             }
@@ -391,6 +445,190 @@ private fun StatusChip(status: ReservationStatus) {
             fontWeight = FontWeight.SemiBold
         )
     }
+}
+
+@Composable
+private fun EnhancedCancelDialog(
+    reservation: ReservationUiModel,
+    isCancelling: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = { if (!isCancelling) onDismiss() },
+        icon = {
+            Surface(
+                shape = CircleShape,
+                color = Color(0xFFFFF1F1),
+                modifier = Modifier.padding(8.dp)
+            ) {
+                Text(
+                    text = "⚠️",
+                    fontSize = 32.sp,
+                    modifier = Modifier.padding(12.dp)
+                )
+            }
+        },
+        title = {
+            Text(
+                "Cancel Reservation?",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1C1B1F)
+            )
+        },
+        text = {
+            // Make dialog content scrollable for landscape mode
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 400.dp) // Limit height for landscape
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Reservation Details
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFF5F5F5),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                "Event:",
+                                fontSize = 13.sp,
+                                color = Color(0xFF666666),
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                reservation.eventName,
+                                fontSize = 13.sp,
+                                color = Color(0xFF1C1B1F),
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, false)
+                            )
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                "Date:",
+                                fontSize = 13.sp,
+                                color = Color(0xFF666666),
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                reservation.date,
+                                fontSize = 13.sp,
+                                color = Color(0xFF1C1B1F)
+                            )
+                        }
+                    }
+                }
+
+                // Warning Message
+                Text(
+                    "Are you sure you want to cancel this reservation?",
+                    fontSize = 14.sp,
+                    color = Color(0xFF1C1B1F),
+                    lineHeight = 20.sp
+                )
+
+                // Refund Information
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFFE3F2FD),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            "ℹ️",
+                            fontSize = 16.sp
+                        )
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                "Refund Information",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF1565C0)
+                            )
+                            Text(
+                                "Your refund will be processed within 3-5 business days to your original payment method.",
+                                fontSize = 11.sp,
+                                color = Color(0xFF424242),
+                                lineHeight = 16.sp
+                            )
+                        }
+                    }
+                }
+
+                if (reservation.paymentId != null) {
+                    Text(
+                        "Payment ID: ${reservation.paymentId}",
+                        fontSize = 11.sp,
+                        color = Color(0xFF888888),
+                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                enabled = !isCancelling,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFE53935),
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.height(42.dp)
+            ) {
+                if (isCancelling) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                Text(
+                    if (isCancelling) "Cancelling..." else "Yes, Cancel",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = onDismiss,
+                enabled = !isCancelling,
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.height(42.dp)
+            ) {
+                Text(
+                    "Keep Reservation",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        },
+        shape = RoundedCornerShape(20.dp),
+        containerColor = Color.White
+    )
 }
 
 @Preview(showBackground = true)

@@ -45,7 +45,7 @@ import com.example.sera_application.presentation.viewmodel.payment.PaymentScreen
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import com.example.sera_application.utils.bottomNavigationBar
+import com.example.sera_application.utils.BottomNavigationBar
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.sera_application.presentation.viewmodel.user.ProfileViewModel
 import com.example.sera_application.domain.model.enums.UserRole
@@ -462,7 +462,7 @@ fun PaymentScreen(
         },
         bottomBar = {
             navController?.let { nav ->
-                bottomNavigationBar(
+                BottomNavigationBar(
                     navController = nav,
                     currentRoute = nav.currentBackStackEntry?.destination?.route,
                     userRole = currentUser?.role ?: UserRole.PARTICIPANT
@@ -784,7 +784,7 @@ fun PaymentMethodCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Image(
-                painter = painterResource(id = icon),
+                painter = painterResource(R.drawable.paypal),
                 contentDescription = title,
                 modifier = Modifier.size(36.dp),
                 alpha = if (enabled) 1f else 0.5f
@@ -845,7 +845,10 @@ fun PaymentDetailsDialog(
         },
         text = {
             Column(
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 400.dp) // Limit height for landscape
+                    .verticalScroll(rememberScrollState())
             ) {
                 OutlinedTextField(
                     value = email,

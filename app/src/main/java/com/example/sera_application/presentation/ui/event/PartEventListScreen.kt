@@ -81,7 +81,7 @@ import com.example.sera_application.presentation.ui.components.SafeImageLoader
 import com.example.sera_application.utils.permissions.rememberNotificationPermissionState
 import android.widget.Toast
 import android.os.Build
-import com.example.sera_application.utils.bottomNavigationBar
+import com.example.sera_application.utils.BottomNavigationBar
 import com.example.sera_application.domain.model.enums.UserRole
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.sera_application.presentation.viewmodel.user.ProfileViewModel
@@ -328,7 +328,7 @@ fun EventListScreen(
         },
         bottomBar = {
             navController?.let { nav ->
-                bottomNavigationBar(
+                BottomNavigationBar(
                     navController = nav,
                     currentRoute = nav.currentBackStackEntry?.destination?.route,
                     userRole = currentUser?.role ?: UserRole.PARTICIPANT
