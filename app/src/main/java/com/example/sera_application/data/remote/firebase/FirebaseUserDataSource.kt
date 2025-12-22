@@ -53,8 +53,27 @@ class FirebaseUserDataSource(
     }
 
     override suspend fun getAllUsers(): List<User> {
-        val snapshot = usersRef.get().await()
-        return snapshot.documents.mapNotNull { it.toUser() }
+        return try {
+            Log.d("FirebaseUserDataSource", "=== Getting all users from Firebase ===")
+            val snapshot = usersRef.get().await()
+            Log.d("FirebaseUserDataSource", "Firebase returned ${snapshot.documents.size} user documents")
+            
+            val users = snapshot.documents.mapNotNull { doc ->
+                val user = doc.toUser()
+                if (user != null) {
+                    Log.d("FirebaseUserDataSource", "Mapped user: ${user.userId}, ${user.email}, role=${user.role}")
+                } else {
+                    Log.w("FirebaseUserDataSource", "Failed to map document: ${doc.id}")
+                }
+                user
+            }
+            
+            Log.d("FirebaseUserDataSource", "Successfully mapped ${users.size} users")
+            users
+        } catch (e: Exception) {
+            Log.e("FirebaseUserDataSource", "Error getting all users from Firebase: ${e.message}", e)
+            emptyList()
+        }
     }
 
     override suspend fun getPendingOrganizers(): List<User> {

@@ -209,9 +209,33 @@ class PaymentRepositoryImpl @Inject constructor(
 
     override suspend fun getTotalRevenueByEvents(eventIds: List<String>): Double {
         return try {
+            // First, fetch payments for these events from Firebase to ensure local DB is synced
+            val allPayments = mutableListOf<Payment>()
+            eventIds.forEach { eventId ->
+                try {
+                    val eventPayments = paymentRemoteDataSource.getPaymentsByEvent(eventId)
+                    allPayments.addAll(eventPayments)
+                } catch (e: Exception) {
+                    android.util.Log.e("PaymentRepositoryImpl", "Error fetching payments for event $eventId: ${e.message}", e)
+                }
+            }
+            
+            // Sync to local database
+            if (allPayments.isNotEmpty()) {
+                paymentDao.insertPayments(mapper.toEntityList(allPayments))
+                android.util.Log.d("PaymentRepositoryImpl", "Synced ${allPayments.size} payments to local DB for ${eventIds.size} events")
+            }
+            
+            // Return revenue from local DB (now synced with Firebase)
             paymentDao.getTotalRevenueByEvents(eventIds) ?: 0.0
         } catch (e: Exception) {
-            0.0
+            android.util.Log.e("PaymentRepositoryImpl", "Error getting total revenue by events: ${e.message}", e)
+            // Fallback to local count if Firebase fetch fails
+            try {
+                paymentDao.getTotalRevenueByEvents(eventIds) ?: 0.0
+            } catch (localException: Exception) {
+                0.0
+            }
         }
     }
 
@@ -290,10 +314,34 @@ class PaymentRepositoryImpl @Inject constructor(
 
     override suspend fun getRevenueTrend(days: Int, startDate: Long): List<Double> {
         return try {
-            val trendEntities = paymentDao.getRevenueTrend(days, startDate)
+            // First, fetch payments from Firebase for the date range to ensure local DB is synced
+            val endDate = System.currentTimeMillis()
+            val remotePayments = paymentRemoteDataSource.getPaymentsByDateRange(startDate, endDate)
+            
+            android.util.Log.d("PaymentRepositoryImpl", "Fetched ${remotePayments.size} payments from Firebase for revenue trend (days=$days, startDate=$startDate)")
+            
+            // Sync to local database
+            if (remotePayments.isNotEmpty()) {
+                paymentDao.insertPayments(mapper.toEntityList(remotePayments))
+                android.util.Log.d("PaymentRepositoryImpl", "Synced ${remotePayments.size} payments to local DB")
+            }
+            
+            // Query local database for revenue trend (now synced with Firebase)
+            val trendEntities = paymentDao.getRevenueTrend(startDate)
+            
+            android.util.Log.d("PaymentRepositoryImpl", "Revenue trend query returned ${trendEntities.size} data points")
+            
             trendEntities.map { it.revenue }
         } catch (e: Exception) {
-            emptyList()
+            android.util.Log.e("PaymentRepositoryImpl", "Error getting revenue trend: ${e.message}", e)
+            // Fallback to local count if Firebase fetch fails
+            try {
+                val trendEntities = paymentDao.getRevenueTrend(startDate)
+                trendEntities.map { it.revenue }
+            } catch (localException: Exception) {
+                android.util.Log.e("PaymentRepositoryImpl", "Error getting revenue trend from local DB: ${localException.message}", localException)
+                emptyList()
+            }
         }
     }
 

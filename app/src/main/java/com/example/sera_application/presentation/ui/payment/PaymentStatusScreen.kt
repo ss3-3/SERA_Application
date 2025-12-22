@@ -32,6 +32,7 @@ import java.util.Locale
 import com.example.sera_application.utils.BottomNavigationBar
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.sera_application.presentation.viewmodel.user.ProfileViewModel
+import com.example.sera_application.presentation.viewmodel.reservation.ReservationDetailsViewModel
 import com.example.sera_application.domain.model.enums.UserRole
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -64,15 +65,26 @@ fun PaymentStatusScreen(
     onProfileClick: () -> Unit,
     navController: NavController? = null
 ) {
-    // For now, redirecting to Success screen with the provided paymentId
-    // In a real app, you might fetch status from a ViewModel
+    // Check if this is a free reservation by fetching the reservation
+    val reservationViewModel: ReservationDetailsViewModel = hiltViewModel()
+    val reservationState by reservationViewModel.uiState.collectAsState()
+    
+    // Load reservation to check if it's free
+    LaunchedEffect(paymentId) {
+        reservationViewModel.loadReservation(paymentId)
+    }
+    
+    val reservation = reservationState.reservation
+    val isFreeReservation = reservation?.totalPrice == 0.0
+    
     PaymentSuccessScreen(
         transactionId = paymentId,
-        amount = 70.0, // Default for mock
+        amount = reservation?.totalPrice ?: 0.0,
+        reservationId = if (isFreeReservation) paymentId else null,
+        isFreeReservation = isFreeReservation,
         onHomeClick = onBackToHome,
         onProfileClick = onProfileClick,
         navController = navController,
-        reservationId = null,
         onViewReceipt = {
             onViewReceipt(paymentId)
         }
@@ -148,6 +160,7 @@ class PaymentStatusActivity : ComponentActivity() {
                         transactionId = transactionId,
                         amount = amount,
                         reservationId = reservationId,
+                        isFreeReservation = amount == 0.0, // Check if free based on amount
                         onViewReceipt = {
                             // Navigate to ReceiptActivity (receipt screen)
                             val intent = Intent(this@PaymentStatusActivity, com.example.sera_application.presentation.ui.payment.ReceiptActivity::class.java).apply {
@@ -167,7 +180,8 @@ class PaymentStatusActivity : ComponentActivity() {
                                 putExtra("DESTINATION", "profile")
                             }
                             startActivity(intent)
-                        }
+                        },
+                        navController = null // Activity doesn't have navController
                     )
                 } else {
                     PaymentFailScreen(
@@ -310,6 +324,7 @@ fun PaymentSuccessScreen(
     transactionId: String,
     amount: Double,
     reservationId: String? = null,
+    isFreeReservation: Boolean = false,
     onViewReceipt: () -> Unit,
     onHomeClick: () -> Unit,
     onProfileClick: () -> Unit,
@@ -373,7 +388,7 @@ fun PaymentSuccessScreen(
 
 
             Text(
-                text = "Payment",
+                text = if (isFreeReservation) "Reservation" else "Payment",
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.Black
@@ -390,7 +405,10 @@ fun PaymentSuccessScreen(
 
 
             Text(
-                text = "Your payment has been processed successfully.",
+                text = if (isFreeReservation) 
+                    "Your reservation has been confirmed successfully." 
+                else 
+                    "Your payment has been processed successfully.",
                 fontSize = 16.sp,
                 color = Color.Gray,
                 modifier = Modifier.padding(horizontal = 16.dp),
@@ -410,21 +428,25 @@ fun PaymentSuccessScreen(
                 Column(
                     modifier = Modifier.padding(20.dp)
                 ) {
-                    TransactionDetailRow("Transaction ID", transactionId)
+                    TransactionDetailRow(
+                        if (isFreeReservation) "Reservation ID" else "Transaction ID", 
+                        transactionId
+                    )
                     Spacer(modifier = Modifier.height(16.dp))
 
+                    if (!isFreeReservation) {
+                        TransactionDetailRow("Amount Paid", "RM${String.format(Locale.US, "%.2f", amount)}")
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                    TransactionDetailRow("Amount Paid", "RM${String.format(Locale.US, "%.2f", amount)}")
-                    Spacer(modifier = Modifier.height(16.dp))
-
-
-                    TransactionDetailRow("Payment Method", "PayPal")
-                    Spacer(modifier = Modifier.height(16.dp))
-
+                        TransactionDetailRow("Payment Method", "PayPal")
+                        Spacer(modifier = Modifier.height(16.dp))
+                    } else {
+                        TransactionDetailRow("Amount", "Free")
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
 
                     TransactionDetailRow("Date", currentDate)
                     Spacer(modifier = Modifier.height(16.dp))
-
 
                     TransactionDetailRow("Time", currentTime)
                 }
@@ -433,28 +455,56 @@ fun PaymentSuccessScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
+            // Only show receipt button for paid reservations
+            if (!isFreeReservation) {
+                Button(
+                    onClick = {
+                        // Always generate and open PDF, never navigate to receipt screen
+                        onViewReceipt()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(60.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF5B9FED)
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        text = "View Receipt",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
 
-            Button(
-                onClick = {
-                    // Always generate and open PDF, never navigate to receipt screen
-                    onViewReceipt()
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(60.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF5B9FED)
-                ),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Text(
-                    text = "View Receipt",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
+                Spacer(modifier = Modifier.height(16.dp))
             }
 
+            // Show "View Detail" button only for free reservations
+            if (isFreeReservation && reservationId != null && navController != null) {
+                Button(
+                    onClick = {
+                        navController.navigate("user_reservation_detail/$reservationId")
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(60.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF5B9FED)
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        text = "View Detail",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
         }

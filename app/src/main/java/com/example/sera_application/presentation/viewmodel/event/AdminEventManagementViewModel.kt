@@ -52,14 +52,24 @@ class AdminEventManagementViewModel @Inject constructor(
 
             try {
                 val events = getEventListUseCase()
+                val today = System.currentTimeMillis()
+                
                 val adminModels = events.map { event ->
+                    // Determine display status: if event date has passed, show as COMPLETED
+                    // Exception: CANCELLED events remain CANCELLED even if date passed
+                    val displayStatus = if (event.date < today && event.status != EventStatus.CANCELLED) {
+                        EventStatus.COMPLETED
+                    } else {
+                        event.status
+                    }
+                    
                     AdminEventModel(
                         id = event.eventId,
                         name = event.name,
                         date = event.date,
                         startTime = event.startTime,
                         endTime = event.endTime,
-                        status = event.status,
+                        status = displayStatus, // Use calculated display status
                         bannerUrl = event.imagePath
                     )
                 }

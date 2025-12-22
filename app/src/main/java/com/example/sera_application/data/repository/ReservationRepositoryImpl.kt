@@ -161,9 +161,23 @@ class ReservationRepositoryImpl @Inject constructor(
 
     override suspend fun getUniqueParticipantsCount(): Int {
         return try {
+            // First, fetch all reservations from Firebase to ensure local DB is synced
+            val remoteReservations = remoteDataSource.getAllReservations()
+            
+            // Sync to local database
+            if (remoteReservations.isNotEmpty()) {
+                reservationDao.insertReservations(mapper.toEntityList(remoteReservations))
+            }
+            
+            // Return count from local DB (now synced with Firebase)
             reservationDao.getUniqueParticipantsCount()
         } catch (e: Exception) {
-            0
+            // Fallback to local count if Firebase fetch fails
+            try {
+                reservationDao.getUniqueParticipantsCount()
+            } catch (localException: Exception) {
+                0
+            }
         }
     }
 
@@ -177,9 +191,23 @@ class ReservationRepositoryImpl @Inject constructor(
 
     override suspend fun getParticipantsByEvent(eventId: String): Int {
         return try {
+            // First, fetch reservations for this event from Firebase to ensure local DB is synced
+            val remoteReservations = remoteDataSource.getReservationsByEvent(eventId)
+            
+            // Sync to local database
+            if (remoteReservations.isNotEmpty()) {
+                reservationDao.insertReservations(mapper.toEntityList(remoteReservations))
+            }
+            
+            // Return count from local DB (now synced with Firebase)
             reservationDao.getParticipantsByEvent(eventId)
         } catch (e: Exception) {
-            0
+            // Fallback to local count if Firebase fetch fails
+            try {
+                reservationDao.getParticipantsByEvent(eventId)
+            } catch (localException: Exception) {
+                0
+            }
         }
     }
 

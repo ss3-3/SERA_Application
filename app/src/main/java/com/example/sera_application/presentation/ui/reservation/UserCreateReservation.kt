@@ -1,7 +1,9 @@
 package com.example.sera_application.presentation.ui.reservation
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -24,13 +26,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -54,7 +59,7 @@ fun CreateReservationScreen(
     modifier: Modifier = Modifier,
     eventId: String,
     onBack: () -> Unit = {},
-    onReservationConfirmed: (String) -> Unit = {},
+    onReservationConfirmed: (String, Boolean) -> Unit = { _, _ -> },
     viewModel: com.example.sera_application.presentation.viewmodel.reservation.ReservationFormViewModel = androidx.hilt.navigation.compose.hiltViewModel()
 ) {
     LaunchedEffect(eventId) {
@@ -66,11 +71,12 @@ fun CreateReservationScreen(
     val isLoading = uiState.isLoading
     val error = uiState.error
 
-    LaunchedEffect(uiState.isSuccess, uiState.reservationId) {
+    LaunchedEffect(uiState.isSuccess, uiState.reservationId, uiState.isFreeEvent) {
         if (uiState.isSuccess && uiState.reservationId != null) {
             val reservationId = uiState.reservationId!!
+            val isFree = uiState.isFreeEvent
             viewModel.clearSuccessState()
-            onReservationConfirmed(reservationId)
+            onReservationConfirmed(reservationId, isFree)
         }
     }
 
@@ -115,12 +121,22 @@ fun CreateReservationScreen(
             quantities = selectedQuantities
         )
     }
+    val configuration = LocalConfiguration.current
+    val screenHeight = configuration.screenHeightDp.dp
+    val bannerHeight = 250.dp
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color.White)
-    ) {
+    // Draggable offset state
+    var offsetY by remember { mutableFloatStateOf(bannerHeight.value) }
+    val maxDragUp = (bannerHeight.value / 2)
+    val minDragDown = screenHeight.value - 100.dp.value
+
+    // Animated offset for smooth transitions
+    val animatedOffsetY by animateFloatAsState(
+        targetValue = offsetY,
+        label = "cardOffset"
+    )
+
+    Box(modifier = modifier.fillMaxSize()) {
         // Banner Section
         Box(
             modifier = Modifier
@@ -146,33 +162,45 @@ fun CreateReservationScreen(
                 )
             }
         }
-        //Content
-        Column(
+        // Draggable Card
+        Box(
             modifier = Modifier
-                .weight(1f)
                 .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .background(Color.White)
+                .fillMaxHeight()
+                .align(Alignment.TopStart)
+                .offset(y = animatedOffsetY.dp)
         ) {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 0.dp),
+                    .fillMaxHeight(),
                 shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                colors = CardDefaults.cardColors(containerColor = Color.White)
             ) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp)
-                        .padding(top = 20.dp, bottom = 24.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    modifier = Modifier.fillMaxSize()
                 ) {
+                    // Drag Handle
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 8.dp),
+                            .padding(vertical = 12.dp)
+                            .pointerInput(Unit) {
+                                detectVerticalDragGestures(
+                                    onDragEnd = {
+                                        val midPoint = (maxDragUp + minDragDown) / 2
+                                        offsetY = if (offsetY < midPoint) {
+                                            maxDragUp
+                                        } else {
+                                            minDragDown
+                                        }
+                                    },
+                                    onVerticalDrag = { _, dragAmount ->
+                                        val newOffset = offsetY + dragAmount
+                                        offsetY = newOffset.coerceIn(maxDragUp, minDragDown)
+                                    }
+                                )
+                            },
                         contentAlignment = Alignment.Center
                     ) {
                         Surface(
@@ -184,113 +212,127 @@ fun CreateReservationScreen(
                         ) {}
                     }
 
-                    // Event Name and Status
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                    // Scrollable Content
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 20.dp)
+                            .padding(bottom = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Text(
-                            text = eventName,
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.weight(1f)
-                        )
-                        if (eventStatusLabel != null) {
-                            StatusChip(
-                                label = eventStatusLabel,
-                                color = eventStatusColor
+                        // Event Name and Status
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = eventName,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.weight(1f)
                             )
+                            if (eventStatusLabel != null) {
+                                StatusChip(
+                                    label = eventStatusLabel,
+                                    color = eventStatusColor
+                                )
+                            }
                         }
-                    }
 
-                    // Date and Time
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Default.DateRange,
-                            contentDescription = null,
-                            tint = Color.Gray,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("$eventDate $eventTime", color = Color.Gray, fontSize = 14.sp)
-                    }
+                        // Date and Time
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.DateRange,
+                                contentDescription = null,
+                                tint = Color.Gray,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("$eventDate $eventTime", color = Color.Gray, fontSize = 14.sp)
+                        }
 
-                    // Location
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Default.LocationOn,
-                            contentDescription = null,
-                            tint = Color.Gray,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(venue, color = Color.Gray, fontSize = 14.sp)
-                    }
+                        // Location
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.LocationOn,
+                                contentDescription = null,
+                                tint = Color.Gray,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(venue, color = Color.Gray, fontSize = 14.sp)
+                        }
 
-                    // Description
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Description", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-                        Text(description, color = Color(0xFF666666), fontSize = 14.sp)
-                    }
+                        // Description
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Description", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                            Text(description, color = Color(0xFF666666), fontSize = 14.sp)
+                        }
 
-                    // Ticket Selection
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("Ticket Selection", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-                        zones.forEach { zone ->
-                            TicketRow(
-                                zone = zone,
-                                quantity = quantities[zone.name] ?: 0,
-                                onIncrement = {
-                                    val current = quantities[zone.name] ?: 0
-                                    if (current < zone.available) {
-                                        quantities = quantities.toMutableMap().apply {
-                                            this[zone.name] = current + 1
+                        // Ticket Selection
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text(
+                                "Ticket Selection",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 15.sp
+                            )
+                            zones.forEach { zone ->
+                                TicketRow(
+                                    zone = zone,
+                                    quantity = quantities[zone.name] ?: 0,
+                                    onIncrement = {
+                                        val current = quantities[zone.name] ?: 0
+                                        if (current < zone.available) {
+                                            quantities = quantities.toMutableMap().apply {
+                                                this[zone.name] = current + 1
+                                            }
+                                        }
+                                    },
+                                    onDecrement = {
+                                        val current = quantities[zone.name] ?: 0
+                                        if (current > 0) {
+                                            quantities = quantities.toMutableMap().apply {
+                                                this[zone.name] = current - 1
+                                            }
                                         }
                                     }
-                                },
-                                onDecrement = {
-                                    val current = quantities[zone.name] ?: 0
-                                    if (current > 0) {
-                                        quantities = quantities.toMutableMap().apply {
-                                            this[zone.name] = current - 1
-                                        }
-                                    }
-                                }
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        val totalSelected = quantities.values.sum()
+                        Button(
+                            onClick = { onPurchase(quantities) },
+                            enabled = !isLoading && totalSelected > 0,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
+                                .height(52.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF1F7AE0)
                             )
+                        ) {
+                            if (isLoading) {
+                                androidx.compose.material3.CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    color = Color.White,
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Text(
+                                    text = "Purchase",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
-                    Spacer(modifier = Modifier.height(20.dp))
                 }
-            }
-        }
-
-        // Purchase Button
-        val totalSelected = quantities.values.sum()
-        Button(
-            onClick = { onPurchase(quantities) },
-            enabled = !isLoading && totalSelected > 0,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-                .height(52.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF1F7AE0)
-            )
-        ) {
-            if (isLoading) {
-                androidx.compose.material3.CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
-                    color = Color.White,
-                    strokeWidth = 2.dp
-                )
-            } else {
-                Text(
-                    text = "Purchase",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
             }
         }
     }

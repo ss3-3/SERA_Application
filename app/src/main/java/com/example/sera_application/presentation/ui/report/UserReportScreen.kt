@@ -47,7 +47,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight.Companion.Bold
 import androidx.compose.ui.text.font.FontWeight.Companion.Normal
 import androidx.compose.ui.text.font.FontWeight.Companion.SemiBold
@@ -68,50 +67,111 @@ import com.patrykandpatryk.vico.core.entry.entryModelOf
 import kotlin.text.removePrefix
 import kotlin.text.startsWith
 import com.example.sera_application.presentation.viewmodel.report.*
-import com.google.common.math.LinearTransformation.horizontal
+import com.example.sera_application.utils.DateUtils
+import com.example.sera_application.domain.usecase.report.ReportConstants
+import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MonthDropdownSelector() {
-    val months = listOf(
-        "January 2025", "February 2025", "March 2025",
-        "April 2025", "May 2025", "June 2025",
-        "July 2025", "August 2025", "September 2025",
-        "October 2025", "November 2025", "December 2025"
-    )
-    var selectedMonth by remember { mutableStateOf(months[9]) }
-    var expanded by remember { mutableStateOf(false) }
-
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = !expanded },
-        modifier = Modifier.padding(horizontal = 16.dp)
+fun YearMonthSelector(
+    selectedMonth: String,
+    onMonthSelected: (String) -> Unit
+) {
+    // Parse current selection to get year and month
+    val parts = selectedMonth.split(" ")
+    val currentMonthName = if (parts.size >= 1) parts[0] else ""
+    val currentYear = if (parts.size >= 2) parts[1].toIntOrNull() ?: DateUtils.getCurrentYear() else DateUtils.getCurrentYear()
+    
+    var selectedYear by remember { mutableStateOf(currentYear) }
+    var selectedMonthIndex by remember { mutableStateOf(DateUtils.monthNames.indexOf(currentMonthName).takeIf { it >= 0 } ?: Calendar.getInstance().get(Calendar.MONTH)) }
+    
+    var yearExpanded by remember { mutableStateOf(false) }
+    var monthExpanded by remember { mutableStateOf(false) }
+    
+    val years = DateUtils.getYearList(5) // Show current year and 5 previous years
+    val months = DateUtils.monthNames
+    
+    // Update selectedMonth when year or month changes
+    LaunchedEffect(selectedYear, selectedMonthIndex) {
+        if (selectedMonthIndex >= 0 && selectedMonthIndex < months.size) {
+            val newMonthString = "${months[selectedMonthIndex]} $selectedYear"
+            onMonthSelected(newMonthString)
+        }
+    }
+    
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        OutlinedTextField(
-            value = selectedMonth,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text("Select Month") },
-            trailingIcon = {
-                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-            },
-            modifier = Modifier
-                .menuAnchor()
-                .fillMaxWidth()
-        )
-
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
+        // Year Selector
+        ExposedDropdownMenuBox(
+            expanded = yearExpanded,
+            onExpandedChange = { yearExpanded = !yearExpanded },
+            modifier = Modifier.weight(1f)
         ) {
-            months.forEach { month ->
-                DropdownMenuItem(
-                    text = { Text(month) },
-                    onClick = {
-                        selectedMonth = month
-                        expanded = false
-                    }
-                )
+            OutlinedTextField(
+                value = selectedYear.toString(),
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Year") },
+                trailingIcon = {
+                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = yearExpanded)
+                },
+                modifier = Modifier
+                    .menuAnchor()
+                    .fillMaxWidth()
+            )
+
+            ExposedDropdownMenu(
+                expanded = yearExpanded,
+                onDismissRequest = { yearExpanded = false }
+            ) {
+                years.forEach { year ->
+                    DropdownMenuItem(
+                        text = { Text(year.toString()) },
+                        onClick = {
+                            selectedYear = year
+                            yearExpanded = false
+                        }
+                    )
+                }
+            }
+        }
+        
+        // Month Selector
+        ExposedDropdownMenuBox(
+            expanded = monthExpanded,
+            onExpandedChange = { monthExpanded = !monthExpanded },
+            modifier = Modifier.weight(1f)
+        ) {
+            OutlinedTextField(
+                value = if (selectedMonthIndex >= 0 && selectedMonthIndex < months.size) months[selectedMonthIndex] else "",
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Month") },
+                trailingIcon = {
+                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = monthExpanded)
+                },
+                modifier = Modifier
+                    .menuAnchor()
+                    .fillMaxWidth()
+            )
+
+            ExposedDropdownMenu(
+                expanded = monthExpanded,
+                onDismissRequest = { monthExpanded = false }
+            ) {
+                months.forEachIndexed { index, month ->
+                    DropdownMenuItem(
+                        text = { Text(month) },
+                        onClick = {
+                            selectedMonthIndex = index
+                            monthExpanded = false
+                        }
+                    )
+                }
             }
         }
     }
@@ -391,13 +451,13 @@ fun TopParticipantItem(
             ) {
                 when (participant.rank) {
                     1 -> {
-                        Text(text = "🥇", fontSize = 20.sp)
+                        Text(text = ReportConstants.RANK_1_EMOJI, fontSize = 20.sp)
                     }
                     2 -> {
-                        Text(text = "🥈", fontSize = 20.sp)
+                        Text(text = ReportConstants.RANK_2_EMOJI, fontSize = 20.sp)
                     }
                     3 -> {
-                        Text(text = "🥉", fontSize = 20.sp)
+                        Text(text = ReportConstants.RANK_3_EMOJI, fontSize = 20.sp)
                     }
                     else -> {
                         Text(text = participant.rank.toString(), fontSize = 20.sp, fontWeight = Bold)
@@ -595,8 +655,10 @@ fun UserReportScreen(
     val averageEventsPerUser by viewModel.averageEventsPerUser.collectAsState()
     val totalBookings by viewModel.totalBookings.collectAsState()
 
-    LaunchedEffect(Unit) {
-        viewModel.loadUserData() // Load data when screen is first displayed
+    var selectedMonth by remember { mutableStateOf(DateUtils.getCurrentMonthString()) }
+
+    LaunchedEffect(selectedMonth) {
+        viewModel.loadUserData(selectedMonth) // Load data when month changes
     }
 
     LazyColumn(
@@ -625,7 +687,12 @@ fun UserReportScreen(
                         color = Color(0xFF1E293B),
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
-                    MonthDropdownSelector()
+                    YearMonthSelector(
+                        selectedMonth = selectedMonth,
+                        onMonthSelected = { month ->
+                            selectedMonth = month
+                        }
+                    )
                 }
             }
         }
@@ -670,13 +737,17 @@ fun UserReportScreen(
 
         item {
             FilterButtonRow(
-                options = listOf("7 days", "30 days", "3 months"),
+                options = listOf(
+                    ReportConstants.TREND_PERIOD_7_DAYS,
+                    ReportConstants.TREND_PERIOD_30_DAYS,
+                    ReportConstants.TREND_PERIOD_3_MONTHS
+                ),
                 onOptionSelected = { periodText ->
                     val days = when(periodText) {
-                        "7 days" -> 7
-                        "30 days" -> 30
-                        "3 months" -> 90
-                        else -> 7
+                        ReportConstants.TREND_PERIOD_7_DAYS -> ReportConstants.DAYS_7
+                        ReportConstants.TREND_PERIOD_30_DAYS -> ReportConstants.DAYS_30
+                        ReportConstants.TREND_PERIOD_3_MONTHS -> ReportConstants.DAYS_90
+                        else -> ReportConstants.DEFAULT_TREND_DAYS
                     }
                     viewModel.loadTrendData(days)
                 },

@@ -181,6 +181,59 @@ class FirebasePaymentDataSource(
         }
     }
 
+    override suspend fun getPaymentsByDateRange(startDate: Long, endDate: Long): List<Payment> {
+        return try {
+            android.util.Log.d("FirebasePaymentDataSource", "Querying payments by date range: startDate=$startDate, endDate=$endDate")
+            
+            // Query by date range and status separately to avoid composite index requirement
+            // First get all payments in date range
+            val snapshot = paymentsRef
+                .whereGreaterThanOrEqualTo("createdAt", startDate)
+                .whereLessThanOrEqualTo("createdAt", endDate)
+                .get()
+                .await()
+            
+            android.util.Log.d("FirebasePaymentDataSource", "Found ${snapshot.documents.size} payments in date range")
+            
+            // Filter by SUCCESS status in memory (to avoid composite index requirement)
+            val payments = snapshot.documents.mapNotNull { doc ->
+                try {
+                    val payment = doc.toPayment()
+                    if (payment != null && payment.status.name == "SUCCESS") {
+                        payment
+                    } else {
+                        null
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("FirebasePaymentDataSource", "Error mapping payment: ${e.message}", e)
+                    null
+                }
+            }
+            
+            android.util.Log.d("FirebasePaymentDataSource", "Filtered to ${payments.size} SUCCESS payments")
+            payments
+        } catch (e: Exception) {
+            android.util.Log.e("FirebasePaymentDataSource", "Error getting payments by date range: ${e.message}", e)
+            // If composite query fails, try simpler query without status filter
+            try {
+                android.util.Log.d("FirebasePaymentDataSource", "Retrying with simpler query (date range only)")
+                val snapshot = paymentsRef
+                    .whereGreaterThanOrEqualTo("createdAt", startDate)
+                    .whereLessThanOrEqualTo("createdAt", endDate)
+                    .get()
+                    .await()
+                
+                val allPayments = snapshot.documents.mapNotNull { it.toPayment() }
+                val successPayments = allPayments.filter { it.status.name == "SUCCESS" }
+                android.util.Log.d("FirebasePaymentDataSource", "Retry successful: ${successPayments.size} SUCCESS payments")
+                successPayments
+            } catch (retryException: Exception) {
+                android.util.Log.e("FirebasePaymentDataSource", "Retry also failed: ${retryException.message}", retryException)
+                emptyList()
+            }
+        }
+    }
+
     override suspend fun updatePaymentStatus(paymentId: String, status: String) {
         paymentsRef.document(paymentId)
             .update("status", status)

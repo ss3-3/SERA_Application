@@ -155,9 +155,25 @@ class UserRepositoryImpl @Inject constructor(
     // Add
     override suspend fun getTotalUserCount(): Int {
         return try {
-            userDao.getTotalUserCount()
+            // Fetch all users from Firebase
+            val remoteUsers = remoteDataSource.getAllUsers()
+            
+            // Sync to local database for caching
+            if (remoteUsers.isNotEmpty()) {
+                userDao.insertUsers(mapper.toEntityList(remoteUsers))
+            }
+            
+            // Return actual count from Firebase data (source of truth)
+            remoteUsers.size
         } catch (e: Exception) {
-            0
+            // Fallback to local count if Firebase fetch fails
+            android.util.Log.e("UserRepositoryImpl", "Error getting user count from Firebase: ${e.message}", e)
+            try {
+                userDao.getTotalUserCount()
+            } catch (localException: Exception) {
+                android.util.Log.e("UserRepositoryImpl", "Error getting user count from Room: ${localException.message}", localException)
+                0
+            }
         }
     }
 

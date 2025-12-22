@@ -13,6 +13,8 @@ interface PaymentRemoteDataSource {
     suspend fun getPaymentsByUser(userId: String): List<Payment>
 
     suspend fun getPaymentsByEvent(eventId: String): List<Payment>
+    
+    suspend fun getPaymentsByDateRange(startDate: Long, endDate: Long): List<Payment>
 
     suspend fun updatePaymentStatus(
         paymentId: String,

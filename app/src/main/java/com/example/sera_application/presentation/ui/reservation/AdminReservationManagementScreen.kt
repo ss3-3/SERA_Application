@@ -280,13 +280,14 @@ private fun AdminReservationCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // Actual Reservation ID
                 Text(
-                    text = "Reservation ID",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.Gray
+                    text = reservation.reservationId,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black
                 )
-                
+
                 // Status Badge
                 Surface(
                     shape = RoundedCornerShape(4.dp),
@@ -308,16 +309,6 @@ private fun AdminReservationCard(
                     )
                 }
             }
-
-            Spacer(modifier = Modifier.height(4.dp))
-            
-            // Actual Reservation ID
-            Text(
-                text = reservation.reservationId,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Black
-            )
 
             Spacer(modifier = Modifier.height(4.dp))
 

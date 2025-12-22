@@ -60,9 +60,24 @@ class FirebaseReservationDataSource(
             }
             
             // Create the reservation
-            // Note: Event seat updates are handled separately via UpdateAvailableSeatsUseCase
-            // to avoid permission issues with Firestore security rules
             transaction.set(docRef, reservationToMap(reservationWithId))
+            
+            // Update the available seats (total)
+            val newAvailableSeats = currentAvailableSeats - reservation.seats
+            Log.d("ReservationDataSource", "Updating available seats from $currentAvailableSeats to $newAvailableSeats")
+            
+            // Update zone-specific seats
+            val newRockZoneSeats = currentRockZoneSeats - reservation.rockZoneSeats
+            val newNormalZoneSeats = currentNormalZoneSeats - reservation.normalZoneSeats
+            Log.d("ReservationDataSource", "Updating rockZone from $currentRockZoneSeats to $newRockZoneSeats")
+            Log.d("ReservationDataSource", "Updating normalZone from $currentNormalZoneSeats to $newNormalZoneSeats")
+            
+            // Update all seat counts in one operation
+            transaction.update(eventRef, mapOf(
+                "availableSeats" to newAvailableSeats,
+                "rockZoneSeats" to newRockZoneSeats,
+                "normalZoneSeats" to newNormalZoneSeats
+            ))
             
         }.await()
         
@@ -85,6 +100,8 @@ class FirebaseReservationDataSource(
             // Get reservation details
             val eventId = reservationSnapshot.getString("eventId") ?: throw Exception("Event ID not found")
             val seats = reservationSnapshot.getLong("seats")?.toInt() ?: 0
+            val rockZoneSeats = reservationSnapshot.getLong("rockZoneSeats")?.toInt() ?: 0
+            val normalZoneSeats = reservationSnapshot.getLong("normalZoneSeats")?.toInt() ?: 0
             
             // Get the event document
             val eventRef = firestore.collection("events").document(eventId)
@@ -97,10 +114,26 @@ class FirebaseReservationDataSource(
             // Update reservation status
             transaction.update(reservationRef, "status", com.example.sera_application.domain.model.enums.ReservationStatus.CANCELLED.name)
             
-            // Restore the available seats
+            // Restore the available seats (total)
             val currentAvailableSeats = eventSnapshot.getLong("availableSeats")?.toInt() ?: 0
             val newAvailableSeats = currentAvailableSeats + seats
-            transaction.update(eventRef, "availableSeats", newAvailableSeats)
+            
+            // Restore zone-specific seats
+            val currentRockZone = eventSnapshot.getLong("rockZoneSeats")?.toInt() ?: 0
+            val currentNormalZone = eventSnapshot.getLong("normalZoneSeats")?.toInt() ?: 0
+            val newRockZoneSeats = currentRockZone + rockZoneSeats
+            val newNormalZoneSeats = currentNormalZone + normalZoneSeats
+            
+            Log.d("ReservationDataSource", "Restoring seats - Available: $currentAvailableSeats -> $newAvailableSeats")
+            Log.d("ReservationDataSource", "Restoring rockZone: $currentRockZone -> $newRockZoneSeats")
+            Log.d("ReservationDataSource", "Restoring normalZone: $currentNormalZone -> $newNormalZoneSeats")
+            
+            // Update all seat counts in one operation
+            transaction.update(eventRef, mapOf(
+                "availableSeats" to newAvailableSeats,
+                "rockZoneSeats" to newRockZoneSeats,
+                "normalZoneSeats" to newNormalZoneSeats
+            ))
             
         }.await()
     }

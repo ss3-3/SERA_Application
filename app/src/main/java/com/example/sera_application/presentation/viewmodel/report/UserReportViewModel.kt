@@ -7,6 +7,8 @@ import com.example.sera_application.domain.usecase.report.GetEventParticipationS
 import com.example.sera_application.domain.usecase.report.GetTopParticipantsUseCase
 import com.example.sera_application.domain.usecase.report.GetUserGrowthTrendUseCase
 import com.example.sera_application.domain.usecase.report.GetUserStatsUseCase
+import com.example.sera_application.domain.usecase.report.ReportConstants
+import com.example.sera_application.utils.DateUtils
 import com.patrykandpatryk.vico.core.entry.FloatEntry
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -93,7 +95,7 @@ class UserReportViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            getUserGrowthTrendUseCase(7)
+            getUserGrowthTrendUseCase(ReportConstants.DEFAULT_TREND_DAYS)
                 .catch { exception ->
                     Log.e("UserReportViewModel", "Error loading user growth trend: ${exception.message}", exception)
                     _totalUsersData.value = emptyList()
@@ -150,41 +152,6 @@ class UserReportViewModel @Inject constructor(
     }
 
     private fun getPreviousMonth(currentMonth: String?): String? {
-        if (currentMonth == null) return null
-
-        val months = listOf(
-            "January 2025", "February 2025", "March 2025",
-            "April 2025", "May 2025", "June 2025",
-            "July 2025", "August 2025", "September 2025",
-            "October 2025", "November 2025", "December 2025"
-        )
-
-        val currentIndex = months.indexOf(currentMonth)
-        return if (currentIndex > 0) months[currentIndex - 1] else null
-    }
-
-    // Helper to convert month string to timestamp for stats calculation
-    private fun getMonthTimestamp(month: String?): Long? {
-        if (month == null) return null
-
-        // Extract month and year from string like "October 2025"
-        val parts = month.split(" ")
-        if (parts.size != 2) return null
-
-        val monthName = parts[0]
-        val year = parts[1].toIntOrNull() ?: return null
-
-        val monthMap = mapOf(
-            "January" to 0, "February" to 1, "March" to 2,
-            "April" to 3, "May" to 4, "June" to 5,
-            "July" to 6, "August" to 7, "September" to 8,
-            "October" to 9, "November" to 10, "December" to 11
-        )
-
-        val monthNum = monthMap[monthName] ?: return null
-
-        val calendar = java.util.Calendar.getInstance()
-        calendar.set(year, monthNum, 1, 0, 0, 0)
-        return calendar.timeInMillis
+        return DateUtils.getPreviousMonth(currentMonth)
     }
 }

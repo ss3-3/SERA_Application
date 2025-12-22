@@ -401,10 +401,16 @@ fun PaymentHistoryScreen(
 
             // Summary Card with real data
             val totalPayments = filteredOrders.size
-            val successfulPayments = filteredOrders.count { it.status.contains("Paid", ignoreCase = true) }
+            val successfulPayments = filteredOrders.count { 
+                val statusUpper = it.status.uppercase()
+                statusUpper == "PAID" || statusUpper == "SUCCESS"
+            }
             val refundedPayments = filteredOrders.count { it.status.contains("Refund", ignoreCase = true) }
             val totalSpent = filteredOrders
-                .filter { it.status.contains("Paid", ignoreCase = true) }
+                .filter { 
+                    val statusUpper = it.status.uppercase()
+                    statusUpper == "PAID" || statusUpper == "SUCCESS"
+                }
                 .sumOf {
                     it.price.replace("RM ", "").replace(",", "").toDoubleOrNull() ?: 0.0
                 }

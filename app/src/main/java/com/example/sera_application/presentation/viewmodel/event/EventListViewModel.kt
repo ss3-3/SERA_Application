@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.Calendar
 import javax.inject.Inject
 
 data class EventListUiState(
@@ -36,18 +37,23 @@ class EventListViewModel @Inject constructor(
 
             try {
                 val allEvents = getEventListUseCase()
-                val currentTime = System.currentTimeMillis()
-                
-                // Filter: Only show APPROVED events that haven't passed their end time
-                val availableEvents = allEvents.filter { event ->
-                    val isApproved = event.status == com.example.sera_application.domain.model.enums.EventStatus.APPROVED
-                    val hasNotPassed = event.endTime > currentTime
-                    isApproved && hasNotPassed
+
+                // Get today's date at midnight for comparison
+                val today = Calendar.getInstance().apply {
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }.timeInMillis
+
+                // Filter for events that are APPROVED and not in the past
+                val upcomingApprovedEvents = allEvents.filter {
+                    it.status == com.example.sera_application.domain.model.enums.EventStatus.APPROVED && it.date >= today
                 }
-                
+
                 _uiState.update {
                     it.copy(
-                        events = availableEvents,
+                        events = upcomingApprovedEvents,
                         isLoading = false,
                         errorMessage = null
                     )

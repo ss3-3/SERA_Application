@@ -47,6 +47,7 @@ import coil.compose.AsyncImage
 import com.example.sera_application.R
 import com.example.sera_application.domain.model.uimodel.PaymentStatistics
 import com.example.sera_application.domain.model.uimodel.TopEarningEventUiModel
+import com.example.sera_application.domain.usecase.report.ReportConstants
 import com.patrykandpatryk.vico.compose.axis.horizontal.bottomAxis
 import com.patrykandpatryk.vico.compose.axis.vertical.startAxis
 import com.patrykandpatryk.vico.compose.chart.Chart
@@ -158,22 +159,28 @@ fun TotalRevenueCard(
 
 @Composable
 fun LineChart(revenue: List<FloatEntry>) {
+    android.util.Log.d("LineChart", "Rendering chart with ${revenue.size} data points")
+    
+    if (revenue.isEmpty()) {
+        android.util.Log.w("LineChart", "No data to display in chart")
+        return
+    }
+    
     val revenueLine = lineSpec(
         lineColor = Color(0xFF7C7C7C),
-        lineThickness = 1.dp
+        lineThickness = 2.dp
     )
 
     val startAxis = startAxis(
         valueFormatter = AxisValueFormatter { value, _ ->
-            value.toInt().toString()
+            String.format("%.0f", value)
         }
-
     )
 
     Chart(
         chart = lineChart(
             lines = listOf(revenueLine),
-            spacing = 0.dp
+            spacing = 8.dp
         ),
         model = entryModelOf(revenue),
         startAxis = startAxis,
@@ -202,13 +209,13 @@ fun Top3EarningEvents(
             ) {
                 when (event.rank) {
                     1 -> {
-                        Text(text = "🥇", fontSize = 20.sp)
+                        Text(text = ReportConstants.RANK_1_EMOJI, fontSize = 20.sp)
                     }
                     2 -> {
-                        Text(text = "🥈", fontSize = 20.sp)
+                        Text(text = ReportConstants.RANK_2_EMOJI, fontSize = 20.sp)
                     }
                     3 -> {
-                        Text(text = "🥉", fontSize = 20.sp)
+                        Text(text = ReportConstants.RANK_3_EMOJI, fontSize = 20.sp)
                     }
                     else -> {
                         Text(text = event.rank.toString(), fontSize = 20.sp, fontWeight = Bold)
@@ -448,7 +455,7 @@ fun RevenueReportScreen(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
             )
             FilterButtonRow(
-                options = listOf("Weekly", "Monthly"),
+                options = listOf(ReportConstants.PERIOD_WEEKLY, ReportConstants.PERIOD_MONTHLY),
                 onOptionSelected = { period ->
                     viewModel.loadTrendData(period)
                 },
@@ -464,14 +471,29 @@ fun RevenueReportScreen(
                     .padding(horizontal = 16.dp, vertical = 8.dp)
                     .border(width = 1.dp, color = Color(0xFF4E4E4E))
             ) {
-                LineChart(revenueData)
+                if (revenueData.isEmpty()) {
+                    // Show message when no data
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "No revenue data available",
+                            fontSize = 14.sp,
+                            color = Color(0xFF64748B)
+                        )
+                    }
+                } else {
+                    LineChart(revenueData)
+                }
             }
         }
 
         item {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Top 3 Earning Events",
+                text = "Top ${ReportConstants.TOP_EVENTS_LIMIT} Earning Events",
                 fontSize = 16.sp,
                 fontWeight = Bold,
                 color = Color(0xFF1E293B),

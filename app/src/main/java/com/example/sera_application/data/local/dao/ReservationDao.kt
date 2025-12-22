@@ -32,17 +32,17 @@ interface ReservationDao {
     @Query("SELECT COUNT(*) FROM reservations")
     suspend fun getTotalReservationCount(): Int
 
-    // Add
+    // Add - Count total confirmed participants across multiple events
     @Query("""
         SELECT COUNT(*) FROM reservations 
-        WHERE eventId IN (:eventIds) AND status = 'SUCCESS'
+        WHERE eventId IN (:eventIds) AND status = 'CONFIRMED'
     """)
     suspend fun getTotalParticipantsByEvents(eventIds: List<String>): Int
 
-    // Add
+    // Add - Count confirmed reservations for an event (participants who have paid)
     @Query("""
         SELECT COUNT(*) FROM reservations 
-        WHERE eventId = :eventId AND status = 'SUCCESS'
+        WHERE eventId = :eventId AND status = 'CONFIRMED'
     """)
     suspend fun getParticipantsByEvent(eventId: String): Int
 
@@ -50,11 +50,11 @@ interface ReservationDao {
     @Query("SELECT COUNT(DISTINCT userId) FROM reservations")
     suspend fun getUniqueParticipantsCount(): Int
 
-    // Add
+    // Add - Get top participants with most reservations
     @Query("""
         SELECT userId, COUNT(DISTINCT eventId) as eventCount
         FROM reservations
-        WHERE status = 'SUCCESS'
+        WHERE status = 'CONFIRMED'
         GROUP BY userId
         ORDER BY eventCount DESC
         LIMIT :limit

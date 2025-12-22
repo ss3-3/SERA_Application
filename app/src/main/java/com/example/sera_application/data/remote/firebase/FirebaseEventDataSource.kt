@@ -58,8 +58,25 @@ class FirebaseEventDataSource(
 
 
     override suspend fun getEventById(eventId: String): Event? {
-        val document = eventsRef.document(eventId).get().await()
-        return if (document.exists()) document.toEvent() else null
+        return try {
+            Log.d("FirebaseEventDataSource", "Fetching event: $eventId")
+            val document = eventsRef.document(eventId).get().await()
+            
+            if (document.exists()) {
+                val event = document.toEvent()
+                Log.d("FirebaseEventDataSource", "✅ Event fetched: ${event?.name}, status: ${event?.status}")
+                event
+            } else {
+                Log.w("FirebaseEventDataSource", "⚠️ Event $eventId does not exist")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e("FirebaseEventDataSource", "❌ Error fetching event $eventId: ${e.message}", e)
+            if (e.message?.contains("PERMISSION_DENIED", ignoreCase = true) == true) {
+                Log.e("FirebaseEventDataSource", "🔒 PERMISSION DENIED - Check Firebase rules for events collection")
+            }
+            null
+        }
     }
 
 

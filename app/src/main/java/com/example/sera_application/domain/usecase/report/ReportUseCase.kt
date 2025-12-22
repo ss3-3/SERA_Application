@@ -42,7 +42,7 @@ fun buildTop3EarningEvents(
             )
         }
         .sortedByDescending { it.revenue }
-        .take(3)
+        .take(ReportConstants.TOP_EVENTS_LIMIT)
         .mapIndexed { index, event ->
             event.copy(rank = index + 1)
         }

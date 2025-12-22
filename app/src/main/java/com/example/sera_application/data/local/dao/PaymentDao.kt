@@ -54,10 +54,9 @@ interface PaymentDao {
         FROM payments
         WHERE createdAt >= :startDate AND status = 'SUCCESS'
         GROUP BY date
-        ORDER BY date
-        LIMIT :days
+        ORDER BY date ASC
     """)
-    suspend fun getRevenueTrend(days: Int, startDate: Long): List<RevenueTrendEntity>
+    suspend fun getRevenueTrend(startDate: Long): List<RevenueTrendEntity>
 
     // Add
     @Query("""

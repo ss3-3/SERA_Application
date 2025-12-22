@@ -20,6 +20,8 @@ class ReservationMapperImpl @Inject constructor() : ReservationMapper {
             eventId = entity.eventId,
             userId = entity.userId,
             seats = entity.seats,
+            rockZoneSeats = entity.rockZoneSeats,
+            normalZoneSeats = entity.normalZoneSeats,
             totalPrice = entity.totalPrice,
             status = try {
                 ReservationStatus.valueOf(entity.status)
@@ -36,6 +38,8 @@ class ReservationMapperImpl @Inject constructor() : ReservationMapper {
             eventId = domain.eventId,
             userId = domain.userId,
             seats = domain.seats,
+            rockZoneSeats = domain.rockZoneSeats,
+            normalZoneSeats = domain.normalZoneSeats,
             totalPrice = domain.totalPrice,
             status = domain.status.name,
             createdAt = domain.createdAt

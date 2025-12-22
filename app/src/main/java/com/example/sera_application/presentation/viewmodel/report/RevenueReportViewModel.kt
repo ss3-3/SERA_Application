@@ -8,6 +8,7 @@ import com.example.sera_application.domain.usecase.report.GetPaymentStatisticsUs
 import com.example.sera_application.domain.usecase.report.GetRevenueTrendUseCase
 import com.example.sera_application.domain.usecase.report.GetTopEarningEventsUseCase
 import com.example.sera_application.domain.usecase.report.GetTotalRevenueUseCase
+import com.example.sera_application.domain.usecase.report.ReportConstants
 import com.patrykandpatryk.vico.core.entry.FloatEntry
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -65,12 +66,17 @@ class RevenueReportViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            getRevenueTrendUseCase(7)
+            getRevenueTrendUseCase(ReportConstants.DEFAULT_TREND_DAYS)
                 .catch { exception ->
                     Log.e("RevenueReportViewModel", "Error loading revenue trend: ${exception.message}", exception)
                     _revenueData.value = emptyList()
                 }
                 .collect { trend ->
+                    Log.d("RevenueReportViewModel", "Received revenue trend data: ${trend.size} points")
+                    if (trend.isNotEmpty()) {
+                        Log.d("RevenueReportViewModel", "First entry: x=${trend.first().x}, y=${trend.first().y}")
+                        Log.d("RevenueReportViewModel", "Last entry: x=${trend.last().x}, y=${trend.last().y}")
+                    }
                     _revenueData.value = trend
                 }
         }
@@ -100,7 +106,11 @@ class RevenueReportViewModel @Inject constructor(
 
     fun loadTrendData(period: String) {
         viewModelScope.launch {
-            val days = if (period == "Weekly") 7 else 30
+            val days = if (period == ReportConstants.PERIOD_WEEKLY) {
+                ReportConstants.DAYS_7
+            } else {
+                ReportConstants.DAYS_30
+            }
             getRevenueTrendUseCase(days)
                 .catch { exception ->
                     Log.e("RevenueReportViewModel", "Error loading trend data: ${exception.message}", exception)

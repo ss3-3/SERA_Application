@@ -7,6 +7,8 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -399,17 +401,16 @@ fun OrganizerPaymentManagementScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Status Filter Buttons
-                Row(
+                // Status Filter Buttons - Horizontally Scrollable
+                LazyRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    listOf("All", "Paid", "Refund Pending", "Refunded", "Failed").forEach { status ->
+                    items(listOf("All", "Paid", "Refund Pending", "Refunded", "Failed")) { status ->
                         FilterChip(
                             selected = selectedStatusFilter == status,
                             onClick = { selectedStatusFilter = status },
-                            label = { Text(status, fontSize = 12.sp) },
-                            modifier = Modifier.weight(1f)
+                            label = { Text(status, fontSize = 12.sp) }
                         )
                     }
                 }

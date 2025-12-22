@@ -657,9 +657,19 @@ fun MainNavGraph(
                         // Navigate back to Event Details screen (previous screen in stack)
                         navController.popBackStack()
                     },
-                    onReservationConfirmed = { reservationId ->
-                        println("DEBUG: Navigating from Reservation to Payment: $reservationId")
-                        navController.navigate(Screen.Payment.createRoute(reservationId))
+                    onReservationConfirmed = { reservationId, isFreeEvent ->
+                        if (isFreeEvent) {
+                            // For free events, navigate directly to success screen
+                            println("DEBUG: Free event - Navigating to Reservation Success: $reservationId")
+                            navController.navigate(Screen.PaymentStatus.createRoute(reservationId)) {
+                                // Clear back stack to prevent going back to reservation screen
+                                popUpTo(Screen.PaymentStatus.route) { inclusive = false }
+                            }
+                        } else {
+                            // For paid events, navigate to payment screen
+                            println("DEBUG: Paid event - Navigating to Payment: $reservationId")
+                            navController.navigate(Screen.Payment.createRoute(reservationId))
+                        }
                     }
                 )
             }

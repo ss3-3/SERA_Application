@@ -2,6 +2,7 @@ package com.example.sera_application.domain.usecase.report
 
 import com.example.sera_application.domain.repository.ReservationRepository
 import com.example.sera_application.domain.repository.UserRepository
+import com.example.sera_application.utils.DateUtils
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import javax.inject.Inject
@@ -21,10 +22,23 @@ class GetUserStatsUseCase @Inject constructor(
         try {
             val totalUsers = userRepository.getTotalUserCount()
 
-            // Calculate new users in the last 30 days
-            val now = System.currentTimeMillis()
-            val thirtyDaysAgo = now - (30L * 24 * 60 * 60 * 1000)
-            val newUsers = userRepository.getUsersCreatedBetween(thirtyDaysAgo, now)
+            // Calculate new users based on month parameter
+            val newUsers = if (month != null) {
+                // Use month-specific date range
+                val (startTimestamp, endTimestamp) = DateUtils.parseMonthToTimestamp(month) 
+                    ?: run {
+                        // Fallback to last 30 days if parsing fails
+                        val now = System.currentTimeMillis()
+                        val thirtyDaysAgo = now - (30L * 24 * 60 * 60 * 1000)
+                        Pair(thirtyDaysAgo, now)
+                    }
+                userRepository.getUsersCreatedBetween(startTimestamp, endTimestamp)
+            } else {
+                // Default: last 30 days
+                val now = System.currentTimeMillis()
+                val thirtyDaysAgo = now - (30L * 24 * 60 * 60 * 1000)
+                userRepository.getUsersCreatedBetween(thirtyDaysAgo, now)
+            }
 
             // Active users = unique participants
             val activeUsers = reservationRepository.getUniqueParticipantsCount()
@@ -34,7 +48,7 @@ class GetUserStatsUseCase @Inject constructor(
             emit(UserStats(
                 totalUsers = totalUsers,
                 newUsers = newUsers,
-                participants = activeUsers,  // 改为 participants
+                participants = activeUsers,
                 totalReservations = totalReservations
             ))
         } catch (e: Exception) {
