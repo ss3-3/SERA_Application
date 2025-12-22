@@ -12,7 +12,8 @@ import javax.inject.Inject
 class UpdateEventUseCase @Inject constructor(
     private val eventRepository: EventRepository,
     private val reservationRepository: ReservationRepository,
-    private val sendNotificationUseCase: SendNotificationUseCase
+    private val sendNotificationUseCase: SendNotificationUseCase,
+    private val setEventPaymentsToRefundPendingUseCase: com.example.sera_application.domain.usecase.payment.SetEventPaymentsToRefundPendingUseCase
 ) {
     suspend operator fun invoke(event: Event): Boolean {
         return try {
@@ -29,8 +30,17 @@ class UpdateEventUseCase @Inject constructor(
                     val reservationsFlow = reservationRepository.getEventReservations(event.eventId)
                     val reservations = reservationsFlow.first()
                     
-                    // If event was just cancelled, send cancellation notification
+                    // If event was just cancelled, set all payments to REFUND_PENDING and send notifications
                     if (isNowCancelled && !wasCancelled) {
+                        // Set all payments for this event to REFUND_PENDING
+                        try {
+                            setEventPaymentsToRefundPendingUseCase(event.eventId)
+                        } catch (e: Exception) {
+                            // Don't fail event cancellation if payment update fails
+                            android.util.Log.e("UpdateEventUseCase", "Failed to set payments to REFUND_PENDING: ${e.message}", e)
+                        }
+                        
+                        // Send cancellation notification to all participants
                         reservations.forEach { reservation ->
                             sendNotificationUseCase(
                                 userId = reservation.userId,

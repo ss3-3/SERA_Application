@@ -304,4 +304,18 @@ class PaymentRepositoryImpl @Inject constructor(
             emptyList()
         }
     }
+
+    override suspend fun updatePaymentStatus(paymentId: String, status: String): Boolean {
+        return try {
+            // Update remote
+            paymentRemoteDataSource.updatePaymentStatus(paymentId, status)
+            
+            // Update local cache
+            paymentDao.updatePaymentStatus(paymentId, status)
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("PaymentRepositoryImpl", "Error updating payment status: ${e.message}", e)
+            false
+        }
+    }
 }

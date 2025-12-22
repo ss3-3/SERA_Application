@@ -14,6 +14,9 @@ data class UserEntity(
     val profileImagePath: String?,
     val accountStatus: String,
     val isApproved: Boolean = true,
+    val emailVerified: Boolean = false,
+    val approvalStatus: String? = null, // Store as String, convert to/from ApprovalStatus enum
+    val approvedAt: Long? = null,
     val createdAt: Long,
     val updatedAt: Long
 )

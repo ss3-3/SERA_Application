@@ -4,12 +4,14 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import com.example.sera_application.data.local.converter.EventCategoryConverter
+import com.example.sera_application.data.local.converter.NotificationTypeConverter
 import com.example.sera_application.data.local.dao.EventDao
+import com.example.sera_application.data.local.dao.NotificationDao
 import com.example.sera_application.data.local.dao.PaymentDao
 import com.example.sera_application.data.local.dao.ReservationDao
 import com.example.sera_application.data.local.dao.UserDao
 import com.example.sera_application.data.local.entity.EventEntity
-//import com.example.sera_application.data.local.entity.NotificationEntity
+import com.example.sera_application.data.local.entity.NotificationEntity
 import com.example.sera_application.data.local.entity.PaymentEntity
 import com.example.sera_application.data.local.entity.ReservationEntity
 import com.example.sera_application.data.local.entity.UserEntity
@@ -20,19 +22,22 @@ import com.example.sera_application.data.local.entity.UserEntity
         EventEntity::class,
         ReservationEntity::class,
         PaymentEntity::class,
-//        NotificationEntity::class
+        NotificationEntity::class
     ],
-    version = 7, // Incremented version to migrate schema
+    version = 8, // Incremented version to migrate schema
     exportSchema = false
 )
-@TypeConverters(EventCategoryConverter::class)
+@TypeConverters(
+    EventCategoryConverter::class,
+    NotificationTypeConverter::class
+)
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun userDao(): UserDao
     abstract fun eventDao(): EventDao
     abstract fun reservationDao(): ReservationDao
     abstract fun paymentDao(): PaymentDao
-//    abstract fun notificationDao(): NotificationDao
+    abstract fun notificationDao(): NotificationDao
 
     companion object {
         const val DATABASE_NAME = "sera_database"

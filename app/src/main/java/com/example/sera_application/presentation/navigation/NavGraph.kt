@@ -712,10 +712,20 @@ fun MainNavGraph(
 
             // Payment History Screen (User)
             composable(Screen.PaymentHistory.route) {
+                val context = LocalContext.current
                 PaymentHistoryScreen(
                     onViewReceipt = { orderData ->
-                        // OrderData has orderId property
-                        navController.navigate(Screen.Receipt.createRoute(orderData.orderId))
+                        // Generate and open PDF instead of navigating to receipt screen
+                        val intent = Intent(context, PaymentHistoryActivity::class.java).apply {
+                            putExtra("GENERATE_PDF", true)
+                            putExtra("ORDER_ID", orderData.orderId)
+                            putExtra("RESERVATION_ID", orderData.reservationId)
+                            putExtra("EVENT_NAME", orderData.eventName)
+                            putExtra("AMOUNT", orderData.price.replace("RM ", "").toDoubleOrNull() ?: 0.0)
+                            putExtra("DATE", orderData.date)
+                            putExtra("TICKETS", orderData.tickets)
+                        }
+                        context.startActivity(intent)
                     },
                     navController = navController
                 )
@@ -765,10 +775,15 @@ fun MainNavGraph(
                 )
             ) { backStackEntry ->
                 val paymentId = backStackEntry.arguments?.getString("paymentId") ?: ""
+                val context = LocalContext.current
                 PaymentStatusScreen(
                     paymentId = paymentId,
                     onViewReceipt = { pid ->
-                        navController.navigate(Screen.Receipt.createRoute(pid))
+                        // Navigate to ReceiptActivity (receipt screen)
+                        val intent = Intent(context, com.example.sera_application.presentation.ui.payment.ReceiptActivity::class.java).apply {
+                            putExtra("TRANSACTION_ID", pid)
+                        }
+                        context.startActivity(intent)
                     },
                     onBackToHome = {
                         navController.navigate(Screen.EventList.route) {

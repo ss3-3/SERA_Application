@@ -151,112 +151,140 @@ fun UserStatCard(
     participantGrowth: Float
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // Total Users Card with gradient
         Card(
             modifier = Modifier
-                .padding(horizontal = 8.dp)
-                .height(105.dp)
+                .height(120.dp)
                 .weight(1f)
                 .shadow(
                     elevation = 4.dp,
-                    shape = RoundedCornerShape(10.dp),
-                    clip = false,
-                    ambientColor = Color.Black.copy(alpha = 0.25f),  // 加深颜色
-                    spotColor = Color.Black.copy(alpha = 0.35f)
+                    shape = RoundedCornerShape(16.dp),
+                    spotColor = Color(0xFF6366F1).copy(alpha = 0.3f)
                 ),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF3B5C92)),
-            shape = RoundedCornerShape(10.dp)
+            colors = CardDefaults.cardColors(
+                containerColor = Color.White
+            ),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                            colors = listOf(
+                                Color(0xFF6366F1),
+                                Color(0xFF8B5CF6)
+                            )
+                        )
+                    )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Total Users",
+                        fontSize = 13.sp,
+                        fontWeight = SemiBold,
+                        color = Color.White.copy(alpha = 0.9f)
+                    )
+                    Text(
+                        text = totalUser.toString(),
+                        fontSize = 32.sp,
+                        fontWeight = Bold,
+                        color = Color.White
+                    )
+                }
+            }
+        }
+        
+        // New Users Card
+        Card(
+            modifier = Modifier
+                .height(120.dp)
+                .weight(1f)
+                .shadow(
+                    elevation = 2.dp,
+                    shape = RoundedCornerShape(16.dp)
+                ),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(16.dp)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(12.dp),
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(text = "Total Users",
-                    fontSize = 12.sp,
-                    fontWeight = Bold,
-                    color = Color.White
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = totalUser.toString(),
-                    fontSize = 28.sp,
-                    fontWeight = Bold,
-                    color = Color.White
-                )
-            }
-        }
-        Card(
-            modifier = Modifier
-                .padding(horizontal = 8.dp)
-                .height(105.dp)
-                .weight(1f),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFDEE0F0)),
-            shape = RoundedCornerShape(10.dp),
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize() // Ensures the Column spans the width of the Card
-                    .padding(12.dp),
-                verticalArrangement = Arrangement.Center
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
                     text = "New Users",
-                    fontSize = 12.sp,
-                    fontWeight = Bold,
-                    color = Color(0xFF2C2D30)
+                    fontSize = 13.sp,
+                    fontWeight = SemiBold,
+                    color = Color(0xFF64748B)
                 )
-                Text(
-                    text = newUser.toString(),
-                    fontSize = 28.sp,
-                    fontWeight = Bold,
-                    color = Color(0xFF2C2D30)
-                )
-                Text(
-                    text = formatGrowth(newUserGrowth),
-                    fontSize = 12.sp,
-                    fontWeight = Normal,
-                    color = Color(0xFF2C2D30),
-                    style = TextStyle(lineHeight = 10.sp)
-                )
+                Column {
+                    Text(
+                        text = newUser.toString(),
+                        fontSize = 32.sp,
+                        fontWeight = Bold,
+                        color = Color(0xFF1E293B)
+                    )
+                    Text(
+                        text = formatGrowth(newUserGrowth),
+                        fontSize = 11.sp,
+                        fontWeight = Normal,
+                        color = if (newUserGrowth >= 0) Color(0xFF16A34A) else Color(0xFFDC2626)
+                    )
+                }
             }
         }
+        
+        // Participants Card
         Card(
             modifier = Modifier
-                .padding(horizontal = 8.dp)
-                .height(105.dp)
-                .weight(1f),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF4B5563)),
-            shape = RoundedCornerShape(10.dp)
+                .height(120.dp)
+                .weight(1f)
+                .shadow(
+                    elevation = 2.dp,
+                    shape = RoundedCornerShape(16.dp)
+                ),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(16.dp)
         ) {
             Column(
                 modifier = Modifier
-                    .fillMaxSize() // Ensures the Column spans the width of the Card
-                    .padding(12.dp),
-                verticalArrangement = Arrangement.Center
+                    .fillMaxSize()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
                     text = "Participants",
-                    fontSize = 10.sp,
-                    fontWeight = Bold,
-                    color = Color.White
+                    fontSize = 13.sp,
+                    fontWeight = SemiBold,
+                    color = Color(0xFF64748B)
                 )
-                Text(
-                    text = participants.toString(),
-                    fontSize = 28.sp,
-                    fontWeight = Bold,
-                    color = Color.White
-                )
-                Text(
-                    text = String.format("%.0f%%", participantGrowth),
-                    fontSize = 10.sp,
-                    fontWeight = Bold,
-                    color = Color.White,
-                    style = TextStyle(lineHeight = 10.sp)
-                )
+                Column {
+                    Text(
+                        text = participants.toString(),
+                        fontSize = 32.sp,
+                        fontWeight = Bold,
+                        color = Color(0xFF1E293B)
+                    )
+                    Text(
+                        text = String.format("%.0f%%", participantGrowth),
+                        fontSize = 11.sp,
+                        fontWeight = Normal,
+                        color = Color(0xFF6366F1)
+                    )
+                }
             }
         }
     }
@@ -568,25 +596,38 @@ fun UserReportScreen(
     val totalBookings by viewModel.totalBookings.collectAsState()
 
     LaunchedEffect(Unit) {
-        viewModel.loadUserData()
+        viewModel.loadUserData() // Load data when screen is first displayed
     }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize()
-            .padding(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF5F7FA)),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            Text(
-                text = "User Statistics",
-                fontSize = 16.sp,
-                fontWeight = Bold,
-                color = Color.Black,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-            )
-        }
-        item {
-            MonthDropdownSelector()
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .shadow(elevation = 2.dp, shape = RoundedCornerShape(12.dp)),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text(
+                        text = "User Statistics",
+                        fontSize = 18.sp,
+                        fontWeight = Bold,
+                        color = Color(0xFF1E293B),
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                    MonthDropdownSelector()
+                }
+            }
         }
 
         item {
@@ -622,8 +663,8 @@ fun UserReportScreen(
                 text = "User Growth Trend",
                 fontSize = 16.sp,
                 fontWeight = Bold,
-                color = Color.Black,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                color = Color(0xFF1E293B),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
         }
 
@@ -677,14 +718,14 @@ fun UserReportScreen(
                 text = "Top Participants",
                 fontSize = 16.sp,
                 fontWeight = Bold,
-                color = Color.Black,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                color = Color(0xFF1E293B),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
             Text(
                 text = "Most active users this month",
-                fontSize = 10.sp,
+                fontSize = 12.sp,
                 fontWeight = Normal,
-                color = Color(0xFF7F7F7F),
+                color = Color(0xFF64748B),
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
         }
@@ -715,8 +756,8 @@ fun UserReportScreen(
                 text = "Event Participation",
                 fontSize = 16.sp,
                 fontWeight = Bold,
-                color = Color.Black,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                color = Color(0xFF1E293B),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
         }
 

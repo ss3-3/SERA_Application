@@ -97,14 +97,18 @@ class AdminUserManagementViewModel @Inject constructor(
             UserFilterType.ALL -> state.allUsers
             UserFilterType.PARTICIPANT -> state.allUsers.filter { it.role == UserRole.PARTICIPANT }
             UserFilterType.APPROVED_ORGANIZER -> state.allUsers.filter { 
-                // Include approved organizers (including suspended ones)
-                // Suspended users who were approved should still appear here
-                it.role == UserRole.ORGANIZER && it.isApproved 
+                // Only show approved organizers that are NOT suspended
+                it.role == UserRole.ORGANIZER && 
+                it.isApproved && 
+                it.approvalStatus == com.example.sera_application.domain.model.enums.ApprovalStatus.APPROVED &&
+                it.accountStatus != "SUSPENDED"
             }
             UserFilterType.PENDING_ORGANIZER -> state.allUsers.filter { 
-                // Only show pending (not approved) organizers
-                // Suspended users who were approved should NOT appear here
-                it.role == UserRole.ORGANIZER && !it.isApproved 
+                // Only show pending (not approved) organizers that are NOT suspended
+                it.role == UserRole.ORGANIZER && 
+                it.accountStatus != "SUSPENDED" &&
+                (it.approvalStatus == com.example.sera_application.domain.model.enums.ApprovalStatus.PENDING ||
+                 (!it.isApproved && it.approvalStatus != com.example.sera_application.domain.model.enums.ApprovalStatus.APPROVED))
             }
             UserFilterType.SUSPENDED -> state.allUsers.filter { 
                 // Show all suspended users regardless of role or approval status

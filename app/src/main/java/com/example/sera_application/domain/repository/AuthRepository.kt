@@ -27,5 +27,7 @@ interface AuthRepository {
 
     suspend fun sendPasswordResetEmail(email: String): Result<Boolean>
 
+    suspend fun sendOrganizerApprovalEmail(email: String, fullName: String): Result<Boolean>
+
     suspend fun deleteAccount(): Result<Boolean>
 }

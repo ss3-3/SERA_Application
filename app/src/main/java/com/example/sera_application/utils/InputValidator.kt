@@ -14,6 +14,7 @@ object InputValidator {
     private const val MIN_USERNAME_LENGTH = 3
     private const val MAX_USERNAME_LENGTH = 50
     private const val MAX_SEARCH_LENGTH = 200
+    private const val MIN_PASSWORD_LENGTH = 6
     
     // Regex patterns
     private val EMAIL_PATTERN = Pattern.compile(
@@ -126,5 +127,36 @@ object InputValidator {
      */
     fun hasMaxLength(value: String?, maxLength: Int): Boolean {
         return (value?.length ?: 0) <= maxLength
+    }
+    
+    /**
+     * Validates a password.
+     * Password must:
+     * - Be at least MIN_PASSWORD_LENGTH characters
+     * - Contain at least one uppercase letter
+     * - Contain at least one lowercase letter
+     * - Contain at least one digit
+     * @return Pair<Boolean, String?> where Boolean indicates validity and String is error message (if any)
+     */
+    fun validatePassword(password: String?): Pair<Boolean, String?> {
+        return when {
+            password.isNullOrBlank() -> Pair(false, "Password is required")
+            password.length < MIN_PASSWORD_LENGTH -> Pair(false, "Password must be at least $MIN_PASSWORD_LENGTH characters")
+            !password.any { it.isUpperCase() } -> Pair(false, "Password must contain at least one uppercase letter")
+            !password.any { it.isLowerCase() } -> Pair(false, "Password must contain at least one lowercase letter")
+            !password.any { it.isDigit() } -> Pair(false, "Password must contain at least one digit")
+            else -> Pair(true, null)
+        }
+    }
+    
+    /**
+     * Simple password format check (returns Boolean only).
+     */
+    fun isValidPassword(password: String?): Boolean {
+        if (password.isNullOrBlank()) return false
+        return password.length >= MIN_PASSWORD_LENGTH &&
+               password.any { it.isUpperCase() } &&
+               password.any { it.isLowerCase() } &&
+               password.any { it.isDigit() }
     }
 }

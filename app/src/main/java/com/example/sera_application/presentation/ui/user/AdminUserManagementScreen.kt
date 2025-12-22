@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.sera_application.domain.model.User
+import com.example.sera_application.presentation.ui.components.SafeProfileImageLoader
 import com.example.sera_application.presentation.viewmodel.user.AdminUserManagementViewModel
 import com.example.sera_application.presentation.viewmodel.user.UserFilterType
 import com.example.sera_application.utils.InputValidator
@@ -409,19 +410,17 @@ private fun UserManagementCard(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Profile Icon
+                // Profile Image
                 Box(
                     modifier = Modifier
                         .size(48.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFE0E0E0)),
-                    contentAlignment = Alignment.Center
+                        .background(Color(0xFFE0E0E0))
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = "Profile",
-                        tint = Color.Gray,
-                        modifier = Modifier.size(24.dp)
+                    SafeProfileImageLoader(
+                        imagePath = user.profileImagePath,
+                        contentDescription = "Profile Picture",
+                        modifier = Modifier.fillMaxSize()
                     )
                 }
 
@@ -574,19 +573,17 @@ private fun UserDetailBottomSheet(
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Profile Icon
+            // Profile Image
             Box(
                 modifier = Modifier
                     .size(80.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFFE0E0E0)),
-                contentAlignment = Alignment.Center
+                    .background(Color(0xFFE0E0E0))
             ) {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = "Profile",
-                    tint = Color.Gray,
-                    modifier = Modifier.size(40.dp)
+                SafeProfileImageLoader(
+                    imagePath = user.profileImagePath,
+                    contentDescription = "Profile Picture",
+                    modifier = Modifier.fillMaxSize()
                 )
             }
 

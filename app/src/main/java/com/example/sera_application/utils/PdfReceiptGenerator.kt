@@ -70,9 +70,6 @@ class PdfReceiptGenerator(private val context: Context) {
 
             var yPosition = 50f // Start position from top
 
-            // Draw back arrow/logo at top left
-            drawBackArrow(canvas, 50f, 30f, 20f)
-
             // Title
             canvas.drawText("RECEIPT", 297.5f, yPosition, titlePaint)
             yPosition += 40f

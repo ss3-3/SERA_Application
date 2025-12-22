@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.sera_application.domain.model.Event
 import com.example.sera_application.domain.model.enums.EventCategory
 import com.example.sera_application.domain.model.enums.EventStatus
+import com.example.sera_application.domain.repository.ImageRepository
 import com.example.sera_application.domain.usecase.event.CreateEventUseCase
 import com.example.sera_application.domain.usecase.event.GetEventByIdUseCase
 import com.example.sera_application.domain.usecase.event.UpdateEventUseCase
@@ -40,6 +41,7 @@ class EventFormViewModel @Inject constructor(
     private val getEventByIdUseCase: GetEventByIdUseCase,
     private val updateEventUseCase: UpdateEventUseCase,
     private val saveImageUseCase: SaveImageUseCase,
+    private val imageRepository: ImageRepository,
     private val auth: FirebaseAuth
 ) : ViewModel() {
 
@@ -104,7 +106,8 @@ class EventFormViewModel @Inject constructor(
 
     /**
      * Handles image selection from gallery picker.
-     * Saves the image using SaveImageUseCase and updates UI state with the image path.
+     * Uploads the image to Firebase Storage and updates UI state with the download URL.
+     * This ensures all users can see the event images.
      * 
      * @param uri The Uri of the selected image
      */
@@ -115,13 +118,13 @@ class EventFormViewModel @Inject constructor(
                 // Generate unique file name for event image
                 val fileName = "event_${UUID.randomUUID()}.jpg"
                 
-                // Save image using use case
-                val imagePath = saveImageUseCase(uri, fileName)
+                // Upload image to Firebase Storage to make it accessible to all users
+                val downloadUrl = imageRepository.uploadImageToFirebase(uri, "events", fileName)
                 
-                if (imagePath != null) {
+                if (downloadUrl != null) {
                     _uiState.update { 
                         it.copy(
-                            imagePath = imagePath,
+                            imagePath = downloadUrl, // Store Firebase Storage download URL
                             isLoading = false
                         ) 
                     }
@@ -129,7 +132,7 @@ class EventFormViewModel @Inject constructor(
                     _uiState.update { 
                         it.copy(
                             isLoading = false,
-                            errorMessage = "Failed to save image. Please try again."
+                            errorMessage = "Failed to upload image. Please try again."
                         ) 
                     }
                 }
@@ -137,7 +140,7 @@ class EventFormViewModel @Inject constructor(
                 _uiState.update { 
                     it.copy(
                         isLoading = false,
-                        errorMessage = "Image save failed: ${e.message ?: "Unknown error"}"
+                        errorMessage = "Image upload failed: ${e.message ?: "Unknown error"}"
                     ) 
                 }
             }

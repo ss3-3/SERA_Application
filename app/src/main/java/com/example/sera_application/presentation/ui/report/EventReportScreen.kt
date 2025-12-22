@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -67,97 +68,135 @@ fun AllEventList(
     event: EventListUiModel
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF2F4F7))
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .shadow(
+                elevation = 2.dp,
+                shape = RoundedCornerShape(16.dp),
+                spotColor = Color(0xFF6366F1).copy(alpha = 0.1f)
+            ),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(16.dp)
     ) {
         val context = LocalContext.current
 
         Row(
-            modifier = Modifier.padding(8.dp),
+            modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Enhanced Event Image using SafeImageLoader
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .height(50.dp)
-                    .shadow(elevation = 16.dp)
+                    .size(80.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .shadow(elevation = 4.dp, shape = RoundedCornerShape(12.dp))
             ) {
-                when {
-                    event.picture.startsWith("drawable://") -> {
-                        val resName = event.picture.removePrefix("drawable://")
-                        val resId = context.resources.getIdentifier(
-                            resName,
-                            "drawable",
-                            context.packageName
-                        )
-                        Image(
-                            painter = painterResource(resId),
-                            contentDescription = "event image",
-                            modifier = Modifier
-                                .size(width = 60.dp, height = 59.dp)
-                                .clip(RoundedCornerShape(4.dp)),
-                            contentScale = ContentScale.Crop,
-                        )
-                    }
-                    else -> {
-                        AsyncImage(
-                            model = event.picture,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(width = 60.dp, height = 59.dp)
-                                .clip(RoundedCornerShape(4.dp)),
-                            contentScale = ContentScale.Crop
-                        )
-                    }
-                }
+                com.example.sera_application.presentation.ui.components.SafeImageLoader(
+                    imagePath = event.picture,
+                    contentDescription = "event image",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
             }
+            
+            Spacer(modifier = Modifier.size(12.dp))
+            
             Column(
                 modifier = Modifier
-                    .padding(horizontal = 8.dp)
                     .weight(1f)
+                    .padding(horizontal = 8.dp)
             ) {
-                Text(text = event.title, fontSize = 10.sp, color = Color.Black, fontWeight = Bold)
-                Text(text = "by ${event.organizer}", fontSize = 8.sp, color = Color(0xFF868C97), fontWeight = FontWeight.SemiBold, style = TextStyle(lineHeight = 30.sp))
+                Text(
+                    text = event.title,
+                    fontSize = 16.sp,
+                    color = Color(0xFF1E293B),
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(text = event.description, fontSize = 8.sp, color = Color(0xFFB1B1B1), fontWeight = FontWeight.Medium, style = TextStyle(lineHeight = 10.sp), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(
+                    text = "by ${event.organizer}",
+                    fontSize = 12.sp,
+                    color = Color(0xFF64748B),
+                    fontWeight = FontWeight.Medium
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = event.description,
+                    fontSize = 11.sp,
+                    color = Color(0xFF94A3B8),
+                    fontWeight = FontWeight.Normal,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = 14.sp
+                )
             }
+            
+            Spacer(modifier = Modifier.size(8.dp))
+            
+            // Enhanced Stats Section
             Column(
-                modifier = Modifier
-                    .padding(horizontal = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                modifier = Modifier.padding(start = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .clip(CircleShape)
-                        .background(Color.White)
+                // Revenue Card
+                Card(
+                    modifier = Modifier.size(56.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.money),
-                        contentDescription = "Revenue",
-                        modifier = Modifier.size(16.dp).align(Alignment.Center)
-                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.White),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.money),
+                            contentDescription = "Revenue",
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = String.format("RM%.0f", event.revenue),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF16A34A)
+                        )
+                    }
                 }
-                Text(text = String.format("%.2f", event.revenue), fontSize = 9.sp, fontWeight = Bold, letterSpacing = (-0.01).sp)
-            }
-            Column(
-                modifier = Modifier
-                    .padding(horizontal = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .clip(CircleShape)
-                        .background(Color.White)
+                
+                // Participants Card
+                Card(
+                    modifier = Modifier.size(56.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFEFF6FF)),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.AccountCircle,
-                        contentDescription = "Participants",
-                        modifier = Modifier.size(18.dp).align(Alignment.Center)
-                    )
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AccountCircle,
+                            contentDescription = "Participants",
+                            modifier = Modifier.size(20.dp),
+                            tint = Color(0xFF2563EB)
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "${event.participants}",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF2563EB)
+                        )
+                    }
                 }
-                Text(text = "${event.participants}", fontSize = 9.sp, fontWeight = Bold, letterSpacing = (-0.01).sp)
             }
         }
     }
@@ -181,39 +220,64 @@ fun DateFilterSection(
         } ?: "Please select"
     }
 
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .shadow(elevation = 2.dp, shape = RoundedCornerShape(12.dp)),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(12.dp)
     ) {
-        OutlinedTextField(
-            value = formatDate(startDate),
-            onValueChange = { },
-            label = { Text("Start Date") },
-            readOnly = true,
-            trailingIcon = {
-                IconButton(onClick = { showStartPicker = true }) {
-                    Icon(Icons.Default.DateRange, contentDescription = "Select start date")
-                }
-            },
-            modifier = Modifier.weight(1f)
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            OutlinedTextField(
+                value = formatDate(startDate),
+                onValueChange = { },
+                label = { Text("Start Date", fontSize = 13.sp) },
+                readOnly = true,
+                trailingIcon = {
+                    IconButton(onClick = { showStartPicker = true }) {
+                        Icon(
+                            Icons.Default.DateRange,
+                            contentDescription = "Select start date",
+                            tint = Color(0xFF6366F1)
+                        )
+                    }
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(8.dp)),
+                shape = RoundedCornerShape(8.dp)
+            )
 
-        OutlinedTextField(
-            value = formatDate(endDate),
-            onValueChange = { },
-            label = { Text("End Date") },
-            readOnly = true,
-            enabled = startDate != null,
-            trailingIcon = {
-                IconButton(
-                    onClick = { showEndPicker = true },
-                    enabled = startDate != null
-                ) {
-                    Icon(Icons.Default.DateRange, contentDescription = "Select end date")
-                }
-            },
-            modifier = Modifier.weight(1f)
-        )
+            OutlinedTextField(
+                value = formatDate(endDate),
+                onValueChange = { },
+                label = { Text("End Date", fontSize = 13.sp) },
+                readOnly = true,
+                enabled = startDate != null,
+                trailingIcon = {
+                    IconButton(
+                        onClick = { showEndPicker = true },
+                        enabled = startDate != null
+                    ) {
+                        Icon(
+                            Icons.Default.DateRange,
+                            contentDescription = "Select end date",
+                            tint = if (startDate != null) Color(0xFF6366F1) else Color(0xFFCBD5E1)
+                        )
+                    }
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(8.dp)),
+                shape = RoundedCornerShape(8.dp)
+            )
+        }
     }
 
     if (showStartPicker) {
@@ -281,10 +345,22 @@ fun EventReportScreen(
     val events by viewModel.events.collectAsState()
     val eventCount by viewModel.eventCount.collectAsState()
 
+    // Ensure data is loaded when screen is displayed
+    LaunchedEffect(Unit) {
+        try {
+            viewModel.loadAllEvents()
+        } catch (e: Exception) {
+            android.util.Log.e("EventReportScreen", "Error loading events: ${e.message}", e)
+            e.printStackTrace()
+        }
+    }
+
     LazyColumn(
-        modifier = Modifier.fillMaxSize()
-            .padding(8.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF5F7FA)),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         item {
             DateFilterSection(
@@ -295,17 +371,101 @@ fun EventReportScreen(
         }
 
         item {
-            Text(
-                text = "Event ($eventCount)",
-                fontSize = 16.sp,
-                fontWeight = Bold,
-                color = Color.Black,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .shadow(elevation = 1.dp, shape = RoundedCornerShape(12.dp)),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Total Events",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF64748B)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "$eventCount",
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1E293B)
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(CircleShape)
+                            .background(
+                                brush = androidx.compose.ui.graphics.Brush.radialGradient(
+                                    colors = listOf(
+                                        Color(0xFF6366F1).copy(alpha = 0.2f),
+                                        Color(0xFF8B5CF6).copy(alpha = 0.1f)
+                                    )
+                                )
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DateRange,
+                            contentDescription = null,
+                            modifier = Modifier.size(28.dp),
+                            tint = Color(0xFF6366F1)
+                        )
+                    }
+                }
+            }
         }
 
-        items(events) { event ->
-            AllEventList(event = event)
+        if (events.isEmpty()) {
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 32.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DateRange,
+                            contentDescription = null,
+                            modifier = Modifier.size(48.dp),
+                            tint = Color(0xFFCBD5E1)
+                        )
+                        Text(
+                            text = "No events found",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF64748B)
+                        )
+                        Text(
+                            text = "Try adjusting your date range",
+                            fontSize = 12.sp,
+                            color = Color(0xFF94A3B8)
+                        )
+                    }
+                }
+            }
+        } else {
+            items(events) { event ->
+                AllEventList(event = event)
+            }
         }
     }
 }

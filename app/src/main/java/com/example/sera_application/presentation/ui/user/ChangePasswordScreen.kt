@@ -27,6 +27,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.sera_application.presentation.viewmodel.user.EditProfileViewModel
+import com.example.sera_application.utils.InputValidator
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -188,10 +189,30 @@ fun ChangePasswordScreen(
                         unfocusedBorderColor = if (passwordError != null && passwordError == "New password must be different from old password") Color(0xFFE91E63) else Color(0xFFE0E0E0),
                         errorBorderColor = Color(0xFFE91E63)
                     ),
-                    isError = passwordError != null && passwordError == "New password must be different from old password",
-                    supportingText = if (passwordError != null && passwordError == "New password must be different from old password") {
-                        { Text(text = passwordError!!, color = Color(0xFFE91E63), fontSize = 12.sp) }
-                    } else null,
+                    isError = (passwordError != null && passwordError == "New password must be different from old password") || 
+                              (newPassword.isNotBlank() && !InputValidator.validatePassword(newPassword).first),
+                    supportingText = {
+                        when {
+                            passwordError != null && passwordError == "New password must be different from old password" -> {
+                                Text(text = passwordError!!, color = Color(0xFFE91E63), fontSize = 12.sp)
+                            }
+                            newPassword.isNotBlank() -> {
+                                val (isValid, error) = InputValidator.validatePassword(newPassword)
+                                Text(
+                                    text = error ?: "Password requirements met",
+                                    color = if (isValid) Color(0xFF4CAF50) else Color(0xFFE91E63),
+                                    fontSize = 12.sp
+                                )
+                            }
+                            else -> {
+                                Text(
+                                    text = "Must contain uppercase, lowercase, digit, and be at least 6 characters",
+                                    color = Color(0xFF757575),
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+                    },
                     singleLine = true
                 )
                 // Show error message below new password field if it matches old password
@@ -282,13 +303,15 @@ fun ChangePasswordScreen(
                                     passwordError = "New passwords do not match"
                                 }
 
-                                newPassword.length < 6 -> {
-                                    passwordError = "Password must be at least 6 characters"
-                                }
-
                                 else -> {
-                                    passwordError = null
-                                    showConfirmationDialog = true
+                                    // Use InputValidator for password validation
+                                    val (isPasswordValid, validationError) = InputValidator.validatePassword(newPassword)
+                                    if (!isPasswordValid) {
+                                        passwordError = validationError ?: "Invalid password"
+                                    } else {
+                                        passwordError = null
+                                        showConfirmationDialog = true
+                                    }
                                 }
                             }
                         },

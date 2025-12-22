@@ -91,10 +91,11 @@ class UserRepositoryImpl @Inject constructor(
     override suspend fun approveOrganizer(userId: String): Boolean {
         return try {
             remoteDataSource.updateApprovalStatus(userId, true)
-            val user = getUserById(userId)
+            // Refresh user from remote to get updated approvalStatus and approvedAt
+            val user = remoteDataSource.getUserProfile(userId)
             if (user != null) {
-                val updatedUser = user.copy(isApproved = true, accountStatus = "ACTIVE")
-                userDao.insertUser(mapper.toEntity(updatedUser))
+                // Use the user data from Firestore which already has approvalStatus and approvedAt set
+                userDao.insertUser(mapper.toEntity(user))
             }
             true
         } catch (e: Exception) {

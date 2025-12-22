@@ -404,10 +404,20 @@ class PaymentActivity : ComponentActivity() {
     }
 
     private fun showPaymentFailure(reason: String) {
+        val reservation = viewModel.reservation.value
+        val event = viewModel.event.value
+        
+        // Calculate total tickets
+        val totalTickets = (reservation?.rockZoneSeats ?: 0) + (reservation?.normalZoneSeats ?: 0)
+        val ticketCount = if (totalTickets > 0) totalTickets else 1
+        
         val intent = Intent(this@PaymentActivity, PaymentStatusActivity::class.java).apply {
             putExtra("PAYMENT_SUCCESS", false)
             putExtra("FAILURE_REASON", reason)
-            putExtra("AMOUNT", 70.0)
+            putExtra("AMOUNT", reservation?.totalPrice ?: 70.0)
+            putExtra("RESERVATION_ID", reservation?.reservationId)
+            putExtra("TICKET_COUNT", ticketCount)
+            putExtra("EVENT_NAME", event?.name ?: "Event")
         }
         startActivity(intent)
         finish()

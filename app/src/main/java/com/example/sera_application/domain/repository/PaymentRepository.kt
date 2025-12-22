@@ -30,4 +30,6 @@ interface PaymentRepository {
     suspend fun getPaymentStatistics(): PaymentStatistics
     suspend fun getRevenueTrend(days: Int, startDate: Long): List<Double>
     suspend fun getTopRevenueEventIds(limit: Int): List<EventRevenue>
+    
+    suspend fun updatePaymentStatus(paymentId: String, status: String): Boolean
 }

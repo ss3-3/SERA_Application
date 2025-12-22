@@ -1,5 +1,6 @@
 package com.example.sera_application.di
 
+import android.content.Context
 import com.example.sera_application.data.remote.datasource.AuthRemoteDataSource
 import com.example.sera_application.data.remote.datasource.EventRemoteDataSource
 import com.example.sera_application.data.remote.datasource.NotificationRemoteDataSource
@@ -17,6 +18,7 @@ import com.example.sera_application.data.remote.firebase.FirebaseUserDataSource
 import com.example.sera_application.data.remote.paypal.PayPalDataSourceImpl
 import com.example.sera_application.data.remote.paypal.api.PayPalBackendApi
 import com.example.sera_application.data.remote.paypal.repository.PayPalRepository
+import com.example.sera_application.data.remote.api.EmailService
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
@@ -27,12 +29,14 @@ import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
+import javax.inject.Named
 import javax.inject.Singleton
 
 /**
@@ -73,6 +77,15 @@ abstract class NetworkModule {
 
         @Provides
         @Singleton
+        fun provideFirebaseStorageDataSource(
+            storage: FirebaseStorage,
+            @ApplicationContext context: Context
+        ): com.example.sera_application.data.remote.firebase.FirebaseStorageDataSource {
+            return com.example.sera_application.data.remote.firebase.FirebaseStorageDataSource(storage, context)
+        }
+
+        @Provides
+        @Singleton
         fun provideGson(): Gson {
             return GsonBuilder()
                 .setLenient()
@@ -96,6 +109,7 @@ abstract class NetworkModule {
 
         @Provides
         @Singleton
+        @Named("default")
         fun provideRetrofit(
             gson: Gson,
             okHttpClient: OkHttpClient
@@ -109,8 +123,31 @@ abstract class NetworkModule {
 
         @Provides
         @Singleton
-        fun providePayPalBackendApi(retrofit: Retrofit): PayPalBackendApi {
+        fun providePayPalBackendApi(@Named("default") retrofit: Retrofit): PayPalBackendApi {
             return retrofit.create(PayPalBackendApi::class.java)
+        }
+
+        /**
+         * Retrofit instance for Resend Email API
+         */
+        @Provides
+        @Singleton
+        @Named("email")
+        fun provideEmailRetrofit(
+            gson: Gson,
+            okHttpClient: OkHttpClient
+        ): Retrofit {
+            return Retrofit.Builder()
+                .baseUrl("https://api.resend.com/")
+                .client(okHttpClient)
+                .addConverterFactory(GsonConverterFactory.create(gson))
+                .build()
+        }
+
+        @Provides
+        @Singleton
+        fun provideEmailService(@Named("email") emailRetrofit: Retrofit): EmailService {
+            return emailRetrofit.create(EmailService::class.java)
         }
 
         @Provides

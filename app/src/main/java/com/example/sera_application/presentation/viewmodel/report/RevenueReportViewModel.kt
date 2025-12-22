@@ -42,10 +42,15 @@ class RevenueReportViewModel @Inject constructor(
     val paymentStats: StateFlow<PaymentStatistics?> = _paymentStats.asStateFlow()
 
     init {
-        loadRevenueData()
+        try {
+            Log.d("RevenueReportViewModel", "RevenueReportViewModel initialized")
+        } catch (e: Exception) {
+            Log.e("RevenueReportViewModel", "Error during initialization: ${e.message}", e)
+            e.printStackTrace()
+        }
     }
 
-    private fun loadRevenueData() {
+    fun loadRevenueData() {
         viewModelScope.launch {
             getTotalRevenueUseCase()
                 .catch { exception ->

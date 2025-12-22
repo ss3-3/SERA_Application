@@ -98,9 +98,15 @@ class ReservationRepositoryImpl @Inject constructor(
             }
             remoteReservations
         } catch (e: Exception) {
-            // No direct all method in DAO yet, maybe fetch all or filter?
-            // For now return empty list or implement getAll in DAO
-            emptyList()
+            android.util.Log.e("ReservationRepository", "Error loading reservations: ${e.message}", e)
+            // Try to get from local cache as fallback
+            try {
+                val localReservations = reservationDao.getAllReservations()
+                mapper.toDomainList(localReservations)
+            } catch (localException: Exception) {
+                android.util.Log.e("ReservationRepository", "Error loading from local cache: ${localException.message}", localException)
+                emptyList()
+            }
         }
     }
 

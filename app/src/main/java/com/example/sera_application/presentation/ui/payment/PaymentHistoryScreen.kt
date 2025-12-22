@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
@@ -42,14 +43,78 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @AndroidEntryPoint
 class PaymentHistoryActivity : ComponentActivity() {
     private var viewModel: PaymentHistoryViewModel? = null
     private var currentUserId: String? = null
 
+    @Inject
+    lateinit var getPaymentByIdUseCase: com.example.sera_application.domain.usecase.payment.GetPaymentByIdUseCase
+    
+    @Inject
+    lateinit var getReservationByIdUseCase: com.example.sera_application.domain.usecase.reservation.GetReservationByIdUseCase
+    
+    @Inject
+    lateinit var getEventByIdUseCase: com.example.sera_application.domain.usecase.event.GetEventByIdUseCase
+    
+    @Inject
+    lateinit var getUserProfileUseCase: com.example.sera_application.domain.usecase.user.GetUserProfileUseCase
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Check if this activity was started to generate PDF
+        val generatePdf = intent.getBooleanExtra("GENERATE_PDF", false)
+        if (generatePdf) {
+            val orderId = intent.getStringExtra("ORDER_ID") ?: ""
+            val reservationId = intent.getStringExtra("RESERVATION_ID")
+            val eventName = intent.getStringExtra("EVENT_NAME") ?: "Event"
+            val amount = intent.getDoubleExtra("AMOUNT", 0.0)
+            val date = intent.getStringExtra("DATE") ?: ""
+            val tickets = intent.getStringExtra("TICKETS") ?: "1 ticket"
+            
+            val orderData = OrderData(
+                eventName = eventName,
+                orderId = orderId,
+                price = "RM ${String.format(Locale.US, "%.2f", amount)}",
+                tickets = tickets,
+                status = "SUCCESS",
+                date = date,
+                reservationId = reservationId
+            )
+            
+            // Generate PDF and finish activity after completion
+            // Don't return immediately - let the activity stay alive for PDF generation
+            generateAndOpenPdf(orderData) {
+                // Finish activity after PDF is opened (with a small delay to ensure PDF viewer opens)
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    finish()
+                }, 500)
+            }
+            
+            // Show a minimal UI while generating PDF
+            setContent {
+                SERA_ApplicationTheme {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator()
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text("Generating receipt...")
+                        }
+                    }
+                }
+            }
+            return
+        }
+        
         setContent {
             SERA_ApplicationTheme {
                 val vm: PaymentHistoryViewModel = hiltViewModel()
@@ -76,9 +141,10 @@ class PaymentHistoryActivity : ComponentActivity() {
         }
     }
 
-    private fun generateAndOpenPdf(orderData: OrderData) {
+    private fun generateAndOpenPdf(orderData: OrderData, onComplete: (() -> Unit)? = null) {
         lifecycleScope.launch {
             try {
+                android.util.Log.d("PaymentHistory", "Starting PDF generation for order: ${orderData.orderId}")
                 Toast.makeText(
                     this@PaymentHistoryActivity,
                     "Generating receipt...",
@@ -86,45 +152,124 @@ class PaymentHistoryActivity : ComponentActivity() {
                 ).show()
 
                 val pdfFile: java.io.File = withContext(Dispatchers.IO) {
-                    val receiptData = ReceiptData(
-                        eventName = orderData.eventName,
-                        transactionId = orderData.orderId,
-                        date = orderData.date,
-                        time = "7:00 PM",
-                        venue = "Rimba, TARUMT",
-                        ticketType = "NORMAL",
-                        quantity = orderData.tickets.split(" ")[0].toIntOrNull() ?: 2,
-                        seats = "H15, H16",
-                        price = orderData.price.replace("RM ", "").toDoubleOrNull() ?: 70.0,
-                        email = "haha@gmail.com",
-                        name = "Lim Siau Siau",
-                        phone = "+60 123456789"
-                    )
+                    try {
+                        android.util.Log.d("PaymentHistory", "Loading payment data for: ${orderData.orderId}")
+                        
+                        // Try to load payment data, but use fallback if it fails
+                        var payment: com.example.sera_application.domain.model.Payment? = null
+                        var reservation: com.example.sera_application.domain.model.EventReservation? = null
+                        var event: com.example.sera_application.domain.model.Event? = null
+                        var user: com.example.sera_application.domain.model.User? = null
+                        
+                        try {
+                            payment = getPaymentByIdUseCase(orderData.orderId)
+                            android.util.Log.d("PaymentHistory", "Payment loaded: ${payment != null}")
+                        } catch (e: Exception) {
+                            android.util.Log.w("PaymentHistory", "Failed to load payment: ${e.message}")
+                        }
+                        
+                        // Load reservation if available
+                        try {
+                            reservation = orderData.reservationId?.let { 
+                                android.util.Log.d("PaymentHistory", "Loading reservation: $it")
+                                getReservationByIdUseCase(it) 
+                            }
+                            android.util.Log.d("PaymentHistory", "Reservation loaded: ${reservation != null}")
+                        } catch (e: Exception) {
+                            android.util.Log.w("PaymentHistory", "Failed to load reservation: ${e.message}")
+                        }
+                        
+                        // Load event
+                        try {
+                            event = payment?.let { 
+                                android.util.Log.d("PaymentHistory", "Loading event: ${it.eventId}")
+                                getEventByIdUseCase(it.eventId) 
+                            }
+                            android.util.Log.d("PaymentHistory", "Event loaded: ${event != null}")
+                        } catch (e: Exception) {
+                            android.util.Log.w("PaymentHistory", "Failed to load event: ${e.message}")
+                        }
+                        
+                        // Load user
+                        try {
+                            user = payment?.let { 
+                                android.util.Log.d("PaymentHistory", "Loading user: ${it.userId}")
+                                getUserProfileUseCase(it.userId) 
+                            }
+                            android.util.Log.d("PaymentHistory", "User loaded: ${user != null}")
+                        } catch (e: Exception) {
+                            android.util.Log.w("PaymentHistory", "Failed to load user: ${e.message}")
+                        }
+                        
+                        // Format date and time
+                        val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+                        val timeFormat = SimpleDateFormat("hh:mm a", Locale.getDefault())
+                        val paymentDate = payment?.let { Date(it.createdAt) } ?: Date()
+                        
+                        // Calculate ticket quantity
+                        val quantity = reservation?.let { 
+                            (it.rockZoneSeats ?: 0) + (it.normalZoneSeats ?: 0)
+                        } ?: orderData.tickets.split(" ")[0].toIntOrNull() ?: 1
+                        
+                        android.util.Log.d("PaymentHistory", "Creating ReceiptData with quantity: $quantity")
+                        val receiptData = ReceiptData(
+                            eventName = event?.name ?: orderData.eventName,
+                            transactionId = orderData.orderId,
+                            date = payment?.let { dateFormat.format(Date(it.createdAt)) } ?: orderData.date,
+                            time = payment?.let { timeFormat.format(Date(it.createdAt)) } ?: "7:00 PM",
+                            venue = event?.location ?: "Unknown",
+                            ticketType = "NORMAL",
+                            quantity = quantity,
+                            seats = "N/A", // Could be enhanced to show actual seats
+                            price = payment?.amount ?: orderData.price.replace("RM ", "").toDoubleOrNull() ?: 70.0,
+                            email = user?.email ?: "",
+                            name = user?.fullName ?: "",
+                            phone = user?.phone ?: ""
+                        )
 
-                    val generator = PdfReceiptGenerator(this@PaymentHistoryActivity)
-                    generator.generateReceipt(receiptData)
+                        android.util.Log.d("PaymentHistory", "Generating PDF...")
+                        val generator = PdfReceiptGenerator(this@PaymentHistoryActivity)
+                        val file = generator.generateReceipt(receiptData)
+                        android.util.Log.d("PaymentHistory", "PDF generated successfully: ${file.absolutePath}")
+                        file
+                    } catch (e: Exception) {
+                        android.util.Log.e("PaymentHistory", "Error in PDF generation: ${e.message}", e)
+                        e.printStackTrace()
+                        throw e
+                    }
                 }
 
+                android.util.Log.d("PaymentHistory", "Creating FileProvider URI...")
                 val uri = FileProvider.getUriForFile(
                     this@PaymentHistoryActivity,
                     "${applicationContext.packageName}.fileprovider",
                     pdfFile
                 )
 
+                android.util.Log.d("PaymentHistory", "Opening PDF viewer...")
                 val intent = Intent(Intent.ACTION_VIEW).apply {
                     setDataAndType(uri, "application/pdf")
                     flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
 
                 startActivity(intent)
+                android.util.Log.d("PaymentHistory", "PDF opened successfully")
+                
+                // Call completion callback if provided
+                onComplete?.invoke()
 
             } catch (e: Exception) {
+                android.util.Log.e("PaymentHistory", "Error generating receipt: ${e.message}", e)
+                e.printStackTrace()
                 Toast.makeText(
                     this@PaymentHistoryActivity,
-                    "Error generating receipt: ${e.message}",
+                    "Error generating receipt: ${e.message}\n${e.javaClass.simpleName}",
                     Toast.LENGTH_LONG
                 ).show()
-                e.printStackTrace()
+                
+                // Still call completion callback even on error
+                onComplete?.invoke()
             }
         }
     }
@@ -140,7 +285,8 @@ data class OrderData(
     val price: String,
     val tickets: String,
     val status: String,
-    val date: String
+    val date: String,
+    val reservationId: String? = null // Added to support navigation to ReceiptActivity
 )
 
 @Composable

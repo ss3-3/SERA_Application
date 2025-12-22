@@ -27,10 +27,15 @@ class EventReportViewModel @Inject constructor(
     val eventCount: StateFlow<Int> = _eventCount.asStateFlow()
 
     init {
-        loadAllEvents()
+        try {
+            Log.d("EventReportViewModel", "EventReportViewModel initialized")
+        } catch (e: Exception) {
+            Log.e("EventReportViewModel", "Error during initialization: ${e.message}", e)
+            e.printStackTrace()
+        }
     }
 
-    private fun loadAllEvents() {
+    fun loadAllEvents() {
         viewModelScope.launch {
             getAllEventsUseCase()
                 .catch { exception ->

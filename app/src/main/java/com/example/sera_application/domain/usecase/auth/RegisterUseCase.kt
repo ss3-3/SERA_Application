@@ -41,8 +41,10 @@ class RegisterUseCase @Inject constructor(
             return Result.failure(Exception("Password cannot be empty"))
         }
 
-        if (password.length < 6) {
-            return Result.failure(Exception("Password must be at least 6 characters"))
+        // Use InputValidator for password validation
+        val (isPasswordValid, passwordError) = com.example.sera_application.utils.InputValidator.validatePassword(password)
+        if (!isPasswordValid) {
+            return Result.failure(Exception(passwordError ?: "Invalid password"))
         }
 
         // Call repository to perform registration

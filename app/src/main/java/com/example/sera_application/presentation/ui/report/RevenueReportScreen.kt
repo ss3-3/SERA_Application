@@ -24,15 +24,18 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontWeight.Companion.Bold
 import androidx.compose.ui.text.font.FontWeight.Companion.Medium
 import androidx.compose.ui.text.font.FontWeight.Companion.Normal
@@ -70,41 +73,84 @@ fun TotalRevenueCard(
     revenueGrowth: Double
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF2F4F7)),
-        shape = RoundedCornerShape(15.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .shadow(
+                elevation = 4.dp,
+                shape = RoundedCornerShape(20.dp),
+                spotColor = Color(0xFF10B981).copy(alpha = 0.3f)
+            ),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(20.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(
-                modifier = Modifier.padding(8.dp).weight(4f),
-            ) {
-                Text(text = "Total Revenue", fontSize = 16.sp, color = Color(0xFF434343))
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(text = String.format("RM %.2f", revenue), fontSize = 32.sp, color = Color(0xFF434343), fontWeight = Bold)
-                Spacer(modifier = Modifier.height(8.dp))
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFC5E8E0)),
-                    shape = RoundedCornerShape(15.dp)
-                ) {
-                    Text(text = formatRevenueGrowth(revenueGrowth), fontSize = 12.sp, color = Color(0xFF10B981), modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp), letterSpacing = (-0.5).sp)
-                }
-            }
-
-            Box(
-                modifier = Modifier
-                    .size(64.dp)
-                    .background(Color(0xFFF2F4F7))
-                    .weight(1f)
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.money),
-                    contentDescription = "Icon",
-                    modifier = Modifier.size(64.dp).align(Alignment.Center).clip(CircleShape),
-                    alpha = 0.7f
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    brush = androidx.compose.ui.graphics.Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFF10B981).copy(alpha = 0.1f),
+                            Color(0xFF059669).copy(alpha = 0.05f)
+                        )
+                    )
                 )
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = "Total Revenue",
+                        fontSize = 14.sp,
+                        color = Color(0xFF64748B),
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = String.format("RM %.2f", revenue),
+                        fontSize = 36.sp,
+                        color = Color(0xFF1E293B),
+                        fontWeight = Bold,
+                        letterSpacing = (-0.5).sp
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (revenueGrowth >= 0) 
+                                Color(0xFFD1FAE5) else Color(0xFFFEE2E2)
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            text = formatRevenueGrowth(revenueGrowth),
+                            fontSize = 13.sp,
+                            color = if (revenueGrowth >= 0) Color(0xFF059669) else Color(0xFFDC2626),
+                            fontWeight = SemiBold,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        )
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clip(CircleShape)
+                        .background(Color.White),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.money),
+                        contentDescription = "Revenue Icon",
+                        modifier = Modifier.size(48.dp)
+                    )
+                }
             }
         }
     }
@@ -193,9 +239,9 @@ fun Top3EarningEvents(
                     }
 
                     else -> {
-                        AsyncImage(
-                            model = event.imagePath,
-                            contentDescription = null,
+                        com.example.sera_application.presentation.ui.components.SafeImageLoader(
+                            imagePath = event.imagePath,
+                            contentDescription = "Event Image",
                             modifier = Modifier
                                 .size(44.dp)
                                 .clip(CircleShape),
@@ -219,29 +265,58 @@ fun PaymentStatusCard(
     paymentStat: PaymentStatistics
 ) {
     LazyRow(
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
             Card(
-                modifier = Modifier.padding(8.dp).size(width = 145.dp, height = 180.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFCFF1E6))
+                modifier = Modifier
+                    .size(width = 160.dp, height = 160.dp)
+                    .shadow(
+                        elevation = 3.dp,
+                        shape = RoundedCornerShape(20.dp),
+                        spotColor = Color(0xFF10B981).copy(alpha = 0.2f)
+                    ),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                shape = RoundedCornerShape(20.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(12.dp).fillMaxSize()
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.SpaceBetween
                 ) {
                     Card(
                         colors = CardDefaults.cardColors(containerColor = Color(0xFF10B981)),
-                        shape = RoundedCornerShape(16.dp)
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text(text = "Success", fontSize = 10.sp, fontWeight = Medium, color = Color.White, modifier = Modifier.padding(horizontal = 10.dp, vertical = 1.dp))
+                        Text(
+                            text = "Success",
+                            fontSize = 11.sp,
+                            fontWeight = SemiBold,
+                            color = Color.White,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                        )
                     }
                     Column(
-                        modifier = Modifier.padding(16.dp).fillMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(text = paymentStat.successCount.toString(), fontSize = 36.sp, fontWeight = Bold, color = Color(0xFF0CB37C))
-                        Text(text = String.format("%.1f%%", paymentStat.successRate), fontSize = 20.sp, color = Color(0xFF53605C))
+                        Text(
+                            text = paymentStat.successCount.toString(),
+                            fontSize = 40.sp,
+                            fontWeight = Bold,
+                            color = Color(0xFF059669)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = String.format("%.1f%%", paymentStat.successRate),
+                            fontSize = 16.sp,
+                            color = Color(0xFF64748B),
+                            fontWeight = Medium
+                        )
                     }
                 }
             }
@@ -249,25 +324,51 @@ fun PaymentStatusCard(
 
         item {
             Card(
-                modifier = Modifier.padding(8.dp).size(width = 145.dp, height = 180.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFFDECCE))
+                modifier = Modifier
+                    .size(width = 160.dp, height = 160.dp)
+                    .shadow(
+                        elevation = 3.dp,
+                        shape = RoundedCornerShape(20.dp),
+                        spotColor = Color(0xFFF59E0B).copy(alpha = 0.2f)
+                    ),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                shape = RoundedCornerShape(20.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(12.dp).fillMaxSize()
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.SpaceBetween
                 ) {
                     Card(
                         colors = CardDefaults.cardColors(containerColor = Color(0xFFF59E0B)),
-                        shape = RoundedCornerShape(16.dp)
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text(text = "Pending", fontSize = 10.sp, fontWeight = Medium, color = Color.White, modifier = Modifier.padding(horizontal = 10.dp, vertical = 1.dp))
+                        Text(
+                            text = "Pending",
+                            fontSize = 11.sp,
+                            fontWeight = SemiBold,
+                            color = Color.White,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                        )
                     }
                     Column(
-                        modifier = Modifier.padding(16.dp).fillMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(text = paymentStat.pendingCount.toString(), fontSize = 36.sp, fontWeight = Bold, color = Color(0xFFD69322))
-                        Text(text = String.format("%.1f%%", paymentStat.pendingRate), fontSize = 20.sp, color = Color(0xFF53605C))
+                        Text(
+                            text = paymentStat.pendingCount.toString(),
+                            fontSize = 40.sp,
+                            fontWeight = Bold,
+                            color = Color(0xFFD97706)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = String.format("%.1f%%", paymentStat.pendingRate),
+                            fontSize = 16.sp,
+                            color = Color(0xFF64748B),
+                            fontWeight = Medium
+                        )
                     }
                 }
             }
@@ -275,25 +376,51 @@ fun PaymentStatusCard(
 
         item {
             Card(
-                modifier = Modifier.padding(8.dp).size(width = 145.dp, height = 180.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFFCDADA))
+                modifier = Modifier
+                    .size(width = 160.dp, height = 160.dp)
+                    .shadow(
+                        elevation = 3.dp,
+                        shape = RoundedCornerShape(20.dp),
+                        spotColor = Color(0xFFEF4444).copy(alpha = 0.2f)
+                    ),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                shape = RoundedCornerShape(20.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(12.dp).fillMaxSize()
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.SpaceBetween
                 ) {
                     Card(
                         colors = CardDefaults.cardColors(containerColor = Color(0xFFEF4444)),
-                        shape = RoundedCornerShape(16.dp)
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text(text = "Failed", fontSize = 10.sp, fontWeight = Medium, color = Color.White, modifier = Modifier.padding(horizontal = 10.dp, vertical = 1.dp))
+                        Text(
+                            text = "Failed",
+                            fontSize = 11.sp,
+                            fontWeight = SemiBold,
+                            color = Color.White,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                        )
                     }
                     Column(
-                        modifier = Modifier.padding(16.dp).fillMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(text = paymentStat.failedCount.toString(), fontSize = 36.sp, fontWeight = Bold, color = Color(0xFFE23A3A))
-                        Text(text = String.format("%.1f%%", paymentStat.failedRate), fontSize = 20.sp, color = Color(0xFF53605C))
+                        Text(
+                            text = paymentStat.failedCount.toString(),
+                            fontSize = 40.sp,
+                            fontWeight = Bold,
+                            color = Color(0xFFDC2626)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = String.format("%.1f%%", paymentStat.failedRate),
+                            fontSize = 16.sp,
+                            color = Color(0xFF64748B),
+                            fontWeight = Medium
+                        )
                     }
                 }
             }
@@ -311,32 +438,34 @@ fun RevenueReportScreen(
     val topEarningEvents by viewModel.topEarningEvents.collectAsState()
     val paymentStats by viewModel.paymentStats.collectAsState()
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize()
-            .padding(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        item {
-            Text(
-                text = "Total Revenue",
-                fontSize = 16.sp,
-                fontWeight = Bold,
-                color = Color.Black,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
+    // Ensure data is loaded when screen is displayed
+    LaunchedEffect(Unit) {
+        try {
+            viewModel.loadRevenueData()
+        } catch (e: Exception) {
+            android.util.Log.e("RevenueReportScreen", "Error loading revenue data: ${e.message}", e)
+            e.printStackTrace()
         }
+    }
 
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF5F7FA)),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         item {
             TotalRevenueCard(totalRevenue, revenueGrowth)
         }
 
         item {
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = "Revenue Trend",
                 fontSize = 16.sp,
                 fontWeight = Bold,
-                color = Color.Black,
+                color = Color(0xFF1E293B),
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
             )
             FilterButtonRow(
@@ -361,12 +490,12 @@ fun RevenueReportScreen(
         }
 
         item {
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = "Top 3 Earning Events",
                 fontSize = 16.sp,
                 fontWeight = Bold,
-                color = Color.Black,
+                color = Color(0xFF1E293B),
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
             )
         }
@@ -376,12 +505,12 @@ fun RevenueReportScreen(
         }
 
         item {
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = "Payment Status",
                 fontSize = 16.sp,
                 fontWeight = Bold,
-                color = Color.Black,
+                color = Color(0xFF1E293B),
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
             )
         }

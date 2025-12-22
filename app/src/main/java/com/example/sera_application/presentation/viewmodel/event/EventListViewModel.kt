@@ -36,14 +36,18 @@ class EventListViewModel @Inject constructor(
 
             try {
                 val allEvents = getEventListUseCase()
-                // Filter only APPROVED events for participants
-                val approvedEvents = allEvents.filter {
-                    it.status == com.example.sera_application.domain.model.enums.EventStatus.APPROVED
+                val currentTime = System.currentTimeMillis()
+                
+                // Filter: Only show APPROVED events that haven't passed their end time
+                val availableEvents = allEvents.filter { event ->
+                    val isApproved = event.status == com.example.sera_application.domain.model.enums.EventStatus.APPROVED
+                    val hasNotPassed = event.endTime > currentTime
+                    isApproved && hasNotPassed
                 }
+                
                 _uiState.update {
                     it.copy(
-//                        events = approvedEvents,
-                        events = allEvents,
+                        events = availableEvents,
                         isLoading = false,
                         errorMessage = null
                     )

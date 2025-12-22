@@ -23,7 +23,9 @@ class UpdatePasswordUseCase @Inject constructor(
             return false
         }
 
-        if (newPassword.length < 6) {
+        // Use InputValidator for password validation
+        val (isPasswordValid, _) = com.example.sera_application.utils.InputValidator.validatePassword(newPassword)
+        if (!isPasswordValid) {
             return false
         }
 

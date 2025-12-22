@@ -82,7 +82,8 @@ class PaymentHistoryViewModel @Inject constructor(
                         price = "RM ${String.format(Locale.US, "%.2f", payment.amount)}",
                         tickets = "1 ticket", // Ideally fetch quantity
                         status = payment.status.name, // Convert to friendly string if needed
-                        date = dateStr
+                        date = dateStr,
+                        reservationId = payment.reservationId
                     )
                 }
                 _allOrders.value = orders

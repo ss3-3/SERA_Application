@@ -2,6 +2,7 @@ package com.example.sera_application.data.mapper
 
 import com.example.sera_application.data.local.entity.UserEntity
 import com.example.sera_application.domain.model.User
+import com.example.sera_application.domain.model.enums.ApprovalStatus
 import com.example.sera_application.domain.model.enums.UserRole
 import javax.inject.Inject
 
@@ -11,6 +12,7 @@ import javax.inject.Inject
  *
  * Key conversions:
  * - String ↔ UserRole enum
+ * - String ↔ ApprovalStatus enum
  */
 class UserMapperImpl @Inject constructor() : UserMapper {
 
@@ -28,6 +30,15 @@ class UserMapperImpl @Inject constructor() : UserMapper {
             profileImagePath = entity.profileImagePath,
             accountStatus = entity.accountStatus,
             isApproved = entity.isApproved,
+            emailVerified = entity.emailVerified,
+            approvalStatus = entity.approvalStatus?.let {
+                try {
+                    ApprovalStatus.valueOf(it)
+                } catch (e: IllegalArgumentException) {
+                    null
+                }
+            },
+            approvedAt = entity.approvedAt,
             createdAt = entity.createdAt,
             updatedAt = entity.updatedAt
         )
@@ -43,6 +54,9 @@ class UserMapperImpl @Inject constructor() : UserMapper {
             profileImagePath = domain.profileImagePath,
             accountStatus = domain.accountStatus,
             isApproved = domain.isApproved,
+            emailVerified = domain.emailVerified,
+            approvalStatus = domain.approvalStatus?.name,
+            approvedAt = domain.approvedAt,
             createdAt = domain.createdAt,
             updatedAt = domain.updatedAt
         )

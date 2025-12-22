@@ -3,17 +3,14 @@ package com.example.sera_application.data.mapper
 import com.example.sera_application.data.local.entity.NotificationEntity
 import com.example.sera_application.domain.model.Notification
 import com.example.sera_application.domain.model.enums.NotificationType
-import java.time.Instant
-import java.time.LocalDateTime
-import java.time.ZoneId
 
 /**
  * Implementation of NotificationMapper
  * Handles actual conversion logic between NotificationEntity and Notification
  *
  * Key conversions:
- * - String ↔ NotificationType enum
- * - Long timestamp ↔ LocalDateTime
+ * - NotificationType enum (stored via type converter)
+ * - Long timestamp (stored directly)
  */
 object NotificationMapperImpl {
 
@@ -22,7 +19,7 @@ object NotificationMapperImpl {
      *
      * Conversions:
      * - type: NotificationType enum → NotificationType enum
-     * - createdAt: LocalDateTime → Long (timestamp)
+     * - createdAt: Long → Long (timestamp, no conversion needed)
      *
      * @param entity The notification entity from database
      * @return Notification domain model
@@ -37,10 +34,7 @@ object NotificationMapperImpl {
             relatedEventId = entity.relatedEventId,
             relatedReservationId = null, // NotificationEntity doesn't have this field
             isRead = entity.isRead,
-            createdAt = entity.createdAt
-                .atZone(ZoneId.systemDefault())
-                .toInstant()
-                .toEpochMilli()
+            createdAt = entity.createdAt // Already a Long timestamp
         )
     }
 
@@ -49,7 +43,7 @@ object NotificationMapperImpl {
      *
      * Conversions:
      * - type: NotificationType enum → NotificationType enum
-     * - createdAt: Long (timestamp) → LocalDateTime
+     * - createdAt: Long → Long (timestamp, no conversion needed)
      *
      * @param domain The notification domain model
      * @return NotificationEntity for database storage
@@ -64,10 +58,7 @@ object NotificationMapperImpl {
             relatedEventId = domain.relatedEventId,
             relatedPaymentId = null, // Notification doesn't have this field
             isRead = domain.isRead,
-            createdAt = LocalDateTime.ofInstant(
-                Instant.ofEpochMilli(domain.createdAt),
-                ZoneId.systemDefault()
-            )
+            createdAt = domain.createdAt // Already a Long timestamp
         )
     }
 

@@ -2,6 +2,7 @@ package com.example.sera_application.data.repository
 
 import android.content.Context
 import android.net.Uri
+import com.example.sera_application.data.remote.firebase.FirebaseStorageDataSource
 import com.example.sera_application.domain.repository.ImageRepository
 import com.example.sera_application.utils.file.LocalFileManager
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -13,12 +14,13 @@ import javax.inject.Inject
 
 /**
  * Implementation of ImageRepository.
- * Uses LocalFileManager for local file storage operations.
+ * Uses LocalFileManager for local file storage operations and FirebaseStorageDataSource for cloud storage.
  * 
  * All file I/O is delegated to LocalFileManager to maintain Clean Architecture.
  */
 class ImageRepositoryImpl @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val firebaseStorageDataSource: FirebaseStorageDataSource
 ) : ImageRepository {
 
     private val localFileManager = LocalFileManager(context)
@@ -34,10 +36,26 @@ class ImageRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun uploadImageToFirebase(uri: Uri, folder: String, fileName: String): String? {
+        return withContext(Dispatchers.IO) {
+            try {
+                firebaseStorageDataSource.uploadImage(uri, folder, fileName)
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+
     override suspend fun deleteImage(path: String): Boolean {
         return withContext(Dispatchers.IO) {
             try {
-                localFileManager.deleteImage(path)
+                // Check if it's a Firebase Storage URL (starts with http/https)
+                if (path.startsWith("http://") || path.startsWith("https://")) {
+                    firebaseStorageDataSource.deleteImage(path)
+                } else {
+                    // Local file path
+                    localFileManager.deleteImage(path)
+                }
             } catch (e: Exception) {
                 false
             }

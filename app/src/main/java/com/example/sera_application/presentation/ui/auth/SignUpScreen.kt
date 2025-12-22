@@ -37,8 +37,10 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.sera_application.R
 import com.example.sera_application.domain.model.User
+import com.example.sera_application.domain.model.enums.UserRole
 import com.example.sera_application.presentation.viewmodel.auth.SignUpViewModel
 import com.example.sera_application.presentation.viewmodel.auth.SignUpState
+import com.example.sera_application.utils.InputValidator
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -133,20 +135,48 @@ fun SignUpScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Please check your inbox and click the verification link to activate your account.",
+                        text = "Please check your inbox and click the verification link to verify your email.",
                         fontSize = 13.sp,
                         color = Color(0xFF757575),
                         textAlign = TextAlign.Center,
                         lineHeight = 18.sp
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "After verification, you can log in to your account.",
-                        fontSize = 13.sp,
-                        color = Color(0xFF1976D2),
-                        textAlign = TextAlign.Center,
-                        fontWeight = FontWeight.Medium
-                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    // Show organizer-specific message
+                    if (registeredUser?.role == UserRole.ORGANIZER) {
+                        Text(
+                            text = "⚠️ Important for Organizers:",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFFF9800),
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "After verifying your email, your account will be pending admin approval. You will receive an email notification once your organizer account is approved.",
+                            fontSize = 13.sp,
+                            color = Color(0xFF757575),
+                            textAlign = TextAlign.Center,
+                            lineHeight = 18.sp
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "You cannot log in until both email verification and admin approval are complete.",
+                            fontSize = 13.sp,
+                            color = Color(0xFF1976D2),
+                            textAlign = TextAlign.Center,
+                            fontWeight = FontWeight.Medium,
+                            lineHeight = 18.sp
+                        )
+                    } else {
+                        Text(
+                            text = "After verification, you can log in to your account.",
+                            fontSize = 13.sp,
+                            color = Color(0xFF1976D2),
+                            textAlign = TextAlign.Center,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
             },
             confirmButton = {
@@ -280,39 +310,58 @@ fun SignUpScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             // Password Field
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it },
-                label = { Text("Password") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                visualTransformation = if (passwordVisible)
-                    VisualTransformation.None
-                else
-                    PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                trailingIcon = {
-                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                        Icon(
-                            imageVector = if (passwordVisible)
-                                Icons.Filled.Visibility
-                            else
-                                Icons.Filled.VisibilityOff,
-                            contentDescription = if (passwordVisible)
-                                "Hide password"
-                            else
-                                "Show password",
-                            tint = Color(0xFF757575)
-                        )
-                    }
-                },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF1976D2),
-                    unfocusedBorderColor = Color(0xFFBDBDBD)
-                ),
-                shape = RoundedCornerShape(8.dp),
-                enabled = signUpState !is SignUpState.Loading
-            )
+            Column {
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text("Password") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    visualTransformation = if (passwordVisible)
+                        VisualTransformation.None
+                    else
+                        PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    trailingIcon = {
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(
+                                imageVector = if (passwordVisible)
+                                    Icons.Filled.Visibility
+                                else
+                                    Icons.Filled.VisibilityOff,
+                                contentDescription = if (passwordVisible)
+                                    "Hide password"
+                                else
+                                    "Show password",
+                                tint = Color(0xFF757575)
+                            )
+                        }
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFF1976D2),
+                        unfocusedBorderColor = Color(0xFFBDBDBD)
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    enabled = signUpState !is SignUpState.Loading,
+                    supportingText = {
+                        if (password.isNotBlank()) {
+                            val (isValid, error) = InputValidator.validatePassword(password)
+                            Text(
+                                text = error ?: "Password requirements met",
+                                color = if (isValid) Color(0xFF4CAF50) else Color(0xFFE91E63),
+                                fontSize = 12.sp
+                            )
+                        } else {
+                            Text(
+                                text = "Must contain uppercase, lowercase, digit, and be at least 6 characters",
+                                color = Color(0xFF757575),
+                                fontSize = 12.sp
+                            )
+                        }
+                    },
+                    isError = password.isNotBlank() && !InputValidator.validatePassword(password).first
+                )
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -436,6 +485,13 @@ fun SignUpScreen(
             // Register Button
             Button(
                 onClick = {
+                    // Validate password
+                    val (isPasswordValid, passwordError) = InputValidator.validatePassword(password)
+                    if (!isPasswordValid) {
+                        Toast.makeText(context, passwordError ?: "Invalid password", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+                    
                     if (password != confirmPassword) {
                         Toast.makeText(context, "Passwords do not match", Toast.LENGTH_SHORT).show()
                         return@Button

@@ -8,6 +8,7 @@ import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -33,6 +34,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.collect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,7 +50,9 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.sera_application.R
 import com.example.sera_application.domain.model.uimodel.Item
+import com.example.sera_application.presentation.ui.components.SafeImageLoader
 import com.example.sera_application.presentation.viewmodel.dashboard.AdminDashboardViewModel
+import com.example.sera_application.presentation.viewmodel.dashboard.PopularEventUiModel
 import com.patrykandpatryk.vico.compose.axis.horizontal.bottomAxis
 import com.patrykandpatryk.vico.compose.axis.vertical.startAxis
 import com.patrykandpatryk.vico.compose.chart.Chart
@@ -125,8 +130,18 @@ fun StatsSliderSection(statList: List<Item>) {
     val listState = rememberLazyListState()
     var selectedIndex by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(listState.firstVisibleItemScrollOffset) {
-        selectedIndex = listState.firstVisibleItemIndex
+    // Watch for scroll position changes - use a simpler approach
+    LaunchedEffect(listState, statList.size) {
+        if (statList.isEmpty()) {
+            selectedIndex = 0
+            return@LaunchedEffect
+        }
+        
+        snapshotFlow { 
+            listState.firstVisibleItemIndex 
+        }.collect { index ->
+            selectedIndex = index.coerceIn(0, (statList.size - 1).coerceAtLeast(0))
+        }
     }
 
     Column(
@@ -154,28 +169,30 @@ fun StatsSliderSection(statList: List<Item>) {
 
         Spacer(Modifier.height(12.dp))
 
-        Row(
-            horizontalArrangement = Arrangement.Center,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            repeat(statList.size) { index ->
-                val isSelected = index == selectedIndex
+        if (statList.isNotEmpty()) {
+            Row(
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                repeat(statList.size) { index ->
+                    val isSelected = index == selectedIndex
 
-                Box(
-                    modifier = Modifier
-                        .padding(horizontal = 4.dp)
-                        .height(9.dp),
-                    contentAlignment = Alignment.Center
-                ) {
                     Box(
                         modifier = Modifier
-                            .size(if (isSelected) 9.dp else 7.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (isSelected) Color.Black
-                                else Color.LightGray.copy(alpha = 0.5f)
-                            )
-                    )
+                            .padding(horizontal = 4.dp)
+                            .height(9.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(if (isSelected) 9.dp else 7.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (isSelected) Color.Black
+                                    else Color.LightGray.copy(alpha = 0.5f)
+                                )
+                        )
+                    }
                 }
             }
         }
@@ -284,7 +301,7 @@ fun TrendChartSection(
 fun PopularEvent(
     title: String,
     participants: Int,
-    picture: Int,
+    imagePath: String?,
     rank: Int,
     rankColor: Color,
     rankNumberColor: Color
@@ -314,15 +331,19 @@ fun PopularEvent(
                 modifier = Modifier
                     .height(50.dp)
             ) {
-                Image(
-                    painter = painterResource(id = picture),
-                    contentDescription = "event image",
+                Box(
                     modifier = Modifier
                         .size(imageSize)
                         .clip(CircleShape)
-                        .border(width = 1.dp, color = Color.LightGray, shape = CircleShape),
-                    contentScale = ContentScale.Crop
-                )
+                        .border(width = 1.dp, color = Color.LightGray, shape = CircleShape)
+                ) {
+                    SafeImageLoader(
+                        imagePath = imagePath,
+                        contentDescription = "event image",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
 
                 Box(
                     modifier = Modifier
@@ -361,6 +382,7 @@ fun AdminDashboardScreen(
     val statsItems by viewModel.statsItems.collectAsState()
     val bookingData by viewModel.bookingData.collectAsState()
     val userGrowthData by viewModel.userGrowthData.collectAsState()
+    val popularEvents by viewModel.popularEvents.collectAsState()
 
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         item {
@@ -368,8 +390,8 @@ fun AdminDashboardScreen(
                 text = "Dashboard",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.Black,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+                color = Color(0xFF1A1A1A), // Black with slight transparency
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
             StatsSliderSection(statList = statsItems)
             Spacer(modifier = Modifier.height(12.dp))
@@ -394,7 +416,7 @@ fun AdminDashboardScreen(
                 text = "Monthly Trends",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.Black,
+                color = Color(0xFF1A1A1A), // Black with slight transparency
                 modifier = Modifier.padding(vertical = 12.dp, horizontal = 24.dp)
             )
         }
@@ -409,7 +431,7 @@ fun AdminDashboardScreen(
                 text = "Most Popular Events🔥",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.Black,
+                color = Color(0xFF1A1A1A), // Black with slight transparency
                 modifier = Modifier.padding(vertical = 12.dp, horizontal = 24.dp)
             )
             Card(
@@ -426,30 +448,73 @@ fun AdminDashboardScreen(
                         .fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    PopularEvent(
-                        "Voichestra",
-                        1278,
-                        R.drawable.voichestra,
-                        2,
-                        Color(0xFF8CCAD4),
-                        Color(0xFFE0F7FF)
-                    )
-                    PopularEvent(
-                        "TARCian Run",
-                        7459,
-                        R.drawable.tarcian_run,
-                        1,
-                        Color(0xFFFC8770),
-                        Color(0xFFFFE0E0)
-                    )
-                    PopularEvent(
-                        "GOTAR",
-                        958,
-                        R.drawable.gotar,
-                        3,
-                        Color(0xFF3777D8),
-                        Color(0xFFE0E7FF)
-                    )
+                    if (popularEvents.isEmpty()) {
+                        // Show placeholder when no events
+                        repeat(3) { index ->
+                            PopularEvent(
+                                title = "No events",
+                                participants = 0,
+                                imagePath = null,
+                                rank = index + 1,
+                                rankColor = Color.LightGray,
+                                rankNumberColor = Color.Gray
+                            )
+                        }
+                    } else {
+                        // Reorder events: rank 2 (left), rank 1 (middle), rank 3 (right)
+                        // Find events by rank
+                        val rank1 = popularEvents.find { it.rank == 1 }
+                        val rank2 = popularEvents.find { it.rank == 2 }
+                        val rank3 = popularEvents.find { it.rank == 3 }
+                        
+                        // Create ordered list: [2, 1, 3] - rank 1 in the middle
+                        val reorderedEvents = mutableListOf<PopularEventUiModel>()
+                        
+                        // Left position: rank 2
+                        if (rank2 != null) {
+                            reorderedEvents.add(rank2)
+                        }
+                        
+                        // Middle position: rank 1 (most important)
+                        if (rank1 != null) {
+                            reorderedEvents.add(rank1)
+                        }
+                        
+                        // Right position: rank 3
+                        if (rank3 != null) {
+                            reorderedEvents.add(rank3)
+                        }
+                        
+                        // Fill remaining slots if less than 3 events
+                        while (reorderedEvents.size < 3) {
+                            reorderedEvents.add(
+                                PopularEventUiModel(
+                                    eventId = "",
+                                    title = "No events",
+                                    participants = 0,
+                                    imagePath = null,
+                                    rank = reorderedEvents.size + 1
+                                )
+                            )
+                        }
+                        
+                        reorderedEvents.forEach { event ->
+                            val (rankColor, rankNumberColor) = when (event.rank) {
+                                1 -> Color(0xFFFC8770) to Color(0xFFFFE0E0)
+                                2 -> Color(0xFF8CCAD4) to Color(0xFFE0F7FF)
+                                3 -> Color(0xFF3777D8) to Color(0xFFE0E7FF)
+                                else -> Color.LightGray to Color.Gray
+                            }
+                            PopularEvent(
+                                title = event.title,
+                                participants = event.participants,
+                                imagePath = event.imagePath,
+                                rank = event.rank,
+                                rankColor = rankColor,
+                                rankNumberColor = rankNumberColor
+                            )
+                        }
+                    }
                 }
             }
         }

@@ -239,6 +239,7 @@ private fun getNotificationIcon(type: DomainNotificationType): ImageVector {
         DomainNotificationType.EVENT_UPDATE -> Icons.Default.Event
         DomainNotificationType.RESERVATION_UPDATE -> Icons.Default.CheckCircle
         DomainNotificationType.PAYMENT_UPDATE -> Icons.Default.Payment
+        DomainNotificationType.ORGANIZER_APPROVAL -> Icons.Default.VerifiedUser
         DomainNotificationType.SYSTEM -> Icons.Default.Info
     }
 }
@@ -248,6 +249,7 @@ private fun getNotificationIconColor(type: DomainNotificationType): Color {
         DomainNotificationType.EVENT_UPDATE -> Color(0xFFFF9800)
         DomainNotificationType.RESERVATION_UPDATE -> Color(0xFF4CAF50)
         DomainNotificationType.PAYMENT_UPDATE -> Color(0xFF2196F3)
+        DomainNotificationType.ORGANIZER_APPROVAL -> Color(0xFF00BCD4)
         DomainNotificationType.SYSTEM -> Color(0xFF9C27B0)
     }
 }

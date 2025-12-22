@@ -15,24 +15,52 @@ class GetAllEventsUseCase @Inject constructor(
 ) {
     operator fun invoke(): Flow<List<EventListUiModel>> = flow {
         try {
-            val events = eventRepository.getAllEvents()
+            val events = try {
+                eventRepository.getAllEvents()
+            } catch (e: Exception) {
+                android.util.Log.e("GetAllEventsUseCase", "Error getting events: ${e.message}", e)
+                emptyList()
+            }
 
-            val uiModels = events.map { event ->
-                val participants = reservationRepository.getParticipantsByEvent(event.eventId)
-                val revenue = paymentRepository.getTotalRevenueByEvents(listOf(event.eventId))
+            if (events.isEmpty()) {
+                emit(emptyList())
+                return@flow
+            }
 
-                EventListUiModel(
-                    title = event.name,
-                    picture = event.imagePath ?: "",
-                    organizer = event.organizerName,
-                    description = event.description,
-                    revenue = revenue,
-                    participants = participants
-                )
+            val uiModels = events.mapNotNull { event ->
+                try {
+                    val participants = try {
+                        reservationRepository.getParticipantsByEvent(event.eventId)
+                    } catch (e: Exception) {
+                        android.util.Log.e("GetAllEventsUseCase", "Error getting participants for event ${event.eventId}: ${e.message}", e)
+                        0
+                    }
+                    
+                    val revenue = try {
+                        paymentRepository.getTotalRevenueByEvents(listOf(event.eventId))
+                    } catch (e: Exception) {
+                        android.util.Log.e("GetAllEventsUseCase", "Error getting revenue for event ${event.eventId}: ${e.message}", e)
+                        0.0
+                    }
+
+                    EventListUiModel(
+                        title = event.name,
+                        picture = event.imagePath ?: "",
+                        organizer = event.organizerName,
+                        description = event.description,
+                        revenue = revenue,
+                        participants = participants
+                    )
+                } catch (e: Exception) {
+                    android.util.Log.e("GetAllEventsUseCase", "Error creating EventListUiModel for event ${event.eventId}: ${e.message}", e)
+                    null
+                }
             }
 
             emit(uiModels)
         } catch (e: Exception) {
+            android.util.Log.e("GetAllEventsUseCase", "Unexpected error in GetAllEventsUseCase: ${e.message}", e)
+            e.printStackTrace()
             emit(emptyList())
         }
     }
