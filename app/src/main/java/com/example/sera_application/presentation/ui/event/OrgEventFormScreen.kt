@@ -67,7 +67,9 @@ fun EventFormScreen(
     onBackClick: () -> Unit = {},
     onSubmitClick: (EventFormData) -> Unit = {},
     onImageSelected: ((Uri) -> Unit)? = null,
-    currentImagePath: String? = null // Image path from ViewModel after saving
+    currentImagePath: String? = null, // Image path from ViewModel after saving
+    isLoading: Boolean = false, // Loading state from ViewModel
+    errorMessage: String? = null // Error message from ViewModel
 ) {
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
 
@@ -725,10 +727,11 @@ fun EventFormScreen(
 
             // Submit Button
             item {
-                var showError by remember { mutableStateOf(false) }
-                var errorMessage by remember { mutableStateOf("") }
+                var showLocalError by remember { mutableStateOf(false) }
+                var localErrorMessage by remember { mutableStateOf("") }
 
-                if (showError) {
+                // Show ViewModel error message if present
+                if (errorMessage != null) {
                     Card(
                         modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
                         colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
@@ -745,45 +748,123 @@ fun EventFormScreen(
                     }
                 }
 
+                // Show local validation error if present
+                if (showLocalError) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Warning, "Warning", tint = Color(0xFFD32F2F), modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(localErrorMessage, fontSize = 13.sp, color = Color(0xFFD32F2F))
+                        }
+                    }
+                }
+
                 Button(
                     onClick = {
+                        // Clear previous errors
+                        showLocalError = false
+                        localErrorMessage = ""
+                        
+                        // Validate form fields
                         when {
-                            eventName.isBlank() -> { showError = true; errorMessage = "Please enter event name" }
+                            eventName.isBlank() -> { 
+                                showLocalError = true
+                                localErrorMessage = "Please enter event name"
+                            }
                             eventDateMillis == null -> {
-                                showError = true
-                                errorMessage = "Please select event date"
-                            }//                            eventDuration.isBlank() -> { showError = true; errorMessage = "Please enter event duration" }
-                            eventStartTime.isBlank() || eventEndTime.isBlank() -> { showError = true; errorMessage = "Please select a start and end time" }
-                            selectedCategory.isBlank() -> { showError = true; errorMessage = "Please select a category" }
-                            selectedLocation.isBlank() -> { showError = true; errorMessage = "Please select a location" }
-                            rockZonePrice.isBlank() || rockZonePrice.toDoubleOrNull() == null -> { showError = true; errorMessage = "Please enter valid rock zone price" }
-                            normalZonePrice.isBlank() || normalZonePrice.toDoubleOrNull() == null -> { showError = true; errorMessage = "Please enter valid normal zone price" }
-                            eventDescription.isBlank() -> { showError = true; errorMessage = "Please enter event description" }
+                                showLocalError = true
+                                localErrorMessage = "Please select event date"
+                            }
+                            eventStartTime.isBlank() || eventEndTime.isBlank() -> { 
+                                showLocalError = true
+                                localErrorMessage = "Please select a start and end time"
+                            }
+                            selectedCategory.isBlank() -> { 
+                                showLocalError = true
+                                localErrorMessage = "Please select a category"
+                            }
+                            selectedLocation.isBlank() -> { 
+                                showLocalError = true
+                                localErrorMessage = "Please select a location"
+                            }
+                            rockZonePrice.isBlank() || rockZonePrice.toDoubleOrNull() == null -> { 
+                                showLocalError = true
+                                localErrorMessage = "Please enter valid rock zone price"
+                            }
+                            normalZonePrice.isBlank() || normalZonePrice.toDoubleOrNull() == null -> { 
+                                showLocalError = true
+                                localErrorMessage = "Please enter valid normal zone price"
+                            }
+                            eventDescription.isBlank() -> { 
+                                showLocalError = true
+                                localErrorMessage = "Please enter event description"
+                            }
                             else -> {
-                                showError = false
-                                val formData = EventFormData(
-                                    name = eventName,
-                                    dateMillis = eventDateMillis,
-                                    startTimeMillis = parseTime(eventDateMillis, eventStartTime),
-                                    endTimeMillis = parseTime(eventDateMillis, eventEndTime),
-                                    location = selectedLocation,
-                                    category = selectedCategory,
-                                    rockZoneSeats = rockZoneSeats,
-                                    normalZoneSeats = normalZoneSeats,
-                                    rockZonePrice = rockZonePrice.toDoubleOrNull() ?: 0.0,
-                                    normalZonePrice = normalZonePrice.toDoubleOrNull() ?: 0.0,
-                                    description = eventDescription,
-                                    imagePath = currentImagePath ?: initialEventData?.imagePath
-                                )
-                                onSubmitClick(formData)
+                                // Validate time parsing before submitting
+                                val parsedStartTime = parseTime(eventDateMillis, eventStartTime)
+                                val parsedEndTime = parseTime(eventDateMillis, eventEndTime)
+                                
+                                if (parsedStartTime == null) {
+                                    showLocalError = true
+                                    localErrorMessage = "Invalid start time format. Please select the time again."
+                                } else if (parsedEndTime == null) {
+                                    showLocalError = true
+                                    localErrorMessage = "Invalid end time format. Please select the time again."
+                                } else if (parsedEndTime <= parsedStartTime) {
+                                    showLocalError = true
+                                    localErrorMessage = "End time must be after start time"
+                                } else {
+                                    showLocalError = false
+                                    val formData = EventFormData(
+                                        name = eventName,
+                                        dateMillis = eventDateMillis,
+                                        startTimeMillis = parsedStartTime,
+                                        endTimeMillis = parsedEndTime,
+                                        location = selectedLocation,
+                                        category = selectedCategory,
+                                        rockZoneSeats = rockZoneSeats,
+                                        normalZoneSeats = normalZoneSeats,
+                                        rockZonePrice = rockZonePrice.toDoubleOrNull() ?: 0.0,
+                                        normalZonePrice = normalZonePrice.toDoubleOrNull() ?: 0.0,
+                                        description = eventDescription,
+                                        imagePath = currentImagePath ?: initialEventData?.imagePath
+                                    )
+                                    onSubmitClick(formData)
+                                }
                             }
                         }
                     },
                     modifier = Modifier.fillMaxWidth().height(50.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3)),
+                    enabled = !isLoading, // Disable button when loading
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF2196F3),
+                        disabledContainerColor = Color(0xFFBDBDBD)
+                    ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text(submitButtonText, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    if (isLoading) {
+                        Row(
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Creating...", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+                    } else {
+                        Text(submitButtonText, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    }
                 }
             }
 
@@ -892,7 +973,10 @@ fun EditEventScreen(
                 },
                 onImageSelected = { uri ->
                     viewModel.onImageSelected(uri)
-                }
+                },
+                currentImagePath = uiState.imagePath,
+                isLoading = uiState.isLoading,
+                errorMessage = uiState.errorMessage
             )
         }
     }

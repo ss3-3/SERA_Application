@@ -24,7 +24,7 @@ import com.example.sera_application.data.local.entity.UserEntity
         PaymentEntity::class,
         NotificationEntity::class
     ],
-    version = 8, // Incremented version to migrate schema
+    version = 9, // Incremented version to migrate schema
     exportSchema = false
 )
 @TypeConverters(

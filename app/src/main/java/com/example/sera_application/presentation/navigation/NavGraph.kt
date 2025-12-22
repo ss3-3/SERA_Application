@@ -241,8 +241,6 @@ fun MainNavGraph(
                     initialEventData = null,
                     onBackClick = { navController.popBackStack() },
                     onSubmitClick = { formData ->
-                        // TODO: Get organizerId and organizerName from current user
-                        // For now, using placeholder values
                         viewModel.submitEvent(
                             formData = formData,
                             isEditMode = false
@@ -251,7 +249,9 @@ fun MainNavGraph(
                     onImageSelected = { uri ->
                         viewModel.onImageSelected(uri)
                     },
-                    currentImagePath = uiState.imagePath
+                    currentImagePath = uiState.imagePath,
+                    isLoading = uiState.isLoading,
+                    errorMessage = uiState.errorMessage
                 )
             }
 
@@ -301,7 +301,9 @@ fun MainNavGraph(
                     onImageSelected = { uri ->
                         viewModel.onImageSelected(uri)
                     },
-                    currentImagePath = uiState.imagePath
+                    currentImagePath = uiState.imagePath,
+                    isLoading = uiState.isLoading,
+                    errorMessage = uiState.errorMessage
                 )
             }
 
