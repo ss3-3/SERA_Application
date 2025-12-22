@@ -11,4 +11,3 @@ class GetEventStatisticsUseCase @Inject constructor(
         return reportRepository.getEventStatistics(eventId)
     }
 }
-

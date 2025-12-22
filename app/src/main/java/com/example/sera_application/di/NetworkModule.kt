@@ -66,7 +66,13 @@ abstract class NetworkModule {
         @Provides
         @Singleton
         fun provideFirebaseFirestore(): FirebaseFirestore {
-            return FirebaseFirestore.getInstance()
+            val firestore = FirebaseFirestore.getInstance()
+            // Disable offline persistence to always fetch fresh data
+            // This prevents stale cached data from being displayed
+            firestore.firestoreSettings = com.google.firebase.firestore.FirebaseFirestoreSettings.Builder()
+                .setPersistenceEnabled(false)
+                .build()
+            return firestore
         }
 
         @Provides

@@ -8,4 +8,3 @@ interface ReportRepository {
     suspend fun getEventStatistics(eventId: String): ReservationStatistics
     suspend fun getUserStatistics(userId: String): ReservationStatistics
 }
-

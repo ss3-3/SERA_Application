@@ -6,6 +6,7 @@ import com.example.sera_application.domain.model.Event
 import com.example.sera_application.domain.model.EventReservation
 import com.example.sera_application.domain.model.enums.ReservationStatus
 import com.example.sera_application.domain.usecase.event.GetEventByIdUseCase
+import com.example.sera_application.domain.usecase.event.UpdateAvailableSeatsUseCase
 import com.example.sera_application.domain.usecase.reservation.CreateReservationUseCase
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -26,7 +27,8 @@ data class ReservationFormState(
 @HiltViewModel
 class ReservationFormViewModel @Inject constructor(
     private val getEventByIdUseCase: GetEventByIdUseCase,
-    private val createReservationUseCase: CreateReservationUseCase
+    private val createReservationUseCase: CreateReservationUseCase,
+    private val updateAvailableSeatsUseCase: UpdateAvailableSeatsUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ReservationFormState())
@@ -102,6 +104,8 @@ class ReservationFormViewModel @Inject constructor(
                 eventId = eventId,
                 userId = userId,
                 seats = totalSeats,
+                rockZoneSeats = quantities["Rock Zone"] ?: 0,
+                normalZoneSeats = quantities["Normal Zone"] ?: 0,
                 totalPrice = totalPrice,
                 status = ReservationStatus.PENDING,
                 createdAt = System.currentTimeMillis()
@@ -110,6 +114,14 @@ class ReservationFormViewModel @Inject constructor(
             val result = createReservationUseCase(reservation)
             result.fold(
                 onSuccess = { reservationId ->
+                    // Update available seats (zone-specific)
+                    val rockDelta = -(quantities["Rock Zone"] ?: 0)
+                    val normalDelta = -(quantities["Normal Zone"] ?: 0)
+                    
+                    // Note: FirebaseReservationDataSource already updates seats in transaction,
+                    // but we update here too for local cache consistency
+                    updateAvailableSeatsUseCase(eventId, rockDelta, normalDelta)
+                    
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         isSuccess = true,

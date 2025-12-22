@@ -11,4 +11,3 @@ class GetUserStatisticsUseCase @Inject constructor(
         return reportRepository.getUserStatistics(userId)
     }
 }
-

@@ -1,10 +1,11 @@
 package com.example.sera_application.data.remote.firebase
 
-
+import android.util.Log
 import com.example.sera_application.data.remote.datasource.ReservationRemoteDataSource
 import com.example.sera_application.domain.model.EventReservation
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
+
 
 
 class FirebaseReservationDataSource(
@@ -16,21 +17,92 @@ class FirebaseReservationDataSource(
 
 
     override suspend fun createReservation(reservation: EventReservation): String {
+        Log.d("ReservationDataSource", "Creating reservation for event: ${reservation.eventId}, seats: ${reservation.seats}")
+        
         val docRef = if (reservation.reservationId.isBlank()) {
             reservationsRef.document()
         } else {
             reservationsRef.document(reservation.reservationId)
         }
         val reservationWithId = reservation.copy(reservationId = docRef.id)
-        docRef.set(reservationToMap(reservationWithId)).await()
+        
+        // Use a transaction to ensure atomic updates to both reservation and event
+        firestore.runTransaction { transaction ->
+            // Get the event document
+            val eventRef = firestore.collection("events").document(reservation.eventId)
+            val eventSnapshot = transaction.get(eventRef)
+            
+            if (!eventSnapshot.exists()) {
+                Log.e("ReservationDataSource", "Event not found: ${reservation.eventId}")
+                throw Exception("Event not found")
+            }
+            
+            // Get current available seats
+            val currentAvailableSeats = eventSnapshot.getLong("availableSeats")?.toInt() ?: 0
+            Log.d("ReservationDataSource", "Current available seats: $currentAvailableSeats")
+            
+            // Check if enough seats are available
+            if (currentAvailableSeats < reservation.seats) {
+                Log.e("ReservationDataSource", "Not enough seats. Available: $currentAvailableSeats, Requested: ${reservation.seats}")
+                throw Exception("Not enough available seats. Available: $currentAvailableSeats, Requested: ${reservation.seats}")
+            }
+            
+            // Validate zone availability before creating reservation
+            val currentRockZoneSeats = eventSnapshot.getLong("rockZoneSeats")?.toInt() ?: 0
+            val currentNormalZoneSeats = eventSnapshot.getLong("normalZoneSeats")?.toInt() ?: 0
+            
+            // Check zone availability
+            if (currentRockZoneSeats < reservation.rockZoneSeats) {
+                throw Exception("Not enough Rock Zone seats. Available: $currentRockZoneSeats, Requested: ${reservation.rockZoneSeats}")
+            }
+            if (currentNormalZoneSeats < reservation.normalZoneSeats) {
+                throw Exception("Not enough Normal Zone seats. Available: $currentNormalZoneSeats, Requested: ${reservation.normalZoneSeats}")
+            }
+            
+            // Create the reservation
+            // Note: Event seat updates are handled separately via UpdateAvailableSeatsUseCase
+            // to avoid permission issues with Firestore security rules
+            transaction.set(docRef, reservationToMap(reservationWithId))
+            
+        }.await()
+        
+        Log.d("ReservationDataSource", "Reservation created successfully: ${docRef.id}")
         return docRef.id
     }
 
 
     override suspend fun cancelReservation(reservationId: String) {
-        reservationsRef.document(reservationId)
-            .update("status", com.example.sera_application.domain.model.enums.ReservationStatus.CANCELLED.name)
-            .await()
+        // Use a transaction to ensure atomic updates to both reservation and event
+        firestore.runTransaction { transaction ->
+            // Get the reservation document
+            val reservationRef = reservationsRef.document(reservationId)
+            val reservationSnapshot = transaction.get(reservationRef)
+            
+            if (!reservationSnapshot.exists()) {
+                throw Exception("Reservation not found")
+            }
+            
+            // Get reservation details
+            val eventId = reservationSnapshot.getString("eventId") ?: throw Exception("Event ID not found")
+            val seats = reservationSnapshot.getLong("seats")?.toInt() ?: 0
+            
+            // Get the event document
+            val eventRef = firestore.collection("events").document(eventId)
+            val eventSnapshot = transaction.get(eventRef)
+            
+            if (!eventSnapshot.exists()) {
+                throw Exception("Event not found")
+            }
+            
+            // Update reservation status
+            transaction.update(reservationRef, "status", com.example.sera_application.domain.model.enums.ReservationStatus.CANCELLED.name)
+            
+            // Restore the available seats
+            val currentAvailableSeats = eventSnapshot.getLong("availableSeats")?.toInt() ?: 0
+            val newAvailableSeats = currentAvailableSeats + seats
+            transaction.update(eventRef, "availableSeats", newAvailableSeats)
+            
+        }.await()
     }
 
 

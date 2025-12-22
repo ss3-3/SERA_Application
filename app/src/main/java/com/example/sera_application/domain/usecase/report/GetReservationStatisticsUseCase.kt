@@ -11,4 +11,3 @@ class GetReservationStatisticsUseCase @Inject constructor(
         return reportRepository.getReservationStatistics(eventId)
     }
 }
-

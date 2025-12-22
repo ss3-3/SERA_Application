@@ -18,27 +18,43 @@ class CancelReservationUseCase @Inject constructor(
 
         // Get reservation details before cancelling
         val reservation = reservationRepository.getReservationById(reservationId)
+            ?: return Result.failure(IllegalArgumentException("Reservation not found"))
+        
+        // Get event details to check event date/time
+        val event = getEventByIdUseCase(reservation.eventId)
+            ?: return Result.failure(IllegalArgumentException("Event not found"))
+        
+        // Validate: Cannot cancel within 24 hours before event starts
+        val currentTime = System.currentTimeMillis()
+        val eventStartTime = event.date // Event date in milliseconds
+        val twentyFourHoursInMillis = 24 * 60 * 60 * 1000L
+        val timeDifference = eventStartTime - currentTime
+        
+        if (timeDifference < twentyFourHoursInMillis) {
+            return Result.failure(
+                IllegalStateException(
+                    "Cancellation not allowed. You cannot cancel a reservation within 24 hours before the event starts."
+                )
+            )
+        }
         
         val result = reservationRepository.cancelReservation(reservationId)
         
         // Send notification on success
         result.fold(
             onSuccess = {
-                reservation?.let { res ->
-                    try {
-                        val event = getEventByIdUseCase(res.eventId)
-                        val eventName = event?.name ?: "Event"
-                        sendNotificationUseCase(
-                            userId = res.userId,
-                            title = "Reservation Cancelled",
-                            message = "Your reservation for $eventName has been cancelled. Refund will be processed within 3-5 business days.",
-                            type = NotificationType.RESERVATION_UPDATE,
-                            relatedEventId = res.eventId,
-                            relatedReservationId = reservationId
-                        )
-                    } catch (e: Exception) {
-                        // Don't fail cancellation if notification fails
-                    }
+                try {
+                    val eventName = event.name
+                    sendNotificationUseCase(
+                        userId = reservation.userId,
+                        title = "Reservation Cancelled",
+                        message = "Your reservation for $eventName has been cancelled. Refund will be processed within 3-5 business days.",
+                        type = NotificationType.RESERVATION_UPDATE,
+                        relatedEventId = reservation.eventId,
+                        relatedReservationId = reservationId
+                    )
+                } catch (e: Exception) {
+                    // Don't fail cancellation if notification fails
                 }
             },
             onFailure = { /* Reservation cancellation failed, no notification needed */ }
