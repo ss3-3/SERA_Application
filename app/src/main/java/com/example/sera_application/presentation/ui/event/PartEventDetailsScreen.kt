@@ -63,8 +63,16 @@ fun EventDetailsScreen(
     onBookNowClick: () -> Unit = {},
     viewModel: EventDetailsViewModel = hiltViewModel()
 ) {
+    // Load event on first composition
     LaunchedEffect(eventId) {
         viewModel.loadEvent(eventId)
+    }
+    
+    // Refresh event data whenever this composable enters composition
+    // This ensures we get the latest available seats when navigating back
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        viewModel.loadEvent(eventId)
+        onDispose { }
     }
 
     val uiState by viewModel.uiState.collectAsState()

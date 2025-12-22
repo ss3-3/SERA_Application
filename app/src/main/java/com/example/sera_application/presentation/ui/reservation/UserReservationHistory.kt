@@ -57,10 +57,19 @@ data class ReservationUiModel(
     val eventName: String,
     val organizerName: String,
     val date: String,
+    val eventDate: Long, // Event date timestamp for cancellation validation
     val tab: ReservationTab,
     val status: ReservationStatus,
     val paymentId: String? = null
-)
+) {
+    // Check if cancellation is allowed (not within 24 hours before event)
+    fun canCancel(): Boolean {
+        val currentTime = System.currentTimeMillis()
+        val twentyFourHours = 24 * 60 * 60 * 1000L
+        val timeDifference = eventDate - currentTime
+        return timeDifference >= twentyFourHours
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -126,10 +135,11 @@ fun MyReservationScreen(
                 reservationId = details.reservation.reservationId,
                 eventId = details.reservation.eventId,
                 eventName = details.event?.name ?: "Unknown Event",
-                organizerName = details.event?.organizerId ?: "Unknown Organizer", // Ideal: Fetch organizer name too
+                organizerName = details.event?.organizerName ?: "Unknown Organizer",
                 date = details.event?.date
                     ?.let { DateTimeFormatterUtil.formatDate(it) }
                     ?: "Unknown Date",
+                eventDate = details.event?.date ?: 0L, // Add event timestamp
                 // Logic to determine tab based on status or date
                 tab = when (details.reservation.status) {
                     com.example.sera_application.domain.model.enums.ReservationStatus.CONFIRMED -> ReservationTab.UPCOMING
@@ -378,7 +388,7 @@ private fun ReservationCard(
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "Organizer Name",
+                        text = reservation.organizerName,
                         fontSize = 12.sp,
                         color = Color(0xFF808D9A)
                     )
@@ -401,20 +411,32 @@ private fun ReservationCard(
                     Text("View Details", fontSize = 13.sp)
                 }
 
-                // Only show cancel button when applicable
-                if (reservation.status == ReservationStatus.CONFIRMED ||
-                    reservation.status == ReservationStatus.PENDING
-                ) {
+                // Show cancel button based on status and 24-hour policy
+                val canCancelStatus = reservation.status == ReservationStatus.CONFIRMED ||
+                                     reservation.status == ReservationStatus.PENDING
+                val canCancelTime = reservation.canCancel()
+                
+                if (canCancelStatus) {
                     Button(
                         modifier = Modifier.weight(1f),
-                        onClick = onCancelReservation,
+                        onClick = {
+                            if (canCancelTime) {
+                                onCancelReservation()
+                            }
+                        },
+                        enabled = canCancelTime,
                         shape = RoundedCornerShape(24.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFFFF1F1),
-                            contentColor = Color(0xFFE53935)
+                            containerColor = if (canCancelTime) Color(0xFFFFF1F1) else Color(0xFFE0E0E0),
+                            contentColor = if (canCancelTime) Color(0xFFE53935) else Color(0xFF9E9E9E),
+                            disabledContainerColor = Color(0xFFE0E0E0),
+                            disabledContentColor = Color(0xFF9E9E9E)
                         )
                     ) {
-                        Text("Cancel Reservation", fontSize = 13.sp)
+                        Text(
+                            text = if (canCancelTime) "Cancel Reservation" else "Cannot Cancel",
+                            fontSize = 13.sp
+                        )
                     }
                 } else {
                     Button(

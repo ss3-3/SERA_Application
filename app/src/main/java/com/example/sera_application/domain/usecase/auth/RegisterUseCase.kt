@@ -41,8 +41,8 @@ class RegisterUseCase @Inject constructor(
             return Result.failure(Exception("Password cannot be empty"))
         }
 
-        if (password.length < 6) {
-            return Result.failure(Exception("Password must be at least 6 characters"))
+        if (password.length < 8) {
+            return Result.failure(Exception("Password must be at least 8 characters"))
         }
 
         // Call repository to perform registration

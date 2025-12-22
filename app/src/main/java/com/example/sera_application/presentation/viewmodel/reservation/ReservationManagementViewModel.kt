@@ -51,9 +51,9 @@ class ReservationManagementViewModel @Inject constructor(
         _error.value = null
 
         viewModelScope.launch {
-            getEventReservationsUseCase(eventId)
-                .onEach { reservationList ->
-                    // Fetch event details for each reservation using coroutine scope
+        getEventReservationsUseCase(eventId)
+            .onEach { reservationList ->
+                // Fetch event details for each reservation using coroutine scope
                     val enrichedList = reservationList.map { reservation ->
                         async {
                             try {
@@ -67,12 +67,12 @@ class ReservationManagementViewModel @Inject constructor(
                     
                     _reservations.value = enrichedList
                     _isLoading.value = false
-                }
-                .catch { exception ->
-                    _error.value = exception.message ?: "Failed to observe event reservations"
-                    _isLoading.value = false
-                }
-                .launchIn(viewModelScope)
+            }
+            .catch { exception ->
+                _error.value = exception.message ?: "Failed to observe event reservations"
+                _isLoading.value = false
+            }
+            .launchIn(viewModelScope)
         }
     }
 
