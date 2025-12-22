@@ -54,23 +54,67 @@ object PaymentFirestoreMapper {
 
     fun DocumentSnapshot.toPayment(): Payment? {
         return try {
-            val data = this.data ?: return null
+            val data = this.data ?: run {
+                android.util.Log.w("PaymentFirestoreMapper", "Document ${this.id} has no data")
+                return null
+            }
+
+            // Try different field name variations for eventId
+            val eventId = data["eventId"]?.toString()
+                ?: data["event_id"]?.toString()
+                ?: data["eventID"]?.toString()
+                ?: ""
+
+            if (eventId.isBlank()) {
+                android.util.Log.w("PaymentFirestoreMapper", "Document ${this.id} has no eventId field")
+            }
+
+            val userId = data["userId"]?.toString()
+                ?: data["user_id"]?.toString()
+                ?: data["userID"]?.toString()
+                ?: ""
+
+            val reservationId = data["reservationId"]?.toString()
+                ?: data["reservation_id"]?.toString()
+
+            val amount = (data["amount"] as? Number)?.toDouble()
+                ?: (data["amount"] as? String)?.toDoubleOrNull()
+                ?: 0.0
+
+            val statusStr = data["status"]?.toString() ?: "PENDING"
+            android.util.Log.d("PaymentFirestoreMapper", "Document ${this.id} status from Firestore: $statusStr")
+
+            val status = try {
+                val parsedStatus = com.example.sera_application.domain.model.enums.PaymentStatus.valueOf(statusStr)
+
+                // Log specifically for REFUND_PENDING
+                if (parsedStatus == com.example.sera_application.domain.model.enums.PaymentStatus.REFUND_PENDING) {
+                    android.util.Log.d("PaymentFirestoreMapper", "*** REFUND_PENDING status parsed successfully for document ${this.id}")
+                }
+
+                parsedStatus
+            } catch (e: IllegalArgumentException) {
+                android.util.Log.w("PaymentFirestoreMapper", "Unknown payment status: $statusStr, defaulting to PENDING for document ${this.id}")
+                com.example.sera_application.domain.model.enums.PaymentStatus.PENDING
+            }
+
+            val createdAt = (data["createdAt"] as? Long)
+                ?: (data["created_at"] as? Long)
+                ?: (data["createdAt"] as? Number)?.toLong()
+                ?: System.currentTimeMillis()
+
             Payment(
                 paymentId = this.id,
-                userId = data["userId"]?.toString() ?: "",
-                eventId = data["eventId"]?.toString() ?: "",
-                reservationId = data["reservationId"]?.toString(),
-                amount = (data["amount"] as? Number)?.toDouble() ?: 0.0,
-                status = try {
-                    com.example.sera_application.domain.model.enums.PaymentStatus.valueOf(
-                        data["status"]?.toString() ?: "PENDING"
-                    )
-                } catch (e: IllegalArgumentException) {
-                    com.example.sera_application.domain.model.enums.PaymentStatus.PENDING
-                },
-                createdAt = (data["createdAt"] as? Long) ?: System.currentTimeMillis()
+                userId = userId,
+                eventId = eventId,
+                reservationId = reservationId,
+                amount = amount,
+                status = status,
+                createdAt = createdAt
             )
         } catch (e: Exception) {
+            android.util.Log.e("PaymentFirestoreMapper", "Error converting document ${this.id} to Payment: ${e.message}", e)
+            e.printStackTrace()
             null
         }
     }

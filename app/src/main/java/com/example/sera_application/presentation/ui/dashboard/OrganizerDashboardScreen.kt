@@ -28,7 +28,7 @@ import androidx.compose.ui.text.font.FontWeight.Companion.SemiBold
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.sera_application.domain.model.uimodel.EventListUiModel
 import com.example.sera_application.domain.model.uimodel.Item
 import com.example.sera_application.presentation.ui.report.AllEventList
@@ -130,7 +130,7 @@ fun QuickStatCard(
 @Composable
 fun OrganizerDashboardScreen(
     organizerId: String,
-    viewModel: OrganizerDashboardViewModel = viewModel()
+    viewModel: OrganizerDashboardViewModel = hiltViewModel()
 ) {
     val statsItems by viewModel.statsItems.collectAsState()
     val events by viewModel.eventUiList.collectAsState()

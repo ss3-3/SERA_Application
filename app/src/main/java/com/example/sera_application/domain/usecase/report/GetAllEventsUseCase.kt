@@ -1,6 +1,5 @@
 package com.example.sera_application.domain.usecase.report
 
-import com.example.sera_application.domain.model.Event
 import com.example.sera_application.domain.model.uimodel.EventListUiModel
 import com.example.sera_application.domain.repository.EventRepository
 import com.example.sera_application.domain.repository.PaymentRepository

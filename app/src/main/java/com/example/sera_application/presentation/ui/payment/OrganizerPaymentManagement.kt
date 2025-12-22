@@ -15,7 +15,13 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -32,8 +38,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.sera_application.presentation.viewmodel.user.ProfileViewModel
 import com.example.sera_application.presentation.viewmodel.payment.OrganizerPaymentManagementViewModel
 import com.example.sera_application.domain.model.enums.UserRole
-import com.example.sera_application.domain.model.ReservationWithDetails
 import dagger.hilt.android.AndroidEntryPoint
+import androidx.compose.runtime.collectAsState
+import com.example.sera_application.utils.BottomNavigationBar
 
 @AndroidEntryPoint
 class OrganizerPaymentManagementActivity : ComponentActivity() {
@@ -70,56 +77,129 @@ data class PaymentInfo(
 @Composable
 fun OrganizerPaymentManagementScreen(
     onBack: () -> Unit = {},
-    navController: androidx.navigation.NavController? = null,
-    viewModel: OrganizerPaymentManagementViewModel = hiltViewModel(),
-    profileViewModel: ProfileViewModel = hiltViewModel()
+    navController: androidx.navigation.NavController? = null
 ) {
     val context = LocalContext.current
-    var selectedEventName by rememberSaveable { mutableStateOf("All Events") }
-    var isDropdownExpanded by rememberSaveable { mutableStateOf(false) }
+    var selectedEvent by rememberSaveable { mutableStateOf("") }
+    var expanded by rememberSaveable { mutableStateOf(false) }
     var showReviewRefundDialog by rememberSaveable { mutableStateOf(false) }
     var showPaymentDetailsDialog by rememberSaveable { mutableStateOf(false) }
-    var selectedReservation by remember { mutableStateOf<ReservationWithDetails?>(null) }
-    
+    var selectedPayment by rememberSaveable { mutableStateOf<PaymentInfo?>(null) }
+    var selectedStatusFilter by rememberSaveable { mutableStateOf("All") }
+
     // Get current user for role-based navigation
+    val profileViewModel: ProfileViewModel = hiltViewModel()
     val currentUser by profileViewModel.user.collectAsState()
-    val reservations by viewModel.reservations.collectAsState()
-    val events by viewModel.events.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-    val error by viewModel.error.collectAsState()
+
+    // Get payment management ViewModel
+    val paymentViewModel: OrganizerPaymentManagementViewModel = hiltViewModel()
+    val events by paymentViewModel.events.collectAsState()
+    val paymentInfoList by paymentViewModel.paymentInfoList.collectAsState()
+    val isLoading by paymentViewModel.isLoading.collectAsState()
+
+    // Refresh function
+    fun refreshData() {
+        paymentViewModel.loadOrganizerEvents()
+        if (selectedEvent.isNotEmpty()) {
+            val selectedEventObj = events.find { it.name == selectedEvent }
+            selectedEventObj?.let {
+                paymentViewModel.loadPaymentsForEvent(it.eventId)
+            }
+        }
+    }
+
+    // Get lifecycle owner for screen focus detection
+    val lifecycleOwner = LocalLifecycleOwner.current
     
-    // Load current user
+    // Refresh data when screen comes into focus (similar to onResume)
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                refreshData()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    // Load current user and organizer's events
     LaunchedEffect(Unit) {
         profileViewModel.loadCurrentUser()
+        paymentViewModel.loadOrganizerEvents()
     }
 
-    // Load data when user is available
-    LaunchedEffect(currentUser?.userId) {
-        currentUser?.userId?.let { userId ->
-            viewModel.loadOrganizerData(userId)
+    // Load payments when event is selected
+    LaunchedEffect(selectedEvent, events.size) {
+        android.util.Log.d("OrganizerPaymentManagement", "LaunchedEffect triggered: selectedEvent=$selectedEvent, events.size=${events.size}")
+        if (selectedEvent.isNotEmpty() && events.isNotEmpty()) {
+            // Find event ID from selected event name
+            val selectedEventObj = events.find { it.name == selectedEvent }
+            android.util.Log.d("OrganizerPaymentManagement", "Selected event object: ${selectedEventObj?.name}, eventId: ${selectedEventObj?.eventId}")
+            selectedEventObj?.let {
+                android.util.Log.d("OrganizerPaymentManagement", "Loading payments for event: ${it.eventId}")
+                paymentViewModel.loadPaymentsForEvent(it.eventId)
+            }
         }
     }
 
-    val eventNames: List<String> = remember(events) {
-        listOf("All Events") + events.map { it.name }
+    // Debug: Log payment info list changes
+    LaunchedEffect(paymentInfoList.size) {
+        android.util.Log.d("OrganizerPaymentManagement", "Payment info list size: ${paymentInfoList.size}")
+        paymentInfoList.forEachIndexed { index, payment ->
+            android.util.Log.d("OrganizerPaymentManagement", "Payment[$index]: ${payment.orderId}, ${payment.userName}, ${payment.amount}, ${payment.status}")
+        }
     }
 
-    // Filter payments based on selected event
-    val filteredReservations: List<ReservationWithDetails> = remember(reservations, selectedEventName) {
-        if (selectedEventName == "All Events") {
-            reservations
+    // Get event names for dropdown - show all events sorted by name
+    val eventNames = events.map { it.name }.sorted()
+
+    // Debug: Log number of events loaded
+    LaunchedEffect(events.size) {
+        android.util.Log.d("OrganizerPaymentManagement", "Total events loaded: ${events.size}")
+        android.util.Log.d("OrganizerPaymentManagement", "Event names: $eventNames")
+    }
+
+    // Filter payments by status
+    val filteredPayments = remember(paymentInfoList, selectedStatusFilter) {
+        if (selectedStatusFilter == "All") {
+            paymentInfoList
         } else {
-            reservations.filter { it.event?.name == selectedEventName }
+            paymentInfoList.filter { payment ->
+                when (selectedStatusFilter) {
+                    "Paid" -> payment.status == "Paid"
+                    "Refund Pending" -> payment.status == "Refund Pending"
+                    "Refunded" -> payment.status == "Refunded"
+                    "Failed" -> payment.status == "Failed"
+                    else -> true
+                }
+            }
         }
     }
 
-    // Calculations based on filtered data
-    val successful = filteredReservations.count { it.reservation.status == com.example.sera_application.domain.model.enums.ReservationStatus.CONFIRMED }
-    val pendingRefunds = filteredReservations.count { it.reservation.status == com.example.sera_application.domain.model.enums.ReservationStatus.PENDING }
-    val refunded = filteredReservations.count { it.reservation.status == com.example.sera_application.domain.model.enums.ReservationStatus.CANCELLED }
-    val totalRevenue = filteredReservations
-        .filter { it.reservation.status == com.example.sera_application.domain.model.enums.ReservationStatus.CONFIRMED }
-        .sumOf { it.reservation.totalPrice }
+    // Debug: Log payment statuses
+    LaunchedEffect(paymentInfoList.size) {
+        android.util.Log.d("OrganizerPaymentManagement", "Total payments in list: ${paymentInfoList.size}")
+        paymentInfoList.forEach { payment ->
+            android.util.Log.d("OrganizerPaymentManagement", "Payment: ${payment.orderId}, status: ${payment.status}, event: ${payment.eventName}")
+            if (payment.status == "Refund Pending") {
+                android.util.Log.d("OrganizerPaymentManagement", "*** REFUND_PENDING payment in UI: ${payment.orderId}")
+            }
+        }
+    }
+
+    val successful = filteredPayments.count { it.status == "Paid" }
+    val pendingRefunds = filteredPayments.count { it.status == "Refund Pending" }
+    val refunded = filteredPayments.count { it.status == "Refunded" }
+
+    // Debug: Log counts
+    LaunchedEffect(successful, pendingRefunds, refunded) {
+        android.util.Log.d("OrganizerPaymentManagement", "Payment counts - Paid: $successful, Refund Pending: $pendingRefunds, Refunded: $refunded")
+    }
+    val totalRevenue = filteredPayments
+        .filter { it.status == "Paid" }
+        .sumOf { it.amount.replace("RM ", "").toDoubleOrNull() ?: 0.0 }
 
     Scaffold(
         topBar = {
@@ -136,6 +216,18 @@ fun OrganizerPaymentManagementScreen(
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
+                            tint = Color.White
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(
+                        onClick = { refreshData() },
+                        enabled = !isLoading
+                    ) {
+                        Icon(
+                            Icons.Default.Refresh,
+                            contentDescription = "Refresh",
                             tint = Color.White
                         )
                     }
@@ -163,7 +255,6 @@ fun OrganizerPaymentManagementScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
-            // Event Selector Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
@@ -174,54 +265,103 @@ fun OrganizerPaymentManagementScreen(
                     modifier = Modifier.padding(16.dp)
                 ) {
                     ExposedDropdownMenuBox(
-                        expanded = isDropdownExpanded,
-                        onExpandedChange = { isDropdownExpanded = it }
+                        expanded = expanded,
+                        onExpandedChange = { expanded = !expanded }
                     ) {
                         OutlinedTextField(
-                            value = selectedEventName,
+                            value = if (selectedEvent.isEmpty()) "" else selectedEvent,
                             onValueChange = {},
                             readOnly = true,
-                            label = { Text("Select Event") },
+                            label = { Text("Select the event") },
+                            placeholder = { Text("Select the event") },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .menuAnchor(),
                             trailingIcon = {
-                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = isDropdownExpanded)
+                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
                             },
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = Color(0xFF5B9FED),
                                 unfocusedBorderColor = Color.Gray
                             )
                         )
-
-                        ExposedDropdownMenu(
-                            expanded = isDropdownExpanded,
-                            onDismissRequest = { isDropdownExpanded = false }
+                        DropdownMenu(
+                            expanded = expanded,
+                            onDismissRequest = { expanded = false },
+                            modifier = Modifier.fillMaxWidth(0.85f)
                         ) {
-                            eventNames.forEach { name ->
-                                DropdownMenuItem(
-                                    text = { Text(name) },
-                                    onClick = {
-                                        selectedEventName = name
-                                        isDropdownExpanded = false
+                            Column(
+                                modifier = Modifier
+                                    .heightIn(max = 400.dp)
+                                    .verticalScroll(rememberScrollState())
+                            ) {
+                                if (isLoading) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(16.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        CircularProgressIndicator()
                                     }
-                                )
+                                } else if (eventNames.isEmpty()) {
+                                    Text(
+                                        text = "No events found",
+                                        modifier = Modifier.padding(16.dp),
+                                        fontSize = 16.sp,
+                                        color = Color.Gray
+                                    )
+                                } else {
+                                    eventNames.forEach { eventName ->
+                                        DropdownMenuItem(
+                                            text = { Text(eventName) },
+                                            onClick = {
+                                                selectedEvent = eventName
+                                                expanded = false
+                                            },
+                                            leadingIcon = if (eventName == selectedEvent) {
+                                                {
+                                                    Icon(
+                                                        Icons.Filled.Check,
+                                                        contentDescription = "Selected",
+                                                        tint = Color(0xFF4CAF50)
+                                                    )
+                                                }
+                                            } else null
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            if (selectedEvent.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(20.dp))
 
-            if (isLoading && filteredReservations.isEmpty()) {
-                Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                // Show which event is selected (for debugging)
+                val selectedEventObj = events.find { it.name == selectedEvent }
+                selectedEventObj?.let { event ->
+                    Text(
+                        text = "Event: ${event.name}",
+                        fontSize = 14.sp,
+                        color = Color(0xFF666666),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                    )
+                    Text(
+                        text = "Event ID: ${event.eventId}",
+                        fontSize = 12.sp,
+                        color = Color(0xFF999999),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+                    )
                 }
-            } else {
+
+                Spacer(modifier = Modifier.height(12.dp))
+
                 Text(
                     text = "Payment Summary",
-                    fontSize = 20.sp,
+                    fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.Black
                 )
@@ -237,45 +377,111 @@ fun OrganizerPaymentManagementScreen(
                     Column(
                         modifier = Modifier.padding(16.dp)
                     ) {
-                        PaymentSummaryRow("Successful (Confirmed)", successful.toString())
+                        PaymentSummaryRow("Successful", successful.toString())
                         Spacer(modifier = Modifier.height(8.dp))
-                        PaymentSummaryRow("Pending", pendingRefunds.toString())
+                        PaymentSummaryRow("Pending Refunds", pendingRefunds.toString())
                         Spacer(modifier = Modifier.height(8.dp))
                         PaymentSummaryRow("Total Revenue", String.format(Locale.US, "RM %.2f", totalRevenue))
                         Spacer(modifier = Modifier.height(8.dp))
-                        PaymentSummaryRow("Cancelled/Refunded", refunded.toString())
+                        PaymentSummaryRow("Refunded", refunded.toString())
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
                 Text(
                     text = "Payment List",
-                    fontSize = 20.sp,
+                    fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.Black
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                if (filteredReservations.isEmpty()) {
-                    Box(
-                        modifier = Modifier.fillMaxWidth().padding(32.dp),
-                        contentAlignment = Alignment.Center
+                // Status Filter Buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf("All", "Paid", "Refund Pending", "Refunded", "Failed").forEach { status ->
+                        FilterChip(
+                            selected = selectedStatusFilter == status,
+                            onClick = { selectedStatusFilter = status },
+                            label = { Text(status, fontSize = 12.sp) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                if (isLoading) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                     ) {
-                        Text("No reservations found", color = Color.Gray)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
+                        }
+                    }
+                } else if (filteredPayments.isEmpty()) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "No payments found",
+                                fontSize = 16.sp,
+                                color = Color.Gray
+                            )
+                            selectedEventObj?.let { event ->
+                                Text(
+                                    text = "Event ID: ${event.eventId}",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF999999)
+                                )
+                                Text(
+                                    text = "Total payments loaded: ${paymentInfoList.size}",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF999999)
+                                )
+                                if (selectedStatusFilter != "All") {
+                                    Text(
+                                        text = "Filter: $selectedStatusFilter",
+                                        fontSize = 12.sp,
+                                        color = Color(0xFF999999)
+                                    )
+                                }
+                            }
+                        }
                     }
                 } else {
-                    filteredReservations.forEach { resWithDetails ->
-                        ReservationPaymentCard(
-                            reservationWithDetails = resWithDetails,
-                            onViewDetails = {
-                                selectedReservation = resWithDetails
-                                showPaymentDetailsDialog = true
-                            },
+                    filteredPayments.forEach { payment ->
+                        PaymentCard(
+                            paymentInfo = payment,
                             onReviewRefund = {
-                                selectedReservation = resWithDetails
+                                selectedPayment = payment
                                 showReviewRefundDialog = true
+                            },
+                            onViewDetails = {
+                                selectedPayment = payment
+                                showPaymentDetailsDialog = true
                             }
                         )
                         Spacer(modifier = Modifier.height(12.dp))
@@ -285,145 +491,54 @@ fun OrganizerPaymentManagementScreen(
         }
     }
 
-    if (showReviewRefundDialog && selectedReservation != null) {
+    if (showReviewRefundDialog && selectedPayment != null) {
         ReviewRefundDialog(
-            reservationWithDetails = selectedReservation!!,
+            paymentInfo = selectedPayment!!,
             onDismiss = { showReviewRefundDialog = false },
             onApprove = {
-                viewModel.updateRefundStatus(selectedReservation!!.reservation.reservationId, true)
-                showReviewRefundDialog = false
-                Toast.makeText(context, "Refund Approved (Cancelled)", Toast.LENGTH_SHORT).show()
+                selectedPayment?.orderId?.let { paymentId ->
+                    paymentViewModel.approveRefund(
+                        paymentId = paymentId,
+                        onSuccess = {
+                            Toast.makeText(context, "Refund approved successfully", Toast.LENGTH_SHORT).show()
+                            showReviewRefundDialog = false
+                            refreshData()
+                        },
+                        onError = { errorMsg ->
+                            Toast.makeText(context, errorMsg, Toast.LENGTH_LONG).show()
+                        }
+                    )
+                } ?: run {
+                    Toast.makeText(context, "Invalid payment ID", Toast.LENGTH_SHORT).show()
+                }
             },
             onReject = {
-                viewModel.updateRefundStatus(selectedReservation!!.reservation.reservationId, false)
-                showReviewRefundDialog = false
-                Toast.makeText(context, "Refund Rejected (Confirmed)", Toast.LENGTH_SHORT).show()
+                selectedPayment?.orderId?.let { paymentId ->
+                    paymentViewModel.rejectRefund(
+                        paymentId = paymentId,
+                        onSuccess = {
+                            Toast.makeText(context, "Refund rejected", Toast.LENGTH_SHORT).show()
+                            showReviewRefundDialog = false
+                            refreshData()
+                        },
+                        onError = { errorMsg ->
+                            Toast.makeText(context, errorMsg, Toast.LENGTH_LONG).show()
+                        }
+                    )
+                } ?: run {
+                    Toast.makeText(context, "Invalid payment ID", Toast.LENGTH_SHORT).show()
+                }
             }
         )
     }
 
-    if (showPaymentDetailsDialog && selectedReservation != null) {
+    if (showPaymentDetailsDialog && selectedPayment != null) {
         PaymentDetailsDialog(
-            reservationWithDetails = selectedReservation!!,
+            paymentInfo = selectedPayment!!,
             onDismiss = { showPaymentDetailsDialog = false }
         )
     }
-}
 
-@Composable
-private fun ReservationPaymentCard(
-    reservationWithDetails: ReservationWithDetails,
-    onViewDetails: () -> Unit,
-    onReviewRefund: () -> Unit
-) {
-    val reservation = reservationWithDetails.reservation
-    val event = reservationWithDetails.event
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(
-                    text = "ID: ${reservation.reservationId.takeLast(8)}",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
-                )
-                Text(
-                    text = reservation.status.label,
-                    color = reservation.status.color,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-            
-            Text(text = event?.name ?: "Unknown Event", fontSize = 14.sp, color = Color.Gray)
-            Text(text = "Amount: RM ${String.format("%.2f", reservation.totalPrice)}", fontSize = 14.sp)
-            Text(text = "Seats: ${reservation.seats} (${reservation.rockZoneSeats} Rock, ${reservation.normalZoneSeats} Normal)", fontSize = 12.sp, color = Color.Gray)
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (reservation.status == com.example.sera_application.domain.model.enums.ReservationStatus.PENDING) {
-                    Button(
-                        onClick = onReviewRefund,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFA726))
-                    ) {
-                        Text("Review", color = Color.White)
-                    }
-                }
-                OutlinedButton(
-                    onClick = onViewDetails,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("Details")
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun ReviewRefundDialog(
-    reservationWithDetails: ReservationWithDetails,
-    onDismiss: () -> Unit,
-    onApprove: () -> Unit,
-    onReject: () -> Unit
-) {
-    val reservation = reservationWithDetails.reservation
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Review Refund Request") },
-        text = {
-            Column {
-                Text("Reservation ID: ${reservation.reservationId}")
-                Text("Event: ${reservationWithDetails.event?.name}")
-                Text("Amount: RM ${String.format("%.2f", reservation.totalPrice)}")
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("Approving will set status to CANCELLED and rejecting will set it to CONFIRMED.")
-            }
-        },
-        confirmButton = {
-            Button(onClick = onApprove, colors = ButtonDefaults.buttonColors(containerColor = Color.Red)) {
-                Text("Approve Refund")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onReject) {
-                Text("Reject Refund")
-            }
-        }
-    )
-}
-
-@Composable
-fun PaymentDetailsDialog(
-    reservationWithDetails: ReservationWithDetails,
-    onDismiss: () -> Unit
-) {
-    val reservation = reservationWithDetails.reservation
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Payment Details") },
-        text = {
-            Column {
-                DetailRow("Event", reservationWithDetails.event?.name ?: "Unknown")
-                DetailRow("Reservation ID", reservation.reservationId)
-                DetailRow("User ID", reservation.userId)
-                DetailRow("Total Price", "RM ${String.format("%.2f", reservation.totalPrice)}")
-                DetailRow("Status", reservation.status.label)
-                DetailRow("Created At", com.example.sera_application.utils.DateTimeFormatterUtil.formatDate(reservation.createdAt))
-            }
-        },
-        confirmButton = {
-            Button(onClick = onDismiss) {
-                Text("Close")
-            }
-        }
-    )
 }
 
 @Composable
@@ -448,9 +563,310 @@ fun PaymentSummaryRow(label: String, value: String) {
 }
 
 @Composable
+fun PaymentCard(
+    paymentInfo: PaymentInfo,
+    onReviewRefund: () -> Unit,
+    onViewDetails: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = paymentInfo.userName,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.Black
+            )
+
+            Text(
+                text = "${paymentInfo.amount} • ${paymentInfo.tickets}",
+                fontSize = 14.sp,
+                color = Color.Black
+            )
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = paymentInfo.status,
+                    fontSize = 14.sp,
+                    color = when (paymentInfo.status) {
+                        "Paid" -> Color(0xFF4CAF50)
+                        "Refund Pending" -> Color(0xFFFFA726)
+                        "Refunded" -> Color(0xFF2196F3)
+                        else -> Color.Black
+                    },
+                    fontWeight = FontWeight.Medium
+                )
+
+                if (paymentInfo.refundStatus != null) {
+                    Text(
+                        text = " • ${paymentInfo.refundStatus}",
+                        fontSize = 14.sp,
+                        color = Color(0xFF666666)
+                    )
+                }
+            }
+
+            if (paymentInfo.refundRequestTime != null) {
+                Text(
+                    text = "Refund requested ${paymentInfo.refundRequestTime}",
+                    fontSize = 12.sp,
+                    color = Color(0xFF666666)
+                )
+            }
+
+            if (paymentInfo.refundReason != null) {
+                Text(
+                    text = "Reason: ${paymentInfo.refundReason}",
+                    fontSize = 12.sp,
+                    color = Color(0xFF666666)
+                )
+
+                if (paymentInfo.refundNotes != null) {
+                    Text(
+                        text = "Notes: ${paymentInfo.refundNotes}",
+                        fontSize = 12.sp,
+                        color = Color(0xFF666666)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (paymentInfo.status == "Refund Pending") {
+                    OutlinedButton(
+                        onClick = onReviewRefund,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color.Black
+                        )
+                    ) {
+                        Text("Review Refund", fontSize = 14.sp)
+                    }
+                }
+
+
+                OutlinedButton(
+                    onClick = onViewDetails,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Color.Black
+                    )
+                ) {
+                    Text("View Details", fontSize = 14.sp)
+                }
+            }
+        }
+    }
+}
+
+
+@Composable
+fun ReviewRefundDialog(
+    paymentInfo: PaymentInfo,
+    onDismiss: () -> Unit,
+    onApprove: () -> Unit,
+    onReject: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color.White,
+        title = {
+            Text(
+                text = "Review Refund Request",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.Black
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                DetailRow("Event", paymentInfo.eventName)
+                Spacer(modifier = Modifier.height(8.dp))
+                DetailRow("User", paymentInfo.userName)
+                Spacer(modifier = Modifier.height(8.dp))
+                DetailRow("Amount", paymentInfo.amount)
+                Spacer(modifier = Modifier.height(8.dp))
+                DetailRow("Order ID", paymentInfo.orderId)
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Column {
+                    Text(
+                        text = "Reason",
+                        fontSize = 12.sp,
+                        color = Color(0xFF666666)
+                    )
+                    Text(
+                        text = paymentInfo.refundReason ?: "No reason provided",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.Black
+                    )
+
+
+                    if (paymentInfo.refundNotes != null) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Additional Notes",
+                            fontSize = 14.sp,
+                            color = Color(0xFF666666)
+                        )
+                        Text(
+                            text = paymentInfo.refundNotes,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.Black
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onReject,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Color.Red
+                    )
+                ) {
+                    Text("Reject")
+                }
+                Button(
+                    onClick = onApprove,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF4CAF50)
+                    )
+                ) {
+                    Text("Approve")
+                }
+            }
+        },
+        dismissButton = null
+    )
+}
+
+@Composable
+fun PaymentDetailsDialog(
+    paymentInfo: PaymentInfo,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color.White,
+        title = {
+            Text(
+                text = "Payment Details",
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.Black
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                DetailRow("Event", paymentInfo.eventName)
+                Spacer(modifier = Modifier.height(8.dp))
+                DetailRow("Name", paymentInfo.userName)
+                Spacer(modifier = Modifier.height(8.dp))
+                DetailRow("Email", paymentInfo.email)
+                Spacer(modifier = Modifier.height(8.dp))
+                DetailRow("Phone", paymentInfo.phone)
+                Spacer(modifier = Modifier.height(8.dp))
+                DetailRow("Amount", paymentInfo.amount)
+                Spacer(modifier = Modifier.height(8.dp))
+                DetailRow("Tickets", paymentInfo.tickets)
+                Spacer(modifier = Modifier.height(8.dp))
+                DetailRow("Order ID", paymentInfo.orderId)
+                Spacer(modifier = Modifier.height(8.dp))
+                DetailRow("Payment Date", "${paymentInfo.paymentDate} ${paymentInfo.paymentTime}")
+                Spacer(modifier = Modifier.height(8.dp))
+                DetailRow("Status", paymentInfo.status)
+
+                if (paymentInfo.refundReason != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Column {
+                        Text(
+                            text = "Refund Reason",
+                            fontSize = 12.sp,
+                            color = Color(0xFF666666)
+                        )
+                        Text(
+                            text = paymentInfo.refundReason,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.Black
+                        )
+
+                        if (paymentInfo.refundNotes != null) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Additional Notes",
+                                fontSize = 14.sp,
+                                color = Color(0xFF666666)
+                            )
+                            Text(
+                                text = paymentInfo.refundNotes,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Color.Black
+                            )
+                        }
+                    }
+                }
+
+                if (paymentInfo.refundStatus != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    DetailRow("Refund Status", paymentInfo.refundStatus!!)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF5B9FED)
+                )
+            ) {
+                Text("Close")
+            }
+        },
+        dismissButton = null
+    )
+}
+
+@Composable
 fun DetailRow(label: String, value: String) {
-    Column(modifier = Modifier.padding(vertical = 4.dp)) {
-        Text(text = label, fontSize = 12.sp, color = Color.Gray)
-        Text(text = value, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+    Column {
+        Text(
+            text = label,
+            fontSize = 12.sp,
+            color = Color(0xFF666666)
+        )
+        Text(
+            text = value,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            color = Color.Black
+        )
     }
 }

@@ -11,7 +11,7 @@ class GetPaymentStatisticsUseCase @Inject constructor(
 ) {
     operator fun invoke(): Flow<PaymentStatistics> = flow {
         try {
-            val stats = paymentRepository.getPaymentStatistics()
+            val stats: PaymentStatistics = paymentRepository.getPaymentStatistics()
             emit(stats)
         } catch (e: Exception) {
             emit(PaymentStatistics(

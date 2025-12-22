@@ -71,9 +71,9 @@ private fun OrganizerDashboardWithTopBar(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFFFFC107),
-                    titleContentColor = Color.Black,
-                    navigationIconContentColor = Color.Black
+                    containerColor = Color(0xFF2C2C2E),
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White
                 )
             )
         }
@@ -575,8 +575,15 @@ fun MainNavGraph(
                     },
                     onReport = {
                         // Navigate to organizer dashboard for organizers
-                        currentUser?.userId?.let { userId ->
-                            navController.navigate(Screen.OrganizerDashboard.createRoute(userId))
+                        val userId = currentUser?.userId
+                        if (userId != null && userId.isNotEmpty()) {
+                            try {
+                                navController.navigate(Screen.OrganizerDashboard.createRoute(userId))
+                            } catch (e: Exception) {
+                                android.util.Log.e("NavGraph", "Error navigating to organizer dashboard: ${e.message}", e)
+                            }
+                        } else {
+                            android.util.Log.e("NavGraph", "Cannot navigate to organizer dashboard: userId is null or empty")
                         }
                     },
                     onUserManagement = {

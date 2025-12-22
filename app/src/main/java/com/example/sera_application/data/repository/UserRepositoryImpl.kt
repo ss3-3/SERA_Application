@@ -133,6 +133,23 @@ class UserRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun activateUser(userId: String): Boolean {
+        return try {
+            val user = getUserById(userId)
+            if (user != null) {
+                val updatedUser = user.copy(accountStatus = "ACTIVE")
+                // Update both remote and local
+                remoteDataSource.updateUserProfile(updatedUser)
+                userDao.insertUser(mapper.toEntity(updatedUser))
+                true
+            } else {
+                false
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
+
 
     // Add
     override suspend fun getTotalUserCount(): Int {

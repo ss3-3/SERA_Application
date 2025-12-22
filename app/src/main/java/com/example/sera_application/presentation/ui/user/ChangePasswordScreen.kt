@@ -163,7 +163,12 @@ fun ChangePasswordScreen(
                     value = newPassword,
                     onValueChange = {
                         newPassword = it
-                        passwordError = null
+                        // Clear error if passwords are different, or set error if they match
+                        if (it.isNotBlank() && oldPassword.isNotBlank() && it == oldPassword) {
+                            passwordError = "New password must be different from old password"
+                        } else if (passwordError == "New password must be different from old password") {
+                            passwordError = null
+                        }
                     },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(8.dp),
@@ -179,11 +184,26 @@ fun ChangePasswordScreen(
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedContainerColor = Color.White,
                         unfocusedContainerColor = Color.White,
-                        focusedBorderColor = Color(0xFF1976D2),
-                        unfocusedBorderColor = Color(0xFFE0E0E0)
+                        focusedBorderColor = if (passwordError != null && passwordError == "New password must be different from old password") Color(0xFFE91E63) else Color(0xFF1976D2),
+                        unfocusedBorderColor = if (passwordError != null && passwordError == "New password must be different from old password") Color(0xFFE91E63) else Color(0xFFE0E0E0),
+                        errorBorderColor = Color(0xFFE91E63)
                     ),
+                    isError = passwordError != null && passwordError == "New password must be different from old password",
+                    supportingText = if (passwordError != null && passwordError == "New password must be different from old password") {
+                        { Text(text = passwordError!!, color = Color(0xFFE91E63), fontSize = 12.sp) }
+                    } else null,
                     singleLine = true
                 )
+                // Show error message below new password field if it matches old password
+                if (passwordError != null && passwordError == "New password must be different from old password") {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = passwordError!!,
+                        color = Color(0xFFE91E63),
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(horizontal = 4.dp)
+                    )
+                }
             }
 
             // Confirm Password field
@@ -252,6 +272,10 @@ fun ChangePasswordScreen(
 
                                 confirmPassword.isBlank() -> {
                                     passwordError = "Please confirm your new password"
+                                }
+
+                                newPassword == oldPassword -> {
+                                    passwordError = "New password must be different from old password"
                                 }
 
                                 newPassword != confirmPassword -> {

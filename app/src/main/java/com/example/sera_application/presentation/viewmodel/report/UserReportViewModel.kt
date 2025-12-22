@@ -9,7 +9,7 @@ import com.example.sera_application.domain.usecase.report.GetUserGrowthTrendUseC
 import com.example.sera_application.domain.usecase.report.GetUserStatsUseCase
 import com.patrykandpatryk.vico.core.entry.FloatEntry
 import dagger.hilt.android.lifecycle.HiltViewModel
-import jakarta.inject.Inject
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

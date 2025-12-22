@@ -1,5 +1,6 @@
 package com.example.sera_application.data.repository
 
+
 import com.example.sera_application.data.local.EventRevenue
 import com.example.sera_application.data.local.dao.PaymentDao
 import com.example.sera_application.data.mapper.PaymentMapper
@@ -9,6 +10,7 @@ import com.example.sera_application.domain.model.Payment
 import com.example.sera_application.domain.model.enums.PaymentStatus
 import com.example.sera_application.domain.model.uimodel.PaymentStatistics
 import com.example.sera_application.domain.repository.PaymentRepository
+import com.example.sera_application.domain.usecase.report.buildPaymentStatistics
 import javax.inject.Inject
 
 /**
@@ -75,8 +77,11 @@ class PaymentRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getPaymentHistory(userId: String): List<Payment> {
+        android.util.Log.d("PaymentRepositoryImpl", "=== Getting payment history for userId: '$userId' ===")
         return try {
             val remotePayments = paymentRemoteDataSource.getPaymentsByUser(userId)
+            android.util.Log.d("PaymentRepositoryImpl", "✅ Got ${remotePayments.size} payments from remote for userId: '$userId'")
+
 
             // Cache locally
             if (remotePayments.isNotEmpty()) {
@@ -85,8 +90,10 @@ class PaymentRepositoryImpl @Inject constructor(
 
             remotePayments
         } catch (e: Exception) {
+            android.util.Log.e("PaymentRepositoryImpl", "❌ Error getting payment history from remote: ${e.message}", e)
             // Fallback to local cache
             val localEntities = paymentDao.getPaymentsByUser(userId)
+            android.util.Log.d("PaymentRepositoryImpl", "📦 Got ${localEntities.size} payments from local cache (fallback)")
             mapper.toDomainList(localEntities)
         }
     }
@@ -95,7 +102,7 @@ class PaymentRepositoryImpl @Inject constructor(
         return try {
             val payment = getPaymentById(paymentId)
             if (payment != null) {
-                // Update payment status to REFUND_PENDING
+                // Update payment status to REFUND_PENDING (when participant requests refund)
                 paymentRemoteDataSource.updatePaymentStatus(
                     paymentId = paymentId,
                     status = PaymentStatus.REFUND_PENDING.name
@@ -112,11 +119,107 @@ class PaymentRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun approveRefund(paymentId: String): Boolean {
+        return try {
+            val payment = getPaymentById(paymentId)
+            if (payment != null && payment.status == PaymentStatus.REFUND_PENDING) {
+                // Update payment status to REFUNDED (when organizer approves refund)
+                paymentRemoteDataSource.updatePaymentStatus(
+                    paymentId = paymentId,
+                    status = PaymentStatus.REFUNDED.name
+                )
+
+                // Update local cache
+                paymentDao.updatePaymentStatus(paymentId, PaymentStatus.REFUNDED.name)
+                true
+            } else {
+                android.util.Log.w("PaymentRepositoryImpl", "Cannot approve refund: payment not found or not in REFUND_PENDING status")
+                false
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("PaymentRepositoryImpl", "Error approving refund: ${e.message}", e)
+            false
+        }
+    }
+
     override suspend fun getPaymentByReservationId(reservationId: String): Payment? {
         return try {
             paymentRemoteDataSource.getPaymentByReservation(reservationId)
         } catch (e: Exception) {
             null
+        }
+    }
+
+    override suspend fun getPaymentsByEvent(eventId: String): List<Payment> {
+        return try {
+            android.util.Log.d("PaymentRepositoryImpl", "Getting payments for eventId: $eventId")
+
+            if (eventId.isBlank()) {
+                android.util.Log.w("PaymentRepositoryImpl", "EventId is blank, returning empty list")
+                return emptyList()
+            }
+
+            val remotePayments = paymentRemoteDataSource.getPaymentsByEvent(eventId)
+            android.util.Log.d("PaymentRepositoryImpl", "Got ${remotePayments.size} payments from remote (Firebase) for eventId: $eventId")
+
+            // Verify all payments have matching eventId
+            val mismatched = remotePayments.filter { it.eventId != eventId }
+            if (mismatched.isNotEmpty()) {
+                android.util.Log.w("PaymentRepositoryImpl", "Found ${mismatched.size} payments with mismatched eventId")
+                mismatched.forEach { payment ->
+                    android.util.Log.w("PaymentRepositoryImpl", "Payment ${payment.paymentId} has eventId=${payment.eventId} but query was for eventId=$eventId")
+                }
+            }
+
+            // Clear old cache for this event and update with fresh Firebase data
+            try {
+                // First, clear all cached payments for this event to ensure fresh data
+                paymentDao.deletePaymentsByEvent(eventId)
+                android.util.Log.d("PaymentRepositoryImpl", "Cleared old cache for eventId: $eventId")
+                
+                // Then update cache with fresh Firebase data
+                if (remotePayments.isNotEmpty()) {
+                    paymentDao.insertPayments(mapper.toEntityList(remotePayments))
+                    android.util.Log.d("PaymentRepositoryImpl", "Cached ${remotePayments.size} fresh payments from Firebase for eventId: $eventId")
+                } else {
+                    android.util.Log.d("PaymentRepositoryImpl", "No payments in Firebase for eventId: $eventId, cache cleared")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("PaymentRepositoryImpl", "Error updating cache: ${e.message}", e)
+                // Continue even if cache update fails - we still return fresh Firebase data
+            }
+
+            // Always return fresh data from Firebase, not from cache
+            android.util.Log.d("PaymentRepositoryImpl", "Returning ${remotePayments.size} payments from Firebase for eventId: $eventId")
+            remotePayments
+        } catch (e: Exception) {
+            android.util.Log.e("PaymentRepositoryImpl", "Error getting payments from remote for eventId $eventId: ${e.message}", e)
+            e.printStackTrace()
+            // Fallback to local cache
+            try {
+                val localEntities = paymentDao.getPaymentsByEvent(eventId)
+                android.util.Log.d("PaymentRepositoryImpl", "Got ${localEntities.size} payments from local cache for eventId: $eventId")
+                mapper.toDomainList(localEntities)
+            } catch (localError: Exception) {
+                android.util.Log.e("PaymentRepositoryImpl", "Error getting payments from local cache: ${localError.message}", localError)
+                emptyList()
+            }
+        }
+    }
+
+    override suspend fun getTotalRevenueByEvents(eventIds: List<String>): Double {
+        return try {
+            paymentDao.getTotalRevenueByEvents(eventIds) ?: 0.0
+        } catch (e: Exception) {
+            0.0
+        }
+    }
+
+    override suspend fun getTotalRevenue(): Double {
+        return try {
+            paymentDao.getTotalRevenue() ?: 0.0
+        } catch (e: Exception) {
+            0.0
         }
     }
 
@@ -145,53 +248,23 @@ class PaymentRepositoryImpl @Inject constructor(
         }
     }
 
-
-    // Add
-    override suspend fun getTotalRevenueByEvents(eventIds: List<String>): Double {
+    override suspend fun capturePayPalOrder(orderId: String): Result<Unit> {
         return try {
-            paymentDao.getTotalRevenueByEvents(eventIds)
+            val result = payPalRepository.captureOrder(orderId)
+            if (result.isSuccess) {
+                Result.success(Unit)
+            } else {
+                Result.failure(result.exceptionOrNull() ?: Exception("Failed to capture PayPal order"))
+            }
         } catch (e: Exception) {
-            0.0
-        }
-    }
-
-    override suspend fun getTotalRevenue(): Double {
-        return try {
-            paymentDao.getTotalRevenue()
-        } catch (e: Exception) {
-            0.0
-        }
-    }
-
-    override suspend fun getRevenueByDateRange(startDate: Long, endDate: Long): Double {
-        return try {
-            paymentDao.getRevenueByDateRange(startDate, endDate)
-        } catch (e: Exception) {
-            0.0
-        }
-    }
-
-    override suspend fun getRevenueTrend(days: Int, startDate: Long): List<Double> {
-        return try {
-            val trendData = paymentDao.getRevenueTrend(days, startDate)
-            trendData.map { it.revenue }
-        } catch (e: Exception) {
-            List(days) { 0.0 }
-        }
-    }
-
-    override suspend fun getTopRevenueEventIds(limit: Int): List<EventRevenue> {
-        return try {
-            paymentDao.getTopRevenueEvents(limit)
-        } catch (e: Exception) {
-            emptyList()
+            Result.failure(e)
         }
     }
 
     override suspend fun getAllPayments(): List<Payment> {
         return try {
-            val entities = paymentDao.getAllPayments()
-            mapper.toDomainList(entities)
+            val localEntities = paymentDao.getAllPayments()
+            mapper.toDomainList(localEntities)
         } catch (e: Exception) {
             emptyList()
         }
@@ -199,27 +272,8 @@ class PaymentRepositoryImpl @Inject constructor(
 
     override suspend fun getPaymentStatistics(): PaymentStatistics {
         return try {
-            val allPayments = paymentDao.getAllPayments()
-            val totalPayments = allPayments.size
-            val successCount = paymentDao.getPaymentCountByStatus(PaymentStatus.SUCCESS.name)
-            val pendingCount = paymentDao.getPaymentCountByStatus(PaymentStatus.PENDING.name)
-            val failedCount = paymentDao.getPaymentCountByStatus(PaymentStatus.FAILED.name)
-            val totalRevenue = paymentDao.getTotalRevenue()
-
-            val successRate = if (totalPayments == 0) 0.0 else successCount.toDouble() / totalPayments
-            val pendingRate = if (totalPayments == 0) 0.0 else pendingCount.toDouble() / totalPayments
-            val failedRate = if (totalPayments == 0) 0.0 else failedCount.toDouble() / totalPayments
-
-            PaymentStatistics(
-                totalPayments = totalPayments,
-                successCount = successCount,
-                pendingCount = pendingCount,
-                failedCount = failedCount,
-                totalRevenue = totalRevenue,
-                successRate = successRate,
-                pendingRate = pendingRate,
-                failedRate = failedRate
-            )
+            val payments = getAllPayments()
+            buildPaymentStatistics(payments)
         } catch (e: Exception) {
             PaymentStatistics(
                 totalPayments = 0,
@@ -234,16 +288,20 @@ class PaymentRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun capturePayPalOrder(orderId: String): Result<Unit> {
+    override suspend fun getRevenueTrend(days: Int, startDate: Long): List<Double> {
         return try {
-            val result = payPalRepository.captureOrder(orderId)
-            if (result.isSuccess) {
-                Result.success(Unit)
-            } else {
-                Result.failure(result.exceptionOrNull() ?: Exception("Failed to capture PayPal order"))
-            }
+            val trendEntities = paymentDao.getRevenueTrend(days, startDate)
+            trendEntities.map { it.revenue }
         } catch (e: Exception) {
-            Result.failure(e)
+            emptyList()
+        }
+    }
+
+    override suspend fun getTopRevenueEventIds(limit: Int): List<EventRevenue> {
+        return try {
+            paymentDao.getTopRevenueEvents(limit)
+        } catch (e: Exception) {
+            emptyList()
         }
     }
 }

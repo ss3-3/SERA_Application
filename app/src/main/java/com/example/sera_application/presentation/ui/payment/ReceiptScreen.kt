@@ -1,6 +1,5 @@
 package com.example.sera_application.presentation.ui.payment
 
-
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
@@ -53,22 +52,36 @@ import coil.compose.AsyncImage
 import com.example.sera_application.MainActivity
 
 
+
+
 @AndroidEntryPoint
 class ReceiptActivity : ComponentActivity() {
     private val viewModel: PaymentScreenViewModel by viewModels()
+
+
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
 
+
+
         val transactionId = intent.getStringExtra("TRANSACTION_ID") ?: "Unknown"
         val reservationId = intent.getStringExtra("RESERVATION_ID")
 
 
+
+
+        // Load data from reservationId if available, otherwise load from paymentId
         if (reservationId != null) {
             viewModel.loadReservationDetails(reservationId)
+        } else if (transactionId != "Unknown") {
+            // Load from payment ID when reservation ID is not available
+            viewModel.loadPaymentDetails(transactionId)
         }
+
+
 
 
         setContent {
@@ -78,6 +91,8 @@ class ReceiptActivity : ComponentActivity() {
                 val user by viewModel.user.collectAsState()
                 val isLoading by viewModel.isLoading.collectAsState()
                 val error by viewModel.error.collectAsState()
+
+
 
 
                 ReceiptScreen(
@@ -127,10 +142,14 @@ class ReceiptActivity : ComponentActivity() {
     }
 
 
+
+
     private fun generateAndOpenPdf(transactionId: String) {
         val reservation = viewModel.reservation.value
         val event = viewModel.event.value
         val user = viewModel.user.value
+
+
 
 
         if (reservation == null || event == null) {
@@ -139,13 +158,19 @@ class ReceiptActivity : ComponentActivity() {
         }
 
 
+
+
         lifecycleScope.launch {
             try {
                 Toast.makeText(this@ReceiptActivity, "Generating receipt...", Toast.LENGTH_SHORT).show()
 
 
+
+
                 val dateFormat = java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault())
                 val formattedDate = dateFormat.format(java.util.Date(event.date))
+
+
 
 
                 val pdfFile: java.io.File = withContext(Dispatchers.IO) {
@@ -165,9 +190,13 @@ class ReceiptActivity : ComponentActivity() {
                     )
 
 
+
+
                     val generator = PdfReceiptGenerator(this@ReceiptActivity)
                     generator.generateReceipt(receiptData)
                 }
+
+
 
 
                 val uri = FileProvider.getUriForFile(
@@ -179,10 +208,16 @@ class ReceiptActivity : ComponentActivity() {
 
 
 
+
+
+
+
                 val intent = Intent(Intent.ACTION_VIEW).apply {
                     setDataAndType(uri, "application/pdf")
                     flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
                 }
+
+
 
 
                 try {
@@ -196,6 +231,8 @@ class ReceiptActivity : ComponentActivity() {
                     ).show()
 
 
+
+
                     val shareIntent = Intent(Intent.ACTION_SEND).apply {
                         type = "application/pdf"
                         putExtra(Intent.EXTRA_STREAM, uri)
@@ -203,6 +240,8 @@ class ReceiptActivity : ComponentActivity() {
                     }
                     startActivity(Intent.createChooser(shareIntent, "Open PDF with..."))
                 }
+
+
 
 
             } catch (e: Exception) {
@@ -216,6 +255,8 @@ class ReceiptActivity : ComponentActivity() {
         }
     }
 }
+
+
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -246,11 +287,11 @@ fun ReceiptScreen(
             )
         } else 0
     }
-    
+
     // Get current user for role-based navigation
     val profileViewModel: ProfileViewModel = hiltViewModel()
     val currentUser by profileViewModel.user.collectAsState()
-    
+
     // Load current user
     LaunchedEffect(Unit) {
         profileViewModel.loadCurrentUser()
@@ -353,9 +394,7 @@ fun ReceiptScreen(
                             }
                         }
 
-
                         Spacer(modifier = Modifier.height(16.dp))
-
 
                         Row(
                             modifier = Modifier.fillMaxWidth()
@@ -373,7 +412,6 @@ fun ReceiptScreen(
                                     color = Color.Black
                                 )
                             }
-
 
                             Column(
                                 modifier = Modifier.weight(0.5f),
@@ -393,9 +431,7 @@ fun ReceiptScreen(
                             }
                         }
 
-
                         Spacer(modifier = Modifier.height(12.dp))
-
 
                         Row(
                             modifier = Modifier.fillMaxWidth()
@@ -413,7 +449,6 @@ fun ReceiptScreen(
                                     color = Color.Black
                                 )
                             }
-
 
                             Column(
                                 modifier = Modifier.weight(0.5f),
@@ -433,9 +468,7 @@ fun ReceiptScreen(
                             }
                         }
 
-
                         Spacer(modifier = Modifier.height(12.dp))
-
 
                         Row(
                             modifier = Modifier.fillMaxWidth()
@@ -453,7 +486,6 @@ fun ReceiptScreen(
                                     color = Color.Black
                                 )
                             }
-
 
                             Column(
                                 modifier = Modifier.weight(0.5f),
@@ -473,9 +505,7 @@ fun ReceiptScreen(
                             }
                         }
 
-
                         Spacer(modifier = Modifier.height(12.dp))
-
 
                         Row(
                             modifier = Modifier.fillMaxWidth()
@@ -493,7 +523,6 @@ fun ReceiptScreen(
                                     color = Color.Black
                                 )
                             }
-
 
                             Column(
                                 modifier = Modifier.weight(0.5f),
@@ -515,9 +544,7 @@ fun ReceiptScreen(
                     }
                 }
 
-
                 Spacer(modifier = Modifier.height(16.dp))
-
 
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -531,22 +558,17 @@ fun ReceiptScreen(
                         ReceiptDetailRow("Transaction ID", transactionId)
                         Spacer(modifier = Modifier.height(12.dp))
 
-
                         ReceiptDetailRow("Email", user?.email ?: "Loading...")
                         Spacer(modifier = Modifier.height(12.dp))
 
-
                         ReceiptDetailRow("Name", user?.fullName ?: "Loading...")
                         Spacer(modifier = Modifier.height(12.dp))
-
 
                         ReceiptDetailRow("Phone", user?.phone ?: "Not provided")
                     }
                 }
 
-
                 Spacer(modifier = Modifier.height(20.dp))
-
 
                 Button(
                     onClick = onRequestRefund,
@@ -565,9 +587,7 @@ fun ReceiptScreen(
                     )
                 }
 
-
                 Spacer(modifier = Modifier.height(12.dp))
-
 
                 Button(
                     onClick = onDownloadReceipt,
@@ -586,15 +606,11 @@ fun ReceiptScreen(
                     )
                 }
 
-
                 Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
 }
-
-
-
 
 @Composable
 fun ReceiptDetailRow(label: String, value: String) {

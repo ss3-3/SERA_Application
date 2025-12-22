@@ -54,7 +54,7 @@ import androidx.compose.ui.text.font.FontWeight.Companion.SemiBold
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.example.sera_application.domain.model.uimodel.TopParticipantUiModel
 import com.patrykandpatryk.vico.compose.axis.horizontal.bottomAxis
@@ -552,7 +552,7 @@ fun StaticLoadingBar(
 
 @Composable
 fun UserReportScreen(
-    viewModel: UserReportViewModel = viewModel()
+    viewModel: UserReportViewModel = hiltViewModel()
 ) {
     val totalUsers by viewModel.totalUsers.collectAsState()
     val newUsers by viewModel.newUsers.collectAsState()

@@ -39,7 +39,7 @@ import androidx.compose.ui.text.font.FontWeight.Companion.Normal
 import androidx.compose.ui.text.font.FontWeight.Companion.SemiBold
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.example.sera_application.R
 import com.example.sera_application.domain.model.uimodel.PaymentStatistics
@@ -303,7 +303,7 @@ fun PaymentStatusCard(
 
 @Composable
 fun RevenueReportScreen(
-    viewModel: RevenueReportViewModel = viewModel()
+    viewModel: RevenueReportViewModel = hiltViewModel()
 ) {
     val totalRevenue by viewModel.totalRevenue.collectAsState()
     val revenueGrowth by viewModel.revenueGrowth.collectAsState()

@@ -13,7 +13,7 @@ import dagger.hilt.components.SingletonComponent
  * Use cases included:
  * - Auth: LoginUseCase, RegisterUseCase, LogoutUseCase, GetCurrentUserUseCase
  * - User: GetUserProfileUseCase, UpdateUserProfileUseCase, GetAllUsersUseCase,
- *         ApproveOrganizerUseCase, SuspendUserUseCase
+ *         ApproveOrganizerUseCase, SuspendUserUseCase, ActivateUserUseCase
  * - Event: CreateEventUseCase, UpdateEventUseCase, DeleteEventUseCase,
  *          GetEventListUseCase, GetEventByIdUseCase, GetEventsByOrganizerUseCase,
  *          ApproveEventUseCase, RejectEventUseCase, CloseEventUseCase

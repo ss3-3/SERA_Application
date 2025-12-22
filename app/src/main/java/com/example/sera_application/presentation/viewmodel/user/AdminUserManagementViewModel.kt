@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.sera_application.domain.model.User
 import com.example.sera_application.domain.model.enums.UserRole
+import com.example.sera_application.domain.usecase.auth.GetCurrentUserUseCase
+import com.example.sera_application.domain.usecase.user.ActivateUserUseCase
 import com.example.sera_application.domain.usecase.user.ApproveOrganizerUseCase
 import com.example.sera_application.domain.usecase.user.GetAllUsersUseCase
 import com.example.sera_application.domain.usecase.user.GetPendingOrganizersUseCase
@@ -24,12 +26,16 @@ data class AdminUserManagementUiState(
     val allUsers: List<User> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
-    val filterType: UserFilterType = UserFilterType.ALL
+    val filterType: UserFilterType = UserFilterType.ALL,
+    val searchQuery: String = ""
 )
 
 enum class UserFilterType {
     ALL,
-    PENDING_ORGANIZER
+    PARTICIPANT,
+    APPROVED_ORGANIZER,
+    PENDING_ORGANIZER,
+    SUSPENDED
 }
 
 @HiltViewModel
@@ -37,8 +43,10 @@ class AdminUserManagementViewModel @Inject constructor(
     private val getAllUsersUseCase: GetAllUsersUseCase,
     private val getPendingOrganizersUseCase: GetPendingOrganizersUseCase,
     private val suspendUserUseCase: SuspendUserUseCase,
+    private val activateUserUseCase: ActivateUserUseCase,
     private val approveOrganizerUseCase: ApproveOrganizerUseCase,
-    private val rejectOrganizerUseCase: RejectOrganizerUseCase
+    private val rejectOrganizerUseCase: RejectOrganizerUseCase,
+    private val getCurrentUserUseCase: GetCurrentUserUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AdminUserManagementUiState())
@@ -55,10 +63,15 @@ class AdminUserManagementViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
+                // Get current admin user to exclude
+                val currentAdmin = getCurrentUserUseCase()
+                val currentAdminId = currentAdmin?.userId ?: ""
+                
+                // Get all users and exclude the admin account itself
                 val allUsers = getAllUsersUseCase()
-                // Filter to only show organizers
-                val organizers = allUsers.filter { it.role == UserRole.ORGANIZER }
-                _uiState.update { it.copy(allUsers = organizers, isLoading = false) }
+                val filteredUsers = allUsers.filter { it.userId != currentAdminId }
+                
+                _uiState.update { it.copy(allUsers = filteredUsers, isLoading = false) }
             } catch (e: Exception) {
                 _uiState.update { 
                     it.copy(
@@ -73,12 +86,41 @@ class AdminUserManagementViewModel @Inject constructor(
     fun updateFilter(filterType: UserFilterType) {
         _uiState.update { it.copy(filterType = filterType) }
     }
+
+    fun updateSearchQuery(query: String) {
+        _uiState.update { it.copy(searchQuery = query) }
+    }
     
     fun getFilteredUsers(): List<User> {
         val state = _uiState.value
-        return when (state.filterType) {
+        val filteredByType = when (state.filterType) {
             UserFilterType.ALL -> state.allUsers
-            UserFilterType.PENDING_ORGANIZER -> state.allUsers.filter { !it.isApproved }
+            UserFilterType.PARTICIPANT -> state.allUsers.filter { it.role == UserRole.PARTICIPANT }
+            UserFilterType.APPROVED_ORGANIZER -> state.allUsers.filter { 
+                // Include approved organizers (including suspended ones)
+                // Suspended users who were approved should still appear here
+                it.role == UserRole.ORGANIZER && it.isApproved 
+            }
+            UserFilterType.PENDING_ORGANIZER -> state.allUsers.filter { 
+                // Only show pending (not approved) organizers
+                // Suspended users who were approved should NOT appear here
+                it.role == UserRole.ORGANIZER && !it.isApproved 
+            }
+            UserFilterType.SUSPENDED -> state.allUsers.filter { 
+                // Show all suspended users regardless of role or approval status
+                it.accountStatus == "SUSPENDED"
+            }
+        }
+
+        // Apply search filter
+        return if (state.searchQuery.isEmpty()) {
+            filteredByType
+        } else {
+            filteredByType.filter { user ->
+                user.fullName.contains(state.searchQuery, ignoreCase = true) ||
+                user.email.contains(state.searchQuery, ignoreCase = true) ||
+                user.userId.contains(state.searchQuery, ignoreCase = true)
+            }
         }
     }
 
@@ -99,6 +141,29 @@ class AdminUserManagementViewModel @Inject constructor(
                     it.copy(
                         isLoading = false, 
                         error = e.message ?: "Error suspending user"
+                    ) 
+                }
+            }
+        }
+    }
+
+    fun activateUser(userId: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            _actionSuccess.value = null
+            try {
+                val success = activateUserUseCase(userId)
+                if (success) {
+                    _actionSuccess.value = "User activated successfully"
+                    loadUsers() // Refresh user list
+                } else {
+                    _uiState.update { it.copy(isLoading = false, error = "Failed to activate user") }
+                }
+            } catch (e: Exception) {
+                _uiState.update { 
+                    it.copy(
+                        isLoading = false, 
+                        error = e.message ?: "Error activating user"
                     ) 
                 }
             }

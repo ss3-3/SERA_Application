@@ -7,12 +7,15 @@ import com.example.sera_application.domain.model.uimodel.EventListUiModel
 import com.example.sera_application.domain.model.uimodel.Item
 import com.example.sera_application.domain.usecase.report.GetOrganizerEventsUseCase
 import com.example.sera_application.domain.usecase.report.GetOrganizerStatsUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class OrganizerDashboardViewModel(
+@HiltViewModel
+class OrganizerDashboardViewModel @Inject constructor(
     private val getOrganizerStatsUseCase: GetOrganizerStatsUseCase,
     private val getOrganizerEventsUseCase: GetOrganizerEventsUseCase
 ) : ViewModel() {

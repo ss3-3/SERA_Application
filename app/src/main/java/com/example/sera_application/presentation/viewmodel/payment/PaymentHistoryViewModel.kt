@@ -3,6 +3,7 @@ package com.example.sera_application.presentation.viewmodel.payment
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.sera_application.domain.usecase.payment.GetPaymentHistoryUseCase
+import com.example.sera_application.domain.usecase.event.GetEventByIdUseCase
 import com.example.sera_application.presentation.ui.payment.OrderData
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,7 +19,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class PaymentHistoryViewModel @Inject constructor(
-    private val getPaymentHistoryUseCase: GetPaymentHistoryUseCase
+    private val getPaymentHistoryUseCase: GetPaymentHistoryUseCase,
+    private val getEventByIdUseCase: GetEventByIdUseCase
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
@@ -31,7 +33,7 @@ class PaymentHistoryViewModel @Inject constructor(
     val dateFilter: StateFlow<String> = _dateFilter
 
     private val _allOrders = MutableStateFlow<List<OrderData>>(emptyList())
-    
+
     val filteredOrders: StateFlow<List<OrderData>> = combine(
         _allOrders,
         _searchQuery,
@@ -40,8 +42,8 @@ class PaymentHistoryViewModel @Inject constructor(
     ) { orders, query, status, date ->
         orders.filter { order ->
             (query.isEmpty() || order.eventName.contains(query, ignoreCase = true) || order.orderId.contains(query, ignoreCase = true)) &&
-            (status == "All Statuses" || order.status.equals(status, ignoreCase = true)) &&
-            (date == "All Dates" || order.date == date)
+                    (status == "All Statuses" || order.status.equals(status, ignoreCase = true)) &&
+                    (date == "All Dates" || order.date == date)
         }
     }.stateIn(
         scope = viewModelScope,
@@ -56,15 +58,26 @@ class PaymentHistoryViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             try {
+                android.util.Log.d("PaymentHistoryViewModel", "=== Loading payment history for userId: '$userId' ===")
                 val payments = getPaymentHistoryUseCase(userId)
-                
+                android.util.Log.d("PaymentHistoryViewModel", "✅ Loaded ${payments.size} payments from use case")
+
                 // Convert Payment domain model to OrderData UI model
+                // Fetch event names for each payment
                 val orders = payments.map { payment ->
                     val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
                     val dateStr = dateFormat.format(Date(payment.createdAt))
-                    
+
+                    // Fetch event name from eventId
+                    val eventName = try {
+                        val event = getEventByIdUseCase(payment.eventId)
+                        event?.name ?: payment.eventId // Fallback to eventId if event not found
+                    } catch (e: Exception) {
+                        payment.eventId // Fallback to eventId on error
+                    }
+
                     OrderData(
-                        eventName = payment.eventId, // Ideally fetch event name
+                        eventName = eventName,
                         orderId = payment.paymentId,
                         price = "RM ${String.format(Locale.US, "%.2f", payment.amount)}",
                         tickets = "1 ticket", // Ideally fetch quantity

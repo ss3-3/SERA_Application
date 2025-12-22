@@ -1,6 +1,5 @@
 package com.example.sera_application.presentation.ui.payment
 
-
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -50,11 +49,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.sera_application.presentation.viewmodel.user.ProfileViewModel
 import com.example.sera_application.domain.model.enums.UserRole
 import androidx.compose.runtime.LaunchedEffect
-
+import com.example.sera_application.utils.BottomNavigationBar
 
 @AndroidEntryPoint
 class PaymentActivity : ComponentActivity() {
-
 
     @Inject
     lateinit var paymentRemoteDataSource: PaymentRemoteDataSource
@@ -62,23 +60,25 @@ class PaymentActivity : ComponentActivity() {
     @Inject
     lateinit var updateReservationStatusUseCase: com.example.sera_application.domain.usecase.reservation.UpdateReservationStatusUseCase
 
+    @Inject
+    lateinit var sendNotificationUseCase: com.example.sera_application.domain.usecase.notification.SendNotificationUseCase
+
+    @Inject
+    lateinit var getEventByIdUseCase: com.example.sera_application.domain.usecase.event.GetEventByIdUseCase
 
     private lateinit var paypalRepository: PayPalRepository
     private var pendingOrderId: String? = null
     private val isProcessingPayment = mutableStateOf(false)
     private val viewModel: PaymentScreenViewModel by viewModels()
 
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
 
         paypalRepository = PayPalRepository(
             clientId = "AQTPtN2werWX-j1tUfqQwifM0cfqviYHUVl9exM5fj4Ac2-kYXpqyjuaWw9mya3Tiwe2ppXGYyHNcBAP",
             clientSecret = "EN02FWz7AC_SwRw6FuprITB4AT_XdM2ZMV2p1VSaBY7TJr-gONuIupplRCxQURSxBrMcPDmjxeUDfQf9",
             isSandbox = true
         )
-
 
         val reservationId = intent.getStringExtra("RESERVATION_ID") ?: ""
 
@@ -87,9 +87,7 @@ class PaymentActivity : ComponentActivity() {
             viewModel.loadReservationDetails(reservationId)
         }
 
-
         handleDeepLink(intent)
-
 
         setContent {
             SERA_ApplicationTheme {
@@ -132,7 +130,6 @@ class PaymentActivity : ComponentActivity() {
         }
     }
 
-
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleDeepLink(intent)
@@ -160,7 +157,6 @@ class PaymentActivity : ComponentActivity() {
                         ?: data.getQueryParameter("id")
                         ?: data.getQueryParameter("orderID")
 
-
                     // Also extract our custom reservationId to avoid state loss
                     val reservationId = data.getQueryParameter("reservationId")
 
@@ -168,6 +164,7 @@ class PaymentActivity : ComponentActivity() {
                         if (reservationId != null && viewModel.reservation.value == null) {
                             Log.d("PaymentActivity", "State lost. Reloading reservation: $reservationId")
                             viewModel.loadReservationDetails(reservationId)
+
 
                             // Simple wait loop to ensure data is loaded before proceeding to capture
                             // This prevents the race condition where capture finishes before metadata reloads
@@ -205,7 +202,6 @@ class PaymentActivity : ComponentActivity() {
         }
     }
 
-
     private fun startPayPalCheckout() {
         lifecycleScope.launch {
             try {
@@ -218,7 +214,6 @@ class PaymentActivity : ComponentActivity() {
                     return@launch
                 }
 
-
                 // Create order
                 val reservation = viewModel.reservation.value
                 val event = viewModel.event.value
@@ -227,7 +222,6 @@ class PaymentActivity : ComponentActivity() {
                 val eventDescription = "${event?.name ?: "Event"} - ${reservation?.seats ?: 0} Tickets"
                 val reservationId = reservation?.reservationId ?: ""
 
-
                 val orderResult = paypalRepository.createOrder(
                     amount = amountStr,
                     currencyCode = "MYR",
@@ -235,10 +229,10 @@ class PaymentActivity : ComponentActivity() {
                     reservationId = reservationId
                 )
 
-
                 if (orderResult.isSuccess) {
                     val order = orderResult.getOrNull()!!
                     pendingOrderId = order.id
+
 
                     Log.d("PaymentActivity", "✅ Order created successfully: ${order.id}")
                     Log.d("PaymentActivity", "Order status: ${order.status}")
@@ -249,10 +243,8 @@ class PaymentActivity : ComponentActivity() {
                         Log.d("PaymentActivity", "Link $index: rel='${link.rel}', href='${link.href}'")
                     }
 
-
                     // Find the approve link
                     val approveLink = order.links.find { it.rel == "approve" }
-
 
                     if (approveLink != null) {
                         Log.d("PaymentActivity", "✅ Found approve link: ${approveLink.href}")
@@ -264,7 +256,6 @@ class PaymentActivity : ComponentActivity() {
                             val customTabsIntent = CustomTabsIntent.Builder()
                                 .setShowTitle(true)
                                 .build()
-
 
                             customTabsIntent.launchUrl(this@PaymentActivity, Uri.parse(approveLink.href))
                             Log.d("PaymentActivity", "✅ Custom Tab launched successfully")
@@ -291,7 +282,6 @@ class PaymentActivity : ComponentActivity() {
         }
     }
 
-
     private fun capturePayPalOrder(orderId: String) {
         Log.d("PaymentActivity", "🔄 Starting capture process for order: $orderId")
         isProcessingPayment.value = true
@@ -313,11 +303,11 @@ class PaymentActivity : ComponentActivity() {
 
                 Log.d("PaymentActivity", "Capture result: isSuccess=${captureResult.isSuccess}")
 
-
                 if (captureResult.isSuccess) {
                     val capture = captureResult.getOrNull()!!
                     Log.d("PaymentActivity", "✅ Payment captured successfully: ${capture.id}")
                     Log.d("PaymentActivity", "Capture status: ${capture.status}")
+
 
                     val reservation = viewModel.reservation.value
 
@@ -358,8 +348,34 @@ class PaymentActivity : ComponentActivity() {
                         } catch (e: Exception) {
                             Log.e("PaymentActivity", "❌ Error updating reservation status: ${e.message}", e)
                         }
-                    }
 
+                        // Send payment success notification
+                        try {
+                            val event = getEventByIdUseCase(reservation.eventId)
+                            val eventName = event?.name ?: "Event"
+                            lifecycleScope.launch {
+                                sendNotificationUseCase(
+                                    userId = reservation.userId,
+                                    title = "Payment Successful",
+                                    message = "Your payment of RM ${String.format("%.2f", reservation.totalPrice)} for $eventName has been processed successfully.",
+                                    type = com.example.sera_application.domain.model.enums.NotificationType.PAYMENT_UPDATE,
+                                    relatedEventId = reservation.eventId,
+                                    relatedReservationId = reservation.reservationId
+                                ).fold(
+                                    onSuccess = {
+                                        Log.d("PaymentActivity", "✅ Payment notification sent successfully")
+                                    },
+                                    onFailure = { exception ->
+                                        Log.w("PaymentActivity", "⚠️ Failed to send payment notification: ${exception.message}")
+                                        // Don't fail payment if notification fails
+                                    }
+                                )
+                            }
+                        } catch (e: Exception) {
+                            Log.e("PaymentActivity", "❌ Error sending payment notification: ${e.message}", e)
+                            // Don't fail payment if notification fails
+                        }
+                    }
 
                     // Navigate to success screen
                     Log.d("PaymentActivity", "Navigating to success screen...")
@@ -387,7 +403,6 @@ class PaymentActivity : ComponentActivity() {
         }
     }
 
-
     private fun showPaymentFailure(reason: String) {
         val intent = Intent(this@PaymentActivity, PaymentStatusActivity::class.java).apply {
             putExtra("PAYMENT_SUCCESS", false)
@@ -398,7 +413,6 @@ class PaymentActivity : ComponentActivity() {
         finish()
     }
 }
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -418,16 +432,15 @@ fun PaymentScreen(
     var showPaymentDialog by rememberSaveable { mutableStateOf(false) }
     var email by rememberSaveable { mutableStateOf("") }
     var name by rememberSaveable { mutableStateOf("") }
-    
+
     // Get current user for role-based navigation
     val profileViewModel: ProfileViewModel = hiltViewModel()
     val currentUser by profileViewModel.user.collectAsState()
-    
+
     // Load current user
     LaunchedEffect(Unit) {
         profileViewModel.loadCurrentUser()
     }
-
 
     Scaffold(
         topBar = {
@@ -493,15 +506,11 @@ fun PaymentScreen(
                 ) {
                     EventDetailsCard(event = event, reservation = reservation)
 
-
                     Spacer(modifier = Modifier.height(16.dp))
 
-
-                    PriceBreakdownCard(reservation = reservation)
-
+                    PriceBreakdownCard(reservation = reservation, event = event)
 
                     Spacer(modifier = Modifier.height(20.dp))
-
 
                     Text(
                         text = "Payment Method",
@@ -510,9 +519,7 @@ fun PaymentScreen(
                         color = Color.Black
                     )
 
-
                     Spacer(modifier = Modifier.height(12.dp))
-
 
                     // PayPal Option
                     PaymentMethodCard(
@@ -525,9 +532,7 @@ fun PaymentScreen(
                         enabled = !isProcessing
                     )
 
-
                     Spacer(modifier = Modifier.height(20.dp))
-
 
                     Button(
                         onClick = {
@@ -558,7 +563,6 @@ fun PaymentScreen(
                     }
                 }
             }
-
 
             // Loading overlay
             if (isProcessing) {
@@ -601,7 +605,6 @@ fun PaymentScreen(
         }
     }
 
-
     if (showPaymentDialog) {
         PaymentDetailsDialog(
             email = email,
@@ -617,7 +620,6 @@ fun PaymentScreen(
         )
     }
 }
-
 
 @Composable
 fun EventDetailsCard(event: Event?, reservation: EventReservation?) {
@@ -643,9 +645,7 @@ fun EventDetailsCard(event: Event?, reservation: EventReservation?) {
                 )
             }
 
-
             Spacer(modifier = Modifier.height(12.dp))
-
 
             Text(
                 text = event?.name ?: "Event Name",
@@ -654,9 +654,7 @@ fun EventDetailsCard(event: Event?, reservation: EventReservation?) {
                 color = Color.Black
             )
 
-
             Spacer(modifier = Modifier.height(12.dp))
-
 
             EventDetailRow("Date", event?.date?.let {
                 val format = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault())
@@ -671,7 +669,6 @@ fun EventDetailsCard(event: Event?, reservation: EventReservation?) {
         }
     }
 }
-
 
 @Composable
 fun EventDetailRow(label: String, value: String) {
@@ -692,12 +689,35 @@ fun EventDetailRow(label: String, value: String) {
     }
 }
 
-
 @Composable
-fun PriceBreakdownCard(reservation: EventReservation?) {
-    val seats = reservation?.seats ?: 0
-    val pricePerTicket = if (seats > 0) (reservation?.totalPrice ?: 0.0) / seats else 0.0
+fun PriceBreakdownCard(reservation: EventReservation?, event: Event?) {
     val totalPrice = reservation?.totalPrice ?: 0.0
+    var rockZoneSeats = reservation?.rockZoneSeats ?: 0
+    var normalZoneSeats = reservation?.normalZoneSeats ?: 0
+    val rockZonePrice = event?.rockZonePrice ?: 0.0
+    val normalZonePrice = event?.normalZonePrice ?: 0.0
+    val totalSeats = reservation?.seats ?: 0
+
+    // If zone data is missing but we have total seats and event prices,
+    // try to calculate the breakdown from total price
+    if (rockZoneSeats == 0 && normalZoneSeats == 0 && totalSeats > 0 &&
+        rockZonePrice > 0 && normalZonePrice > 0 && totalPrice > 0) {
+        // Try to solve: rockSeats * rockPrice + normalSeats * normalPrice = totalPrice
+        //               rockSeats + normalSeats = totalSeats
+        val priceDiff = rockZonePrice - normalZonePrice
+        if (priceDiff != 0.0) {
+            val calculatedRock = ((totalPrice - normalZonePrice * totalSeats) / priceDiff)
+            val calculatedRockInt = calculatedRock.toInt().coerceIn(0, totalSeats)
+            val calculatedNormal = totalSeats - calculatedRockInt
+
+            // Verify the calculation makes sense (within rounding error)
+            val calculatedTotal = calculatedRockInt * rockZonePrice + calculatedNormal * normalZonePrice
+            if (kotlin.math.abs(calculatedTotal - totalPrice) < 1.0) {
+                rockZoneSeats = calculatedRockInt
+                normalZoneSeats = calculatedNormal
+            }
+        }
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -708,31 +728,92 @@ fun PriceBreakdownCard(reservation: EventReservation?) {
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            Row(
+            // Subtotal label
+            Text(
+                text = "Subtotal",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF757575),
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            // Subtotal section - show each ticket type separately
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = "Subtotal",
-                    fontSize = 14.sp,
-                    color = Color(0xFF757575)
-                )
-                Text(
-                    text = "$seats x RM %.2f".format(pricePerTicket),
-                    fontSize = 14.sp,
-                    color = Color.Black
-                )
+                // Rock Zone tickets - show if we have seats and price
+                if (rockZoneSeats > 0) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Rock Zone",
+                            fontSize = 14.sp,
+                            color = Color.Black
+                        )
+                        Text(
+                            text = if (rockZonePrice > 0) {
+                                "$rockZoneSeats x RM %.2f".format(rockZonePrice)
+                            } else {
+                                "$rockZoneSeats x RM --"
+                            },
+                            fontSize = 14.sp,
+                            color = Color.Black
+                        )
+                    }
+                }
+
+                // Normal Zone tickets - show if we have seats and price
+                if (normalZoneSeats > 0) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Normal Zone",
+                            fontSize = 14.sp,
+                            color = Color.Black
+                        )
+                        Text(
+                            text = if (normalZonePrice > 0) {
+                                "$normalZoneSeats x RM %.2f".format(normalZonePrice)
+                            } else {
+                                "$normalZoneSeats x RM --"
+                            },
+                            fontSize = 14.sp,
+                            color = Color.Black
+                        )
+                    }
+                }
+
+                // Fallback: Only show if we have no zone breakdown at all
+                if (rockZoneSeats == 0 && normalZoneSeats == 0 && totalSeats > 0) {
+                    val averagePrice = if (totalSeats > 0) totalPrice / totalSeats else 0.0
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Tickets",
+                            fontSize = 14.sp,
+                            color = Color.Black
+                        )
+                        Text(
+                            text = "$totalSeats x RM %.2f".format(averagePrice),
+                            fontSize = 14.sp,
+                            color = Color.Black
+                        )
+                    }
+                }
             }
 
-
             Spacer(modifier = Modifier.height(16.dp))
-
 
             HorizontalDivider(color = Color(0xFFE5E5E5))
 
-
             Spacer(modifier = Modifier.height(16.dp))
-
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -746,7 +827,6 @@ fun PriceBreakdownCard(reservation: EventReservation?) {
                     color = Color.Black
                 )
 
-
                 Text(
                     text = "RM%.2f".format(totalPrice),
                     fontSize = 16.sp,
@@ -757,7 +837,6 @@ fun PriceBreakdownCard(reservation: EventReservation?) {
         }
     }
 }
-
 
 @Composable
 fun PaymentMethodCard(
@@ -784,15 +863,13 @@ fun PaymentMethodCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Image(
-                painter = painterResource(R.drawable.paypal),
+                painter = painterResource(id = R.drawable.paypal),
                 contentDescription = title,
                 modifier = Modifier.size(36.dp),
                 alpha = if (enabled) 1f else 0.5f
             )
 
-
             Spacer(modifier = Modifier.width(12.dp))
-
 
             Text(
                 text = title,
@@ -801,7 +878,6 @@ fun PaymentMethodCard(
                 color = if (enabled) Color.Black else Color.Gray,
                 modifier = Modifier.weight(1f)
             )
-
 
             RadioButton(
                 selected = selected,
@@ -818,7 +894,6 @@ fun PaymentMethodCard(
     }
 }
 
-
 @Composable
 fun PaymentDetailsDialog(
     email: String,
@@ -830,7 +905,6 @@ fun PaymentDetailsDialog(
     onProceedToPayPal: () -> Unit
 ) {
     val context = LocalContext.current
-
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -845,10 +919,7 @@ fun PaymentDetailsDialog(
         },
         text = {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 400.dp) // Limit height for landscape
-                    .verticalScroll(rememberScrollState())
+                modifier = Modifier.fillMaxWidth()
             ) {
                 OutlinedTextField(
                     value = email,
@@ -856,7 +927,7 @@ fun PaymentDetailsDialog(
                     label = { Text("Email") },
                     placeholder = {
                         Text(
-                            "haha@gmail.com",
+                            "haha-wm24@student.tarc.edu.my",
                             color = Color(0xFFBDBDBD)
                         )
                     },
@@ -871,9 +942,7 @@ fun PaymentDetailsDialog(
                     singleLine = true
                 )
 
-
                 Spacer(modifier = Modifier.height(12.dp))
-
 
                 OutlinedTextField(
                     value = name,
@@ -896,9 +965,7 @@ fun PaymentDetailsDialog(
                     singleLine = true
                 )
 
-
                 Spacer(modifier = Modifier.height(16.dp))
-
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -911,9 +978,7 @@ fun PaymentDetailsDialog(
                         modifier = Modifier.size(20.dp)
                     )
 
-
                     Spacer(modifier = Modifier.width(8.dp))
-
 
                     Text(
                         text = if (paymentMethod == "PayPal") {
@@ -951,6 +1016,8 @@ fun PaymentDetailsDialog(
                 }
 
 
+
+
                 Button(
                     onClick = {
                         if (email.isBlank() || name.isBlank()) {
@@ -963,7 +1030,14 @@ fun PaymentDetailsDialog(
                         }
 
 
-                        val emailPattern = "[a-zA-Z0-9._-]+@[a-z]+\\.+[a-z]+"
+
+
+                        // Updated email pattern to accept:
+                        // - Hyphens in local part (e.g., haha-wm24)
+                        // - Multiple subdomains (e.g., student.tarc.edu.my)
+                        // - Both uppercase and lowercase in domain
+                        // - Hyphens in domain parts
+                        val emailPattern = "^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}\$"
                         if (!email.matches(emailPattern.toRegex())) {
                             Toast.makeText(
                                 context,
@@ -972,6 +1046,8 @@ fun PaymentDetailsDialog(
                             ).show()
                             return@Button
                         }
+
+
 
 
                         onProceedToPayPal()
@@ -1009,7 +1085,7 @@ private fun PaymentEventImage(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    
+
     // Try to load as drawable resource first
     val imageRes = remember(imagePath) {
         if (imagePath != null && imagePath.isNotBlank()) {
@@ -1024,7 +1100,7 @@ private fun PaymentEventImage(
             null
         }
     }
-    
+
     when {
         // Case 1: Valid drawable resource
         imageRes != null -> {

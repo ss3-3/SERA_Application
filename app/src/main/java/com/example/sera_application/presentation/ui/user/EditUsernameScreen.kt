@@ -21,6 +21,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.example.sera_application.utils.InputValidator
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditUsernameScreen(
@@ -31,6 +33,7 @@ fun EditUsernameScreen(
 ) {
     var newUsername by rememberSaveable { mutableStateOf(currentUsername) }
     var showConfirmationDialog by rememberSaveable { mutableStateOf(false) }
+    var usernameError by rememberSaveable { mutableStateOf<String?>(null) }
 
     val scrollState = rememberScrollState()
 
@@ -89,28 +92,38 @@ fun EditUsernameScreen(
                     color = Color(0xFF212121)
                 )
 
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(
-                            width = 2.dp,
-                            color = Color(0xFFE0E0E0),
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                ) {
-                    OutlinedTextField(
-                        value = newUsername,
-                        onValueChange = { newUsername = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = Color.White,
-                            unfocusedContainerColor = Color.White,
-                            focusedBorderColor = Color(0xFF1976D2),
-                            unfocusedBorderColor = Color(0xFFE0E0E0)
-                        ),
-
-                        singleLine = true
+                OutlinedTextField(
+                    value = newUsername,
+                    onValueChange = { 
+                        newUsername = it
+                        // Validate on change
+                        val (isValid, error) = InputValidator.validateUsername(it)
+                        usernameError = error
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White,
+                        focusedBorderColor = if (usernameError != null) Color(0xFFE91E63) else Color(0xFF1976D2),
+                        unfocusedBorderColor = if (usernameError != null) Color(0xFFE91E63) else Color(0xFFE0E0E0),
+                        errorBorderColor = Color(0xFFE91E63)
+                    ),
+                    isError = usernameError != null,
+                    supportingText = usernameError?.let { 
+                        { Text(text = it, color = Color(0xFFE91E63), fontSize = 12.sp) }
+                    },
+                    singleLine = true
+                )
+                
+                // Display error message below field if present
+                if (usernameError != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = usernameError!!,
+                        color = Color(0xFFE91E63),
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(horizontal = 4.dp)
                     )
                 }
             }
@@ -121,8 +134,13 @@ fun EditUsernameScreen(
                 // Confirm button
                 Button(
                     onClick = {
-                        if (newUsername.isNotBlank()) {
+                        // Validate before showing confirmation dialog
+                        val (isValid, error) = InputValidator.validateUsername(newUsername)
+                        if (isValid && newUsername != currentUsername) {
+                            usernameError = null
                             showConfirmationDialog = true
+                        } else {
+                            usernameError = error ?: if (newUsername == currentUsername) "Username must be different from current" else "Please enter a valid username"
                         }
                     },
                     modifier = Modifier
@@ -133,7 +151,7 @@ fun EditUsernameScreen(
                         containerColor = Color(0xFF1976D2),
                         contentColor = Color.White
                     ),
-                    enabled = newUsername.isNotBlank() && newUsername != currentUsername
+                    enabled = newUsername.isNotBlank() && newUsername != currentUsername && usernameError == null
                 ) {
                     Text(
                         text = "Confirm",

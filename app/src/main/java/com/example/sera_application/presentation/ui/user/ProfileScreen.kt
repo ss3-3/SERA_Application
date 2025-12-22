@@ -4,12 +4,15 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -131,15 +134,6 @@ fun ProfileScreen(
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Medium
                     )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.Default.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.White
-                        )
-                    }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = Color(0xFF2C2C2E)
@@ -336,16 +330,47 @@ private fun ProfilePictureSection(
         Box(
             modifier = Modifier
                 .size(120.dp)
+                .clickable(onClick = onImageClick)
+        ) {
+            // Profile image with circular clip
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
                 .clip(CircleShape)
                 .background(Color.White)
-                .clickable(onClick = onImageClick),
-            contentAlignment = Alignment.Center
         ) {
             SafeProfileImageLoader(
                 imagePath = profileImageUrl,
                 contentDescription = "Profile Picture",
                 modifier = Modifier.fillMaxSize()
             )
+            }
+            
+            // Camera/Edit icon overlay - positioned on top with border for visibility
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .offset(x = (-2).dp, y = (-2).dp)
+                    .size(36.dp),
+                shape = CircleShape,
+                color = Color(0xFF1976D2),
+                shadowElevation = 4.dp,
+                border = BorderStroke(2.dp, Color.White)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AddAPhoto,
+                        contentDescription = "Change Profile Picture",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -465,7 +490,6 @@ private fun getMenuItemsForRole(
                 ProfileMenuItem("Edit User Name", Icons.Default.Edit, onEditUserName),
                 ProfileMenuItem("Password Update", Icons.Default.Lock, onPasswordUpdate),
                 ProfileMenuItem("User Management", Icons.Default.People, onUserManagement),
-                ProfileMenuItem("Event Approval", Icons.Default.CheckCircle, onEventApproval),
                 ProfileMenuItem("Report", Icons.Default.Assessment, onAdminReports)
             ),
             secondGroup = listOf(

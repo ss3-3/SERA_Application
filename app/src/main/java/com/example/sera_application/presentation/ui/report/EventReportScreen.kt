@@ -52,7 +52,7 @@ import androidx.compose.ui.text.font.FontWeight.Companion.Bold
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.example.sera_application.R
 import com.example.sera_application.domain.model.uimodel.EventListUiModel
@@ -276,7 +276,7 @@ fun DateFilterSection(
 @SuppressLint("FrequentlyChangingValue")
 @Composable
 fun EventReportScreen(
-    viewModel: EventReportViewModel = viewModel()
+    viewModel: EventReportViewModel = hiltViewModel()
 ) {
     val events by viewModel.events.collectAsState()
     val eventCount by viewModel.eventCount.collectAsState()

@@ -32,7 +32,7 @@ class GetOrganizerStatsUseCase @Inject constructor(
 
             val totalRevenue = paymentRepository.getTotalRevenueByEvents(eventIds)
             val totalParticipants = reservationRepository.getTotalParticipantsByEvents(eventIds)
-            val averageRevenue = if (eventCount > 0) totalRevenue / eventCount else 0.0
+            val averageRevenue = if (eventCount > 0) totalRevenue / eventCount.toDouble() else 0.0
 
             emit(OrganizerStats(
                 eventCount = eventCount,

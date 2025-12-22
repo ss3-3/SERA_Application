@@ -21,6 +21,8 @@ interface UserRepository {
 
     suspend fun suspendUser(userId: String): Boolean
 
+    suspend fun activateUser(userId: String): Boolean
+
 
     // Add
     suspend fun getTotalUserCount(): Int

@@ -59,8 +59,10 @@ class NotificationRepositoryImpl @Inject constructor(
     override suspend fun getUserNotifications(userId: String): Result<List<Notification>> {
         return try {
             val notifications = remoteDataSource.getNotificationsByUser(userId)
+            Log.d("NotificationRepository", "Successfully loaded ${notifications.size} notifications for user: $userId")
             Result.success(notifications)
         } catch (e: Exception) {
+            Log.e("NotificationRepository", "Error loading notifications for user $userId: ${e.message}", e)
             Result.failure(e)
         }
     }

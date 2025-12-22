@@ -33,9 +33,11 @@ import com.example.sera_application.utils.PdfReceiptGenerator
 import com.example.sera_application.utils.ReceiptData
 import com.example.sera_application.utils.BottomNavigationBar
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.sera_application.presentation.viewmodel.user.ProfileViewModel
 import com.example.sera_application.domain.model.enums.UserRole
 import com.example.sera_application.presentation.viewmodel.payment.PaymentHistoryViewModel
+import com.example.sera_application.utils.BottomNavigationBar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -43,16 +45,34 @@ import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class PaymentHistoryActivity : ComponentActivity() {
+    private var viewModel: PaymentHistoryViewModel? = null
+    private var currentUserId: String? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             SERA_ApplicationTheme {
+                val vm: PaymentHistoryViewModel = hiltViewModel()
+                viewModel = vm
+
                 PaymentHistoryScreen(
                     onViewReceipt = { orderData ->
                         generateAndOpenPdf(orderData)
+                    },
+                    viewModel = vm,
+                    onUserIdLoaded = { userId ->
+                        currentUserId = userId
                     }
                 )
             }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Refresh payment history when returning from refund request
+        currentUserId?.let { userId ->
+            viewModel?.loadPaymentHistory(userId)
         }
     }
 
@@ -154,28 +174,30 @@ fun PaymentHistoryScreen(
     onViewReceipt: (OrderData) -> Unit,
     navigationController: NavigationController = LocalNavigationController.current,
     navController: androidx.navigation.NavController? = null,
-    viewModel: PaymentHistoryViewModel = hiltViewModel()
+    viewModel: PaymentHistoryViewModel = hiltViewModel(),
+    onUserIdLoaded: ((String) -> Unit)? = null
 ) {
     val context = LocalContext.current
-    
+
     // Get current user for role-based navigation
     val profileViewModel: ProfileViewModel = hiltViewModel()
     val currentUser by profileViewModel.user.collectAsState()
-    
+
     // Payment history data from ViewModel
     val filteredOrders by viewModel.filteredOrders.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
-    
+
     var selectedFilter by rememberSaveable { mutableStateOf("All") }
-    
+
     // Load current user and payment history
     LaunchedEffect(Unit) {
         profileViewModel.loadCurrentUser()
     }
-    
+
     LaunchedEffect(currentUser) {
         currentUser?.userId?.let { userId ->
+            onUserIdLoaded?.invoke(userId)
             viewModel.loadPaymentHistory(userId)
         }
     }
@@ -237,8 +259,8 @@ fun PaymentHistoryScreen(
             val refundedPayments = filteredOrders.count { it.status.contains("Refund", ignoreCase = true) }
             val totalSpent = filteredOrders
                 .filter { it.status.contains("Paid", ignoreCase = true) }
-                .sumOf { 
-                    it.price.replace("RM ", "").replace(",", "").toDoubleOrNull() ?: 0.0 
+                .sumOf {
+                    it.price.replace("RM ", "").replace(",", "").toDoubleOrNull() ?: 0.0
                 }
 
             Card(
@@ -378,14 +400,14 @@ fun PaymentHistoryScreen(
                     onClick = { selectedFilter = "All" }
                 )
                 FilterButton(
-                    text = "Pending",
-                    isSelected = selectedFilter == "Pending",
-                    onClick = { selectedFilter = "Pending" }
+                    text = "Success",
+                    isSelected = selectedFilter == "Success",
+                    onClick = { selectedFilter = "Success" }
                 )
                 FilterButton(
-                    text = "Paid",
-                    isSelected = selectedFilter == "Paid",
-                    onClick = { selectedFilter = "Paid" }
+                    text = "Failed",
+                    isSelected = selectedFilter == "Failed",
+                    onClick = { selectedFilter = "Failed" }
                 )
                 FilterButton(
                     text = "Refunded",
@@ -398,11 +420,13 @@ fun PaymentHistoryScreen(
 
             // Apply additional filter based on selected button
             val displayedOrders = filteredOrders.filter { order ->
+                val statusUpper = order.status.uppercase()
                 when (selectedFilter) {
                     "All" -> true
-                    "Pending" -> order.status.contains("Pending", ignoreCase = true)
-                    "Paid" -> order.status.contains("Paid", ignoreCase = true) && !order.status.contains("Refund", ignoreCase = true)
-                    "Refunded" -> order.status.contains("Refund", ignoreCase = true)
+                    "Success" -> (statusUpper == "SUCCESS" || statusUpper == "PAID") &&
+                            !statusUpper.contains("REFUND")
+                    "Failed" -> statusUpper == "FAILED" || statusUpper.contains("CANCEL", ignoreCase = true)
+                    "Refunded" -> statusUpper.contains("REFUND")
                     else -> true
                 }
             }
@@ -456,12 +480,14 @@ fun PaymentHistoryScreen(
     }
 }
 
+
 @Composable
 fun OrderCard(
     orderData: OrderData,
-    onViewReceipt: () -> Unit
+    onViewReceipt: (OrderData) -> Unit
 ) {
     val context = LocalContext.current
+    var showDetailsDialog by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -531,47 +557,197 @@ fun OrderCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                OutlinedButton(
-                    onClick = {
-                        if (orderData.status == "Paid") {
-                            onViewReceipt()
-                        } else {
-                            val intent = Intent(context, ReceiptActivity::class.java)
-                            context.startActivity(intent)
-                        }
-                    },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color.Black
-                    )
-                ) {
-                    Text(
-                        if (orderData.status == "Paid") "View Receipt" else "View Details",
-                        fontSize = 14.sp
-                    )
-                }
+                val statusUpper = orderData.status.uppercase()
+                val isPaid = statusUpper == "SUCCESS" || statusUpper == "PAID"
+                val isRefundPending = statusUpper == "REFUND_PENDING" || statusUpper.contains("REFUND PENDING", ignoreCase = true)
+                val isRefunded = statusUpper == "REFUNDED"
 
-                OutlinedButton(
-                    onClick = {
-                        if (orderData.status == "Paid") {
-                            val intent = Intent(context, RefundRequestActivity::class.java)
+
+                // If status is Refund Pending or Refunded: Show only "View Details" button
+                if (isRefundPending || isRefunded) {
+                    OutlinedButton(
+                        onClick = {
+                            // Show order details dialog
+                            showDetailsDialog = true
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color.Black
+                        )
+                    ) {
+                        Text("View Details", fontSize = 14.sp)
+                    }
+                }
+                // If status is Paid: Show "View Receipt" and "Request Refund" buttons (two buttons, NO View Details)
+                else if (isPaid) {
+                    OutlinedButton(
+                        onClick = {
+                            // Generate and open PDF directly (same as download receipt function)
+                            onViewReceipt(orderData)
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color.Black
+                        )
+                    ) {
+                        Text("View Receipt", fontSize = 14.sp)
+                    }
+
+
+                    OutlinedButton(
+                        onClick = {
+                            val intent = Intent(context, RefundRequestActivity::class.java).apply {
+                                putExtra("PAYMENT_ID", orderData.orderId)
+                            }
                             context.startActivity(intent)
-                        } else {
-                            Toast.makeText(context, "Cannot request refund", Toast.LENGTH_SHORT).show()
-                        }
-                    },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color.Black,
-                        disabledContentColor = Color.Gray
-                    ),
-                    enabled = orderData.status == "Paid"
-                ) {
-                    Text("Request Refund", fontSize = 14.sp)
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color.Black
+                        )
+                    ) {
+                        Text("Request Refund", fontSize = 14.sp)
+                    }
+                }
+                // For other statuses (Failed, etc.): Show only "View Details" button
+                else {
+                    OutlinedButton(
+                        onClick = {
+                            // Show order details dialog
+                            showDetailsDialog = true
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color.Black
+                        )
+                    ) {
+                        Text("View Details", fontSize = 14.sp)
+                    }
                 }
             }
         }
+    }
+
+    // Order Details Dialog
+    if (showDetailsDialog) {
+        OrderDetailsDialog(
+            orderData = orderData,
+            onDismiss = { showDetailsDialog = false }
+        )
+    }
+}
+
+@Composable
+fun OrderDetailsDialog(
+    orderData: OrderData,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Order Details",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.Black
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Event Name
+                DetailRow(
+                    label = "Event Name",
+                    value = orderData.eventName
+                )
+
+                Divider(color = Color(0xFFE0E0E0))
+
+                // Order ID
+                DetailRow(
+                    label = "Order ID",
+                    value = orderData.orderId
+                )
+
+                Divider(color = Color(0xFFE0E0E0))
+
+                // Price
+                DetailRow(
+                    label = "Price",
+                    value = orderData.price
+                )
+
+                Divider(color = Color(0xFFE0E0E0))
+
+                // Tickets
+                DetailRow(
+                    label = "Tickets",
+                    value = orderData.tickets
+                )
+
+                Divider(color = Color(0xFFE0E0E0))
+
+                // Status
+                DetailRow(
+                    label = "Status",
+                    value = orderData.status,
+                    statusColor = when (orderData.status.uppercase()) {
+                        "SUCCESS", "PAID" -> Color(0xFF4CAF50)
+                        "REFUNDED" -> Color(0xFF2196F3)
+                        "REFUND_PENDING", "REFUND PENDING" -> Color(0xFFFFA726)
+                        "FAILED" -> Color(0xFFF44336)
+                        else -> Color.Black
+                    }
+                )
+
+                Divider(color = Color(0xFFE0E0E0))
+
+                // Date
+                DetailRow(
+                    label = "Date",
+                    value = orderData.date
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close", color = Color(0xFF2D2D2D))
+            }
+        },
+        containerColor = Color.White,
+        shape = RoundedCornerShape(16.dp)
+    )
+}
+
+@Composable
+fun DetailRow(
+    label: String,
+    value: String,
+    statusColor: Color? = null
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            fontSize = 14.sp,
+            color = Color(0xFF666666)
+        )
+        Text(
+            text = value,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            color = statusColor ?: Color.Black
+        )
     }
 }

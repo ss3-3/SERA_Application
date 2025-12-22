@@ -31,6 +31,7 @@ class PdfReceiptGenerator(private val context: Context) {
         val fileName = "receipt_${receiptData.transactionId}_${System.currentTimeMillis()}.pdf"
         val file = File(context.cacheDir, fileName)
 
+
         try {
             // Create a new PDF document
             val document = PdfDocument()
@@ -173,6 +174,7 @@ class PdfReceiptGenerator(private val context: Context) {
         } catch (e: Exception) {
             throw IOException("Failed to generate receipt PDF: ${e.message}", e)
         }
+
 
         return file
     }

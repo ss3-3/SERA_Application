@@ -6,7 +6,7 @@ import com.example.sera_application.domain.model.uimodel.EventListUiModel
 import com.example.sera_application.domain.usecase.report.FilterEventsByDateUseCase
 import com.example.sera_application.domain.usecase.report.GetAllEventsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import jakarta.inject.Inject
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

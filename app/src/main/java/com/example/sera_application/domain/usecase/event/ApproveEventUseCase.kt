@@ -1,16 +1,42 @@
 package com.example.sera_application.domain.usecase.event
 
+import com.example.sera_application.domain.model.enums.NotificationType
 import com.example.sera_application.domain.repository.EventRepository
+import com.example.sera_application.domain.usecase.notification.SendNotificationUseCase
 import javax.inject.Inject
 
 class ApproveEventUseCase @Inject constructor(
-    private val eventRepository: EventRepository
+    private val eventRepository: EventRepository,
+    private val sendNotificationUseCase: SendNotificationUseCase
 ) {
     suspend operator fun invoke(eventId: String): Boolean {
         if (eventId.isBlank()) return false
 
         return try {
-            eventRepository.approveEvent(eventId)
+            val success = eventRepository.approveEvent(eventId)
+            
+            // Send notification to organizer if approval was successful
+            if (success) {
+                try {
+                    val event = eventRepository.getEventById(eventId)
+                    event?.let {
+                        sendNotificationUseCase(
+                            userId = it.organizerId,
+                            title = "Event Approved",
+                            message = "Your event '${it.name}' has been approved and is now visible to participants.",
+                            type = NotificationType.EVENT_UPDATE,
+                            relatedEventId = eventId
+                        ).fold(
+                            onSuccess = { /* Notification sent successfully */ },
+                            onFailure = { /* Don't fail approval if notification fails */ }
+                        )
+                    }
+                } catch (e: Exception) {
+                    // Don't fail approval if notification fails
+                }
+            }
+            
+            success
         } catch (e: Exception) {
             false
         }

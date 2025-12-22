@@ -91,6 +91,9 @@ interface PaymentDao {
     @Query("DELETE FROM payments")
     suspend fun clearAllPayments()
 
+    @Query("DELETE FROM payments WHERE eventId = :eventId")
+    suspend fun deletePaymentsByEvent(eventId: String)
+
     // Add for PaymentStatistics
     @Query("SELECT SUM(amount) FROM payments WHERE status = 'SUCCESS'")
     suspend fun getTotalRevenue(): Double

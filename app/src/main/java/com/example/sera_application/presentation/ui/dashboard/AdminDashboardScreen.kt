@@ -44,7 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontWeight.Companion.Bold
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.sera_application.R
 import com.example.sera_application.domain.model.uimodel.Item
 import com.example.sera_application.presentation.viewmodel.dashboard.AdminDashboardViewModel
@@ -356,7 +356,7 @@ fun PopularEvent(
 
 @Composable
 fun AdminDashboardScreen(
-    viewModel: AdminDashboardViewModel = viewModel()
+    viewModel: AdminDashboardViewModel = hiltViewModel()
 ) {
     val statsItems by viewModel.statsItems.collectAsState()
     val bookingData by viewModel.bookingData.collectAsState()
