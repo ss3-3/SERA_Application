@@ -53,9 +53,16 @@ fun SafeImageLoader(
     // Try to load as drawable resource first
     val drawableResId = remember(imagePath) {
         if (!imagePath.isNullOrBlank() && !imagePath.startsWith("http://") && !imagePath.startsWith("https://") && !imagePath.startsWith("/")) {
+            // Handle drawable:// prefix if present
+            val drawableName = if (imagePath.startsWith("drawable://")) {
+                imagePath.removePrefix("drawable://")
+            } else {
+                imagePath
+            }
+            
             // Check if it's a drawable resource name
             val resId = context.resources.getIdentifier(
-                imagePath,
+                drawableName,
                 "drawable",
                 context.packageName
             )

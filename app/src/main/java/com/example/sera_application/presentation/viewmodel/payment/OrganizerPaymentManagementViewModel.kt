@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.sera_application.domain.model.Payment
 import com.example.sera_application.domain.usecase.event.GetEventsByOrganizerUseCase
+import com.example.sera_application.domain.usecase.event.GetEventByIdUseCase
 import com.example.sera_application.domain.usecase.payment.GetPaymentsByEventUseCase
 import com.example.sera_application.domain.usecase.payment.GetPaymentHistoryUseCase
 import com.example.sera_application.domain.usecase.payment.ApproveRefundUseCase
@@ -18,7 +19,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -31,7 +36,8 @@ class OrganizerPaymentManagementViewModel @Inject constructor(
     private val getPaymentsByEventUseCase: GetPaymentsByEventUseCase,
     private val getEventReservationsUseCase: GetEventReservationsUseCase,
     private val getUserProfileUseCase: GetUserProfileUseCase,
-    private val approveRefundUseCase: ApproveRefundUseCase
+    private val approveRefundUseCase: ApproveRefundUseCase,
+    private val getEventByIdUseCase: GetEventByIdUseCase
 ) : ViewModel() {
 
     private val auth = FirebaseAuth.getInstance()
@@ -107,6 +113,32 @@ class OrganizerPaymentManagementViewModel @Inject constructor(
                 
                 android.util.Log.d("OrganizerPaymentVM", "Current user ID: ${currentUser.uid}")
                 
+                // CRITICAL: Verify event ownership directly from Firestore BEFORE querying payments
+                // This ensures we have the most up-to-date event data and can verify ownership
+                // before Firestore security rules validate the payment query
+                android.util.Log.d("OrganizerPaymentVM", "Verifying event ownership for eventId: $eventId")
+                val event = getEventByIdUseCase(eventId)
+                
+                if (event == null) {
+                    android.util.Log.e("OrganizerPaymentVM", "Event $eventId not found in Firestore")
+                    _error.value = "Event not found. Please ensure the event exists."
+                    _paymentInfoList.value = emptyList()
+                    _isLoading.value = false
+                    return@launch
+                }
+                
+                // Verify the event's organizerId matches the current user
+                if (event.organizerId != currentUser.uid) {
+                    android.util.Log.e("OrganizerPaymentVM", "Event $eventId belongs to organizer ${event.organizerId}, but current user is ${currentUser.uid}")
+                    _error.value = "You don't have permission to view payments for this event"
+                    _paymentInfoList.value = emptyList()
+                    _isLoading.value = false
+                    return@launch
+                }
+                
+                android.util.Log.d("OrganizerPaymentVM", "✅ Verified event $eventId belongs to organizer ${currentUser.uid}")
+                android.util.Log.d("OrganizerPaymentVM", "Event name: ${event.name}, organizerId: ${event.organizerId}")
+                
                 // Try getting payments directly by eventId first - this queries Firebase
                 android.util.Log.d("OrganizerPaymentVM", "=== CALLING getPaymentsByEventUseCase with eventId: '$eventId' ===")
                 var payments = getPaymentsByEventUseCase(eventId)
@@ -147,13 +179,14 @@ class OrganizerPaymentManagementViewModel @Inject constructor(
                 }
                 
                 if (payments.isEmpty()) {
-                    android.util.Log.w("OrganizerPaymentVM", "No payments found for eventId: $eventId after all attempts")
-                    _paymentInfoList.value = emptyList()
-                    _isLoading.value = false
-                    return@launch
-                }
-                
-                // Log payment details for debugging
+                    android.util.Log.w("OrganizerPaymentVM", "No payments found for eventId: $eventId")
+                    android.util.Log.w("OrganizerPaymentVM", "This could mean:")
+                    android.util.Log.w("OrganizerPaymentVM", "1. No payments exist for this event")
+                    android.util.Log.w("OrganizerPaymentVM", "2. Payments exist but eventId field doesn't match")
+                    android.util.Log.w("OrganizerPaymentVM", "3. Firestore security rules may be blocking the query")
+                    // Continue processing to show empty list in UI
+                } else {
+                    // Log payment details for debugging
                 payments.forEachIndexed { index, payment ->
                     android.util.Log.d("OrganizerPaymentVM", "Payment[$index]: id=${payment.paymentId}, eventId=${payment.eventId}, userId=${payment.userId}, amount=${payment.amount}, status=${payment.status.name}")
                     
@@ -162,10 +195,29 @@ class OrganizerPaymentManagementViewModel @Inject constructor(
                         android.util.Log.d("OrganizerPaymentVM", "*** REFUND_PENDING payment detected: ${payment.paymentId}, will be converted to PaymentInfo")
                     }
                 }
+                }
                 
                 // Get reservations for this event to map reservation data
                 android.util.Log.d("OrganizerPaymentVM", "Loading reservations for eventId: $eventId")
-                val reservations = getEventReservationsUseCase(eventId).first()
+                val reservations = try {
+                    // Collect the first emission from the Flow safely
+                    // Using a mutable list to capture the first value
+                    var reservationList: List<com.example.sera_application.domain.model.EventReservation> = emptyList()
+                    getEventReservationsUseCase(eventId)
+                        .take(1)
+                        .collect { list ->
+                            reservationList = list
+                        }
+                    reservationList
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    // If flow was cancelled/aborted, return empty list
+                    // This catches AbortFlowException (which extends CancellationException)
+                    android.util.Log.w("OrganizerPaymentVM", "Flow was cancelled/aborted, using empty reservations list")
+                    emptyList()
+                } catch (e: Exception) {
+                    android.util.Log.e("OrganizerPaymentVM", "Error loading reservations: ${e.message}", e)
+                    emptyList()
+                }
                 android.util.Log.d("OrganizerPaymentVM", "Loaded ${reservations.size} reservations for eventId: $eventId")
                 val reservationMap = reservations.associateBy { it.reservationId }
 
@@ -174,6 +226,11 @@ class OrganizerPaymentManagementViewModel @Inject constructor(
                 val paymentInfoList = convertPaymentsToPaymentInfo(payments, eventId, reservationMap)
                 android.util.Log.d("OrganizerPaymentVM", "Converted to ${paymentInfoList.size} PaymentInfo objects")
                 _paymentInfoList.value = paymentInfoList
+                
+                // Clear any previous errors if we successfully loaded payments (even if empty)
+                if (paymentInfoList.isNotEmpty() || payments.isEmpty()) {
+                    _error.value = null
+                }
             } catch (e: Exception) {
                 android.util.Log.e("OrganizerPaymentVM", "Error loading payments: ${e.message}", e)
                 e.printStackTrace()

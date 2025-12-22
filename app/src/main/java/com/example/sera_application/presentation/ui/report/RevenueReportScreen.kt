@@ -220,35 +220,14 @@ fun Top3EarningEvents(
                 modifier = Modifier
                     .height(44.dp)
             ) {
-                when {
-                    event.imagePath?.startsWith("drawable://") == true  -> {
-                        val resName = event.imagePath.removePrefix("drawable://")
-                        val resId = context.resources.getIdentifier(
-                            resName,
-                            "drawable",
-                            context.packageName
-                        )
-                        Image(
-                            painter = painterResource(resId),
-                            contentDescription = "event image",
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(CircleShape),
-                            contentScale = ContentScale.Crop,
-                        )
-                    }
-
-                    else -> {
-                        com.example.sera_application.presentation.ui.components.SafeImageLoader(
-                            imagePath = event.imagePath,
-                            contentDescription = "Event Image",
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(CircleShape),
-                            contentScale = ContentScale.Crop
-                        )
-                    }
-                }
+                com.example.sera_application.presentation.ui.components.SafeImageLoader(
+                    imagePath = event.imagePath,
+                    contentDescription = "Event Image",
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape),
+                    contentScale = ContentScale.Crop
+                )
             }
             Column(
                 modifier = Modifier.fillMaxHeight().padding(8.dp)

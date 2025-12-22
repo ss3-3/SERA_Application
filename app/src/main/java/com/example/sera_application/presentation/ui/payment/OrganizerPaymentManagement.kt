@@ -96,6 +96,7 @@ fun OrganizerPaymentManagementScreen(
     val events by paymentViewModel.events.collectAsState()
     val paymentInfoList by paymentViewModel.paymentInfoList.collectAsState()
     val isLoading by paymentViewModel.isLoading.collectAsState()
+    val error by paymentViewModel.error.collectAsState()
 
     // Refresh function
     fun refreshData() {
@@ -415,6 +416,49 @@ fun OrganizerPaymentManagementScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
+                // Show error message if there's an error
+                if (error != null) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "Error Loading Payments",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFD32F2F)
+                            )
+                            Text(
+                                text = error ?: "Unknown error",
+                                fontSize = 14.sp,
+                                color = Color(0xFF666666)
+                            )
+                            Button(
+                                onClick = { 
+                                    selectedEventObj?.let { 
+                                        paymentViewModel.loadPaymentsForEvent(it.eventId) 
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF5B9FED)
+                                )
+                            ) {
+                                Text("Retry")
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
                 if (isLoading) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -431,7 +475,7 @@ fun OrganizerPaymentManagementScreen(
                             CircularProgressIndicator()
                         }
                     }
-                } else if (filteredPayments.isEmpty()) {
+                } else if (filteredPayments.isEmpty() && error == null) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
@@ -468,6 +512,19 @@ fun OrganizerPaymentManagementScreen(
                                         color = Color(0xFF999999)
                                     )
                                 }
+                            }
+                            Button(
+                                onClick = { 
+                                    selectedEventObj?.let { 
+                                        paymentViewModel.loadPaymentsForEvent(it.eventId) 
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF5B9FED)
+                                ),
+                                modifier = Modifier.padding(top = 8.dp)
+                            ) {
+                                Text("Refresh")
                             }
                         }
                     }
